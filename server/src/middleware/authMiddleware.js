@@ -4,22 +4,22 @@ import User from '../models/User.js';
 const getJwtSecret = () => process.env.JWT_SECRET || 'REMOVED_JWT_SECRET';
 
 /**
- * Middleware that authenticates requests using Bearer JWT.
+ * Middleware that authenticates requests using strictly Bearer JWT in the Authorization header.
  * Attaches the authenticated User document to req.user.
- * Supports token via Authorization header or query parameter (e.g. for browser redirects).
+ * Query parameter tokens are strictly prohibited.
  */
 export const requireAuth = async (req, res, next) => {
   try {
-    let token = null;
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
-    } else if (req.query && req.query.token) {
-      token = req.query.token;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      const error = new Error('Authentication required. Missing or malformed Authorization header.');
+      error.statusCode = 401;
+      return next(error);
     }
 
+    const token = authHeader.split(' ')[1];
     if (!token) {
-      const error = new Error('Authentication required. Missing or malformed Authorization header.');
+      const error = new Error('Authentication token required');
       error.statusCode = 401;
       return next(error);
     }
@@ -55,19 +55,17 @@ export const requireAuth = async (req, res, next) => {
 
 /**
  * Optional authentication middleware:
- * If a valid token is present, attaches user to req.user.
+ * If a valid Bearer token is present in the Authorization header, attaches user to req.user.
  * If no token or invalid token, continues without failing.
  */
 export const optionalAuth = async (req, res, next) => {
   try {
-    let token = null;
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
-    } else if (req.query && req.query.token) {
-      token = req.query.token;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
     }
 
+    const token = authHeader.split(' ')[1];
     if (!token) return next();
 
     try {

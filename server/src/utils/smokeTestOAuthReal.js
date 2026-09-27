@@ -9,8 +9,39 @@ dotenv.config();
 
 const API_BASE = 'http://localhost:5000/api';
 
+/**
+ * ============================================================================
+ * CHESS JEENO - Lichess OAuth Verification Suite Breakdown
+ * ============================================================================
+ * Category A: Automated Mocked OAuth Tests (npm run test:lichess:oauth)
+ *   - Verifies PKCE S256 code verifier/challenge generation
+ *   - Verifies state CSRF token creation, TTL expiration & single-use replay rejection
+ *   - Verifies mocked authorization code exchange & account retrieval
+ *   - Verifies duplicate account rejection (409) and database credential concealment
+ *   - Verifies rejection of query-parameter JWT (?token=...) on protected endpoints
+ *
+ * Category B: Real Lichess Account API Test (this script)
+ *   - Uses live Lichess account token to query official live endpoint GET https://lichess.org/api/account
+ *   - Validates live account resolution, database storage, safe status API, and disconnect
+ *
+ * Category C: Actual Browser OAuth Authorization Test
+ *   - User-interactive browser flow:
+ *     1. Login to CHESS JEENO
+ *     2. Open Profile (/profile)
+ *     3. Click "Connect Lichess"
+ *     4. Browser redirects to https://lichess.org/oauth
+ *     5. User approves OAuth scopes
+ *     6. Browser redirects back to /api/lichess/callback?code=...&state=...
+ *     7. Backend consumes single-use state, exchanges code + verifier, redirects to /profile?lichess_status=success
+ *     8. Profile displays connected @username
+ *     9. Refresh page; connection persists
+ *     10. Click "Disconnect"; profile reverts to disconnected state
+ *   - Note: Automated browser execution via Playwright driver is unavailable in this environment
+ *     due to upstream driver binary host issues on Windows.
+ * ============================================================================
+ */
 const runRealOAuthSmokeTest = async () => {
-  console.log('🚀 Running Real Lichess OAuth Smoke Test...\n');
+  console.log('🚀 Running Category B: Real Lichess Account API Integration Test...\n');
   await connectDB();
 
   const timestamp = Date.now();

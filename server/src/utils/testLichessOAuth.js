@@ -138,9 +138,9 @@ const runOAuthTests = async () => {
     assert(lichessOAuthService.hasOAuthTransaction(authResult.state) === true, 'Authorization URL generation stored state transaction');
 
     // =========================================================================
-    // 6. Authenticated User Required for Connect Endpoint
+    // 6. Authenticated User Required for Connect Endpoint & Query-Token Rejection
     // =========================================================================
-    console.log('\n--- 6. Testing /api/lichess/connect Auth Requirement ---');
+    console.log('\n--- 6. Testing /api/lichess/connect Auth Requirement & Query-Token Rejection ---');
     const unauthConnectRes = await fetch(`${API_BASE}/lichess/connect`, {
       headers: { Accept: 'application/json' },
     });
@@ -156,7 +156,16 @@ const runOAuthTests = async () => {
     createdUserIds.push(userA._id);
     const tokenA = generateToken(userA._id);
 
-    // Call /api/lichess/connect with auth
+    // CRITICAL SECURITY TEST: Verify ?token=<jwt> is REJECTED without Authorization header
+    const queryTokenConnectRes = await fetch(`${API_BASE}/lichess/connect?token=${tokenA}&json=true`, {
+      headers: { Accept: 'application/json' },
+    });
+    assert(
+      queryTokenConnectRes.status === 401,
+      'Query param ?token=<jwt> is strictly rejected with HTTP 401 on /api/lichess/connect'
+    );
+
+    // Call /api/lichess/connect with standard Authorization: Bearer <token>
     const authConnectRes = await fetch(`${API_BASE}/lichess/connect?json=true`, {
       headers: {
         Authorization: `Bearer ${tokenA}`,
@@ -164,7 +173,7 @@ const runOAuthTests = async () => {
       },
     });
     const authConnectData = await authConnectRes.json();
-    assert(authConnectRes.status === 200, 'Authenticated /api/lichess/connect returns HTTP 200 JSON');
+    assert(authConnectRes.status === 200, 'Authenticated /api/lichess/connect with Bearer header returns HTTP 200 JSON');
     assert(authConnectData.success === true, 'Response success is true');
     assert(Boolean(authConnectData.data?.url), 'Returns generated Lichess auth URL');
     assert(Boolean(authConnectData.data?.state), 'Returns generated state');

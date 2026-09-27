@@ -180,6 +180,10 @@ const runAuthTests = async () => {
     const missingTokenRes = await fetch(`${API_BASE}/auth/me`);
     assert(missingTokenRes.status === 401, 'Missing token returns HTTP 401');
 
+    // CRITICAL SECURITY TEST: Ensure ?token=<jwt> is rejected with HTTP 401
+    const queryTokenMeRes = await fetch(`${API_BASE}/auth/me?token=${tokenA}`);
+    assert(queryTokenMeRes.status === 401, 'Query parameter ?token=<jwt> is rejected with HTTP 401');
+
     // =========================================================================
     // 10. /me rejects invalid JWT
     // =========================================================================
