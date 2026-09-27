@@ -6,6 +6,7 @@ import {
   getOAuthClientId,
   getOAuthRedirectUri,
 } from '../config/lichessOAuth.js';
+import { getTokenForUser } from '../config/lichess.js';
 
 // In-memory store for short-lived OAuth transactions
 // Key: state string
@@ -403,6 +404,77 @@ export const getConnectionStatus = async (userId) => {
   };
 };
 
+/**
+ * Resolves Lichess credentials for a player to be used exclusively in backend game creation.
+ * Explicitly queries normally hidden OAuth access tokens with select('+lichessOAuth.accessToken').
+ * Never returns tokens to the frontend or logs them.
+ *
+ * @param {string|mongoose.Types.ObjectId} userId - CHESS JEENO User ID
+ * @param {Object} [options]
+ * @param {boolean} [options.allowDevBridge=false] - Whether to allow development-token bridge fallback
+ * @returns {Promise<{ userId: string, lichessUsername: string, lichessUserId: string, accessToken: string, source: 'oauth'|'dev_bridge' }>}
+ */
+export const resolveLichessPlayerCredentials = async (userId, options = {}) => {
+  if (!userId || !mongoose.isValidObjectId(userId)) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 1. Explicitly select the normally-hidden OAuth credential fields
+  const user = await User.findById(userId).select('+lichessOAuth.accessToken');
+  if (!user) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 2. Verify user has a linked Lichess account
+  if (!user.lichessUsername && !user.lichessUserId) {
+    const error = new Error('Player has not connected a Lichess account.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  let accessToken = user.lichessOAuth?.accessToken || null;
+  let source = 'oauth';
+
+  // 3. Fallback to development-token bridge ONLY if explicitly enabled
+  if (!accessToken && options.allowDevBridge) {
+    const devToken = getTokenForUser(user.lichessUsername);
+    if (devToken) {
+      accessToken = devToken;
+      source = 'dev_bridge';
+    }
+  }
+
+  // 4. Verify access token is present
+  if (!accessToken) {
+    const error = new Error(
+      user.lichessUsername
+        ? 'Lichess connection is incomplete. Player has not connected a Lichess account.'
+        : 'Player has not connected a Lichess account.'
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // 5. Verify Lichess username exists
+  if (!user.lichessUsername) {
+    const error = new Error('Lichess connection is incomplete.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return {
+    userId: user._id.toString(),
+    lichessUsername: user.lichessUsername,
+    lichessUserId: user.lichessUserId || user.lichessUsername.toLowerCase(),
+    accessToken,
+    source,
+  };
+};
+
 export default {
   generateCodeVerifier,
   generateCodeChallenge,
@@ -417,4 +489,5 @@ export default {
   storeLichessConnection,
   disconnectLichess,
   getConnectionStatus,
+  resolveLichessPlayerCredentials,
 };

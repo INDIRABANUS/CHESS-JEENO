@@ -3,6 +3,7 @@ import Tournament from '../models/Tournament.js';
 import Round from '../models/Round.js';
 import Pairing from '../models/Pairing.js';
 import lichessService from './lichessService.js';
+import * as lichessOAuthService from './lichessOAuthService.js';
 
 // In-flight concurrency lock to prevent duplicate game creation race conditions
 const inFlightPairingIds = new Set();
@@ -14,6 +15,7 @@ const inFlightPairingIds = new Set();
  * @param {number|string} roundNumber
  * @param {string} pairingId
  * @param {Object} [options]
+ * @param {string|mongoose.Types.ObjectId} [userId]
  * @returns {Promise<Pairing>}
  */
 export const createLichessGameForPairing = async (
@@ -112,16 +114,41 @@ export const createLichessGameForPairing = async (
     }
 
     // 8. Verify both players have linked Lichess usernames
-    const whiteUsername = pairing.whitePlayer?.lichessUsername?.trim();
-    const blackUsername = pairing.blackPlayer?.lichessUsername?.trim();
+    const rawWhiteUsername = pairing.whitePlayer?.lichessUsername?.trim();
+    const rawBlackUsername = pairing.blackPlayer?.lichessUsername?.trim();
 
-    if (!whiteUsername || !blackUsername) {
+    if (!rawWhiteUsername || !rawBlackUsername) {
       const error = new Error('Both players must have linked Lichess usernames before creating a game.');
       error.statusCode = 400;
       throw error;
     }
 
-    // 9. Call Lichess API (or mock transport in tests)
+    const whiteUserId = pairing.whitePlayer?._id || pairing.whitePlayer;
+    const blackUserId = pairing.blackPlayer?._id || pairing.blackPlayer;
+
+    if (!whiteUserId || !blackUserId) {
+      const error = new Error('Both players must be valid tournament participants.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Explicitly allow development-token bridge fallback only when options.allowDevBridge is true
+    const allowDevBridge = Boolean(options.allowDevBridge || options.useDevBridge);
+
+    // 9. Resolve both players' Lichess OAuth credentials securely from User records
+    const whiteCreds = await lichessOAuthService.resolveLichessPlayerCredentials(whiteUserId, {
+      allowDevBridge,
+    });
+    const blackCreds = await lichessOAuthService.resolveLichessPlayerCredentials(blackUserId, {
+      allowDevBridge,
+    });
+
+    const whiteUsername = whiteCreds.lichessUsername;
+    const blackUsername = blackCreds.lichessUsername;
+    const resolvedWhiteToken = options.whiteToken || whiteCreds.accessToken;
+    const resolvedBlackToken = options.blackToken || blackCreds.accessToken;
+
+    // 10. Call Lichess API (or mock transport in tests) using resolved credentials
     const { gameId, gameUrl } = await lichessService.createGame({
       whiteUsername,
       blackUsername,
@@ -129,11 +156,11 @@ export const createLichessGameForPairing = async (
       increment: tournament.increment,
       rated: tournament.rated,
       token: options.token,
-      whiteToken: options.whiteToken,
-      blackToken: options.blackToken,
+      whiteToken: resolvedWhiteToken,
+      blackToken: resolvedBlackToken,
     });
 
-    // 10. Update Pairing document
+    // 11. Update Pairing document (never store tokens in Pairing)
     pairing.lichessGameId = gameId;
     pairing.lichessGameUrl = gameUrl;
     pairing.status = 'ACTIVE';
@@ -242,7 +269,8 @@ export const createAllLichessGamesForRound = async (
         tournamentId,
         numRound,
         p._id,
-        options
+        options,
+        userId
       );
       created++;
       results.push({

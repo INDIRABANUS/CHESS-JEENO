@@ -27,12 +27,21 @@ const runLichessTests = async () => {
 
   // Helper to create test user with optional lichessUsername and token
   const createTestUser = async (label, lichessUsername = null, hasToken = true) => {
-    const user = await User.create({
+    const userData = {
       name: `Player ${label}`,
       email: `${testPrefix}_${label.toLowerCase()}@chessjeeno.local`,
       authProvider: 'local',
       lichessUsername: lichessUsername,
-    });
+      lichessUserId: lichessUsername ? lichessUsername.toLowerCase() : null,
+    };
+    if (lichessUsername && hasToken) {
+      userData.lichessOAuth = {
+        accessToken: `mock_tok_${lichessUsername}`,
+        tokenType: 'Bearer',
+        connectedAt: new Date(),
+      };
+    }
+    const user = await User.create(userData);
     createdUserIds.push(user._id);
     if (lichessUsername && hasToken) {
       process.env[`LICHESS_TOKEN_${lichessUsername.toUpperCase()}`] = `mock_tok_${lichessUsername}`;

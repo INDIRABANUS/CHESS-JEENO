@@ -10,6 +10,7 @@
     "test:db": "node src/utils/testDatabase.js",
     "test:auth": "node src/utils/testAuth.js",
     "test:lichess:oauth": "node src/utils/testLichessOAuth.js",
+    "test:oauth:game": "node src/utils/testOAuthGameCreation.js",
     "test:tournaments": "node src/utils/testTournamentApi.js",
     "test:players": "node src/utils/testPlayerRegistration.js",
     "test:pairings": "node src/utils/testPairingEngine.js",
