@@ -1,0 +1,26 @@
+{
+  "name": "chess-tournament-server",
+  "version": "1.0.0",
+  "description": "Backend API for chess tournament platform",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "test:db": "node src/utils/testDatabase.js",
+    "test:tournaments": "node src/utils/testTournamentApi.js",
+    "test:players": "node src/utils/testPlayerRegistration.js",
+    "test:pairings": "node src/utils/testPairingEngine.js",
+    "test:lichess": "node src/utils/testLichessIntegration.js",
+    "test:standings": "node src/utils/testStandingsAndRounds.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.9.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

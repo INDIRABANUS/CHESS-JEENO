@@ -1,0 +1,26 @@
+{
+  "name": "chess-tournament-platform",
+  "version": "1.0.0",
+  "description": "Full-stack chess tournament management application",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "start:server": "npm --prefix server start",
+    "build:client": "npm --prefix client run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "chess",
+    "tournament",
+    "lichess",
+    "react",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC"
+}

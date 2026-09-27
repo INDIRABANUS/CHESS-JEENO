@@ -1,0 +1,189 @@
+import api from './api';
+
+/**
+ * Fetch all tournaments with optional status and format filters.
+ * @param {Object} [filters]
+ * @param {string} [filters.status]
+ * @param {string} [filters.format]
+ */
+export const getTournaments = async (filters = {}) => {
+  const response = await api.get('/tournaments', { params: filters });
+  return response.data;
+};
+
+/**
+ * Fetch a single tournament by ID.
+ * @param {string} id
+ */
+export const getTournamentById = async (id) => {
+  const response = await api.get(`/tournaments/${id}`);
+  return response.data;
+};
+
+/**
+ * Create a new tournament.
+ * @param {Object} tournamentData
+ */
+export const createTournament = async (tournamentData) => {
+  const response = await api.post('/tournaments', tournamentData);
+  return response.data;
+};
+
+/**
+ * Update an existing tournament.
+ * @param {string} id
+ * @param {Object} updateData
+ */
+export const updateTournament = async (id, updateData) => {
+  const response = await api.patch(`/tournaments/${id}`, updateData);
+  return response.data;
+};
+
+/**
+ * Delete a tournament (allowed only for DRAFT or REGISTRATION status).
+ * @param {string} id
+ */
+export const deleteTournament = async (id) => {
+  const response = await api.delete(`/tournaments/${id}`);
+  return response.data;
+};
+
+/**
+ * Fetch registered players for a tournament.
+ * @param {string} tournamentId
+ */
+export const getTournamentPlayers = async (tournamentId) => {
+  const response = await api.get(`/tournaments/${tournamentId}/players`);
+  return response.data;
+};
+
+/**
+ * Register current user for a tournament.
+ * @param {string} tournamentId
+ */
+export const joinTournament = async (tournamentId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/join`);
+  return response.data;
+};
+
+/**
+ * Withdraw current user from a tournament.
+ * @param {string} tournamentId
+ */
+export const leaveTournament = async (tournamentId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/leave`);
+  return response.data;
+};
+
+/**
+ * Fetch current development user identity.
+ */
+export const getCurrentDevUser = async () => {
+  const response = await api.get('/dev-user');
+  return response.data;
+};
+
+/**
+ * Create the next round and Round Robin pairings.
+ * @param {string} tournamentId
+ */
+export const createRound = async (tournamentId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/rounds`);
+  return response.data;
+};
+
+/**
+ * Fetch all rounds and pairings for a tournament.
+ * @param {string} tournamentId
+ */
+export const getTournamentRounds = async (tournamentId) => {
+  const response = await api.get(`/tournaments/${tournamentId}/rounds`);
+  return response.data;
+};
+
+/**
+ * Fetch a single round by round number.
+ * @param {string} tournamentId
+ * @param {number|string} roundNumber
+ */
+export const getTournamentRound = async (tournamentId, roundNumber) => {
+  const response = await api.get(`/tournaments/${tournamentId}/rounds/${roundNumber}`);
+  return response.data;
+};
+
+/**
+ * Create a Lichess game for a single pairing.
+ * @param {string} tournamentId
+ * @param {number|string} roundNumber
+ * @param {string} pairingId
+ */
+export const createPairingLichessGame = async (tournamentId, roundNumber, pairingId) => {
+  const response = await api.post(
+    `/tournaments/${tournamentId}/rounds/${roundNumber}/pairings/${pairingId}/lichess`
+  );
+  return response.data;
+};
+
+/**
+ * Create Lichess games for all eligible pairings in a round.
+ * @param {string} tournamentId
+ * @param {number|string} roundNumber
+ */
+export const createAllRoundLichessGames = async (tournamentId, roundNumber) => {
+  const response = await api.post(
+    `/tournaments/${tournamentId}/rounds/${roundNumber}/lichess`
+  );
+  return response.data;
+};
+
+/**
+ * Sync the status and result of a Lichess game back to MongoDB Pairing.
+ * @param {string} tournamentId
+ * @param {number|string} roundNumber
+ * @param {string} pairingId
+ */
+export const syncPairingResult = async (tournamentId, roundNumber, pairingId) => {
+  const response = await api.post(
+    `/tournaments/${tournamentId}/rounds/${roundNumber}/pairings/${pairingId}/sync`
+  );
+  return response.data;
+};
+
+/**
+ * Fetch tournament standings.
+ * @param {string} tournamentId
+ */
+export const getTournamentStandings = async (tournamentId) => {
+  const response = await api.get(`/tournaments/${tournamentId}/standings`);
+  return response.data;
+};
+
+/**
+ * Fetch round completion status.
+ * @param {string} tournamentId
+ * @param {number|string} roundNumber
+ */
+export const getRoundStatus = async (tournamentId, roundNumber) => {
+  const response = await api.get(`/tournaments/${tournamentId}/rounds/${roundNumber}/status`);
+  return response.data;
+};
+
+export default {
+  getTournaments,
+  getTournamentById,
+  createTournament,
+  updateTournament,
+  deleteTournament,
+  getTournamentPlayers,
+  joinTournament,
+  leaveTournament,
+  getCurrentDevUser,
+  createRound,
+  getTournamentRounds,
+  getTournamentRound,
+  createPairingLichessGame,
+  createAllRoundLichessGames,
+  syncPairingResult,
+  getTournamentStandings,
+  getRoundStatus,
+};
