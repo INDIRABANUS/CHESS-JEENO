@@ -116,16 +116,17 @@ const MainLayout = () => {
               {/* Authentication Status Area */}
               {isAuthenticated && user ? (
                 <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
-                  <div
+                  <Link
+                    to="/profile"
                     id="user-profile-badge"
-                    className="flex items-center space-x-1.5 px-2.5 py-1 bg-slate-100 rounded-lg text-sm text-slate-700 font-medium"
-                    title={user.email}
+                    className="flex items-center space-x-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm text-slate-700 font-medium transition cursor-pointer"
+                    title={`View profile (${user.email})`}
                   >
                     <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">
                       {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="h-3 w-3" />}
                     </div>
                     <span className="max-w-[120px] truncate">{user.name}</span>
-                  </div>
+                  </Link>
 
                   <button
                     onClick={logout}

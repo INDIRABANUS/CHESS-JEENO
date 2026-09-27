@@ -43,6 +43,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       sparse: true,
       trim: true,
+      index: true,
       default: null,
     },
     passwordHash: {
@@ -50,16 +51,54 @@ const userSchema = new mongoose.Schema(
       select: false,
       default: null,
     },
+    lichessOAuth: {
+      accessToken: {
+        type: String,
+        select: false,
+        default: null,
+      },
+      refreshToken: {
+        type: String,
+        select: false,
+        default: null,
+      },
+      expiresAt: {
+        type: Date,
+        select: false,
+        default: null,
+      },
+      tokenType: {
+        type: String,
+        select: false,
+        default: null,
+      },
+      scope: {
+        type: String,
+        select: false,
+        default: null,
+      },
+      connectedAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Ensure passwordHash is never leaked in JSON outputs
+// Ensure sensitive credentials are never leaked in JSON outputs
 userSchema.set('toJSON', {
   transform: (doc, ret) => {
     delete ret.passwordHash;
+    if (ret.lichessOAuth) {
+      delete ret.lichessOAuth.accessToken;
+      delete ret.lichessOAuth.refreshToken;
+      delete ret.lichessOAuth.expiresAt;
+      delete ret.lichessOAuth.tokenType;
+      delete ret.lichessOAuth.scope;
+    }
     delete ret.__v;
     return ret;
   },

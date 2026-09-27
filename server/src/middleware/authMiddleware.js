@@ -6,19 +6,20 @@ const getJwtSecret = () => process.env.JWT_SECRET || 'REMOVED_JWT_SECRET';
 /**
  * Middleware that authenticates requests using Bearer JWT.
  * Attaches the authenticated User document to req.user.
+ * Supports token via Authorization header or query parameter (e.g. for browser redirects).
  */
 export const requireAuth = async (req, res, next) => {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      const error = new Error('Authentication required. Missing or malformed Authorization header.');
-      error.statusCode = 401;
-      return next(error);
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
     }
 
-    const token = authHeader.split(' ')[1];
     if (!token) {
-      const error = new Error('Authentication token required');
+      const error = new Error('Authentication required. Missing or malformed Authorization header.');
       error.statusCode = 401;
       return next(error);
     }
@@ -59,12 +60,14 @@ export const requireAuth = async (req, res, next) => {
  */
 export const optionalAuth = async (req, res, next) => {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next();
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
     }
 
-    const token = authHeader.split(' ')[1];
     if (!token) return next();
 
     try {
