@@ -11,7 +11,7 @@ import { generateRoundRobinSchedule } from '../utils/roundRobin.js';
  * @param {string} tournamentId
  * @returns {Promise<{ round: Round, pairings: Array<Pairing> }>}
  */
-export const createRound = async (tournamentId) => {
+export const createRound = async (tournamentId, userId = null) => {
   if (!mongoose.isValidObjectId(tournamentId)) {
     const error = new Error('Tournament not found');
     error.statusCode = 404;
@@ -22,6 +22,13 @@ export const createRound = async (tournamentId) => {
   if (!tournament) {
     const error = new Error('Tournament not found');
     error.statusCode = 404;
+    throw error;
+  }
+
+  // Verify ownership if userId is provided
+  if (userId && tournament.createdBy.toString() !== userId.toString()) {
+    const error = new Error('You are not authorized to create rounds for this tournament');
+    error.statusCode = 403;
     throw error;
   }
 

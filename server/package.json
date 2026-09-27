@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "test:db": "node src/utils/testDatabase.js",
+    "test:auth": "node src/utils/testAuth.js",
     "test:tournaments": "node src/utils/testTournamentApi.js",
     "test:players": "node src/utils/testPlayerRegistration.js",
     "test:pairings": "node src/utils/testPairingEngine.js",
@@ -15,9 +16,11 @@
     "test:standings": "node src/utils/testStandingsAndRounds.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.9.5"
   },
   "devDependencies": {

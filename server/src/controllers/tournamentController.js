@@ -1,5 +1,4 @@
 import * as tournamentService from '../services/tournamentService.js';
-import { resolveCreatorId } from '../utils/devUser.js';
 
 /**
  * Create a new tournament.
@@ -7,7 +6,7 @@ import { resolveCreatorId } from '../utils/devUser.js';
  */
 export const createTournament = async (req, res, next) => {
   try {
-    const creatorId = await resolveCreatorId(req);
+    const creatorId = req.user._id;
     const tournament = await tournamentService.createTournament(req.body, creatorId);
 
     res.status(201).json({
@@ -43,7 +42,7 @@ export const getTournaments = async (req, res, next) => {
  */
 export const getTournamentById = async (req, res, next) => {
   try {
-    const currentUserId = await resolveCreatorId(req);
+    const currentUserId = req.user ? req.user._id : null;
     const tournament = await tournamentService.getTournamentById(req.params.id, currentUserId);
 
     res.status(200).json({
@@ -61,9 +60,11 @@ export const getTournamentById = async (req, res, next) => {
  */
 export const updateTournament = async (req, res, next) => {
   try {
+    const currentUserId = req.user._id;
     const updatedTournament = await tournamentService.updateTournament(
       req.params.id,
-      req.body
+      req.body,
+      currentUserId
     );
 
     res.status(200).json({
@@ -81,7 +82,8 @@ export const updateTournament = async (req, res, next) => {
  */
 export const deleteTournament = async (req, res, next) => {
   try {
-    const result = await tournamentService.deleteTournament(req.params.id);
+    const currentUserId = req.user._id;
+    const result = await tournamentService.deleteTournament(req.params.id, currentUserId);
 
     res.status(200).json({
       success: true,

@@ -1,12 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { Trophy, PlusCircle, LogIn, List, Activity, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Trophy,
+  PlusCircle,
+  LogIn,
+  UserPlus,
+  LogOut,
+  List,
+  Activity,
+  CheckCircle2,
+  AlertCircle,
+  User as UserIcon,
+} from 'lucide-react';
 import { checkApiHealth } from '../services/healthService';
+import { useAuth } from '../context/AuthContext';
 
 const MainLayout = () => {
+  const { user, isAuthenticated, logout } = useAuth();
+
   const [backendHealth, setBackendHealth] = useState({
     status: 'checking', // 'connected', 'error', 'checking'
-    message: 'Checking API health...'
+    message: 'Checking API health...',
   });
 
   const verifyHealth = async () => {
@@ -16,18 +30,18 @@ const MainLayout = () => {
       if (data && data.success) {
         setBackendHealth({
           status: 'connected',
-          message: data.message || 'API Connected'
+          message: data.message || 'API Connected',
         });
       } else {
         setBackendHealth({
           status: 'error',
-          message: 'API returned unexpected response'
+          message: 'API returned unexpected response',
         });
       }
     } catch (err) {
       setBackendHealth({
         status: 'error',
-        message: err.message || 'Cannot reach API server'
+        message: err.message || 'Cannot reach API server',
       });
     }
   };
@@ -45,14 +59,17 @@ const MainLayout = () => {
           <div className="flex justify-between h-16 items-center">
             {/* Logo */}
             <div className="flex items-center space-x-3">
-              <Link to="/" className="flex items-center space-x-2 font-bold text-xl text-indigo-600 hover:text-indigo-700">
+              <Link
+                to="/"
+                className="flex items-center space-x-2 font-bold text-xl text-indigo-600 hover:text-indigo-700 transition"
+              >
                 <Trophy className="h-6 w-6 text-amber-500" />
                 <span>CHESS JEENO</span>
               </Link>
             </div>
 
             {/* Nav Links */}
-            <nav className="flex items-center space-x-1 sm:space-x-4">
+            <nav className="flex items-center space-x-1 sm:space-x-3">
               <NavLink
                 to="/"
                 end
@@ -96,23 +113,65 @@ const MainLayout = () => {
                 <span>Create</span>
               </NavLink>
 
-              <NavLink
-                to="/login"
-                className={({ isActive }) =>
-                  `flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`
-                }
-              >
-                <LogIn className="h-4 w-4" />
-                <span>Login</span>
-              </NavLink>
+              {/* Authentication Status Area */}
+              {isAuthenticated && user ? (
+                <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
+                  <div
+                    id="user-profile-badge"
+                    className="flex items-center space-x-1.5 px-2.5 py-1 bg-slate-100 rounded-lg text-sm text-slate-700 font-medium"
+                    title={user.email}
+                  >
+                    <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">
+                      {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="h-3 w-3" />}
+                    </div>
+                    <span className="max-w-[120px] truncate">{user.name}</span>
+                  </div>
+
+                  <button
+                    onClick={logout}
+                    id="logout-button"
+                    title="Log Out"
+                    className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="hidden sm:inline">Logout</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-1 pl-2 border-l border-slate-200">
+                  <NavLink
+                    to="/login"
+                    className={({ isActive }) =>
+                      `flex items-center space-x-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-indigo-50 text-indigo-700'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      }`
+                    }
+                  >
+                    <LogIn className="h-4 w-4" />
+                    <span>Login</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/register"
+                    className={({ isActive }) =>
+                      `flex items-center space-x-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                      }`
+                    }
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    <span>Register</span>
+                  </NavLink>
+                </div>
+              )}
             </nav>
 
             {/* Backend Health Badge */}
-            <div className="hidden md:flex items-center space-x-2">
+            <div className="hidden lg:flex items-center space-x-2">
               <button
                 onClick={verifyHealth}
                 title="Click to re-check API health"

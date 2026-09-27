@@ -45,11 +45,25 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    passwordHash: {
+      type: String,
+      select: false,
+      default: null,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+// Ensure passwordHash is never leaked in JSON outputs
+userSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    delete ret.passwordHash;
+    delete ret.__v;
+    return ret;
+  },
+});
 
 const User = mongoose.model('User', userSchema);
 

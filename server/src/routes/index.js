@@ -1,12 +1,14 @@
 import express from 'express';
 import healthRoutes from './healthRoutes.js';
 import tournamentRoutes from './tournamentRoutes.js';
+import authRoutes from './authRoutes.js';
 import { resolveCreatorId } from '../utils/devUser.js';
 import User from '../models/User.js';
 
 const apiRouter = express.Router();
 
 apiRouter.use('/', healthRoutes);
+apiRouter.use('/auth', authRoutes);
 apiRouter.use('/tournaments', tournamentRoutes);
 
 // Endpoint for retrieving current development user profile

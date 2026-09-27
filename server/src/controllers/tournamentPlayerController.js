@@ -1,5 +1,4 @@
 import * as tournamentPlayerService from '../services/tournamentPlayerService.js';
-import { resolveCreatorId } from '../utils/devUser.js';
 
 /**
  * Join a tournament.
@@ -7,7 +6,7 @@ import { resolveCreatorId } from '../utils/devUser.js';
  */
 export const joinTournament = async (req, res, next) => {
   try {
-    const userId = await resolveCreatorId(req);
+    const userId = req.user._id;
     const player = await tournamentPlayerService.joinTournament(req.params.id, userId);
 
     res.status(200).json({
@@ -25,7 +24,7 @@ export const joinTournament = async (req, res, next) => {
  */
 export const leaveTournament = async (req, res, next) => {
   try {
-    const userId = await resolveCreatorId(req);
+    const userId = req.user._id;
     const result = await tournamentPlayerService.leaveTournament(req.params.id, userId);
 
     res.status(200).json({

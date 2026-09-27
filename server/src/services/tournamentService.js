@@ -190,7 +190,7 @@ export const getTournamentById = async (id, currentUserId = null) => {
 /**
  * Updates an existing tournament.
  */
-export const updateTournament = async (id, updateData) => {
+export const updateTournament = async (id, updateData, currentUserId = null) => {
   if (!mongoose.isValidObjectId(id)) {
     const error = new Error('Tournament not found');
     error.statusCode = 404;
@@ -202,6 +202,13 @@ export const updateTournament = async (id, updateData) => {
   if (!existingTournament) {
     const error = new Error('Tournament not found');
     error.statusCode = 404;
+    throw error;
+  }
+
+  // Verify ownership if currentUserId is provided
+  if (currentUserId && existingTournament.createdBy.toString() !== currentUserId.toString()) {
+    const error = new Error('You are not authorized to update this tournament');
+    error.statusCode = 403;
     throw error;
   }
 
@@ -264,7 +271,7 @@ export const updateTournament = async (id, updateData) => {
 /**
  * Deletes a tournament if in DRAFT or REGISTRATION status.
  */
-export const deleteTournament = async (id) => {
+export const deleteTournament = async (id, currentUserId = null) => {
   if (!mongoose.isValidObjectId(id)) {
     const error = new Error('Tournament not found');
     error.statusCode = 404;
@@ -275,6 +282,13 @@ export const deleteTournament = async (id) => {
   if (!tournament) {
     const error = new Error('Tournament not found');
     error.statusCode = 404;
+    throw error;
+  }
+
+  // Verify ownership if currentUserId is provided
+  if (currentUserId && tournament.createdBy.toString() !== currentUserId.toString()) {
+    const error = new Error('You are not authorized to delete this tournament');
+    error.statusCode = 403;
     throw error;
   }
 

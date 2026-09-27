@@ -20,7 +20,8 @@ export const createLichessGameForPairing = async (
   tournamentId,
   roundNumber,
   pairingId,
-  options = {}
+  options = {},
+  userId = null
 ) => {
   // 1. Validate ObjectIds
   if (!mongoose.isValidObjectId(tournamentId)) {
@@ -58,6 +59,13 @@ export const createLichessGameForPairing = async (
     if (!tournament) {
       const error = new Error('Tournament not found');
       error.statusCode = 404;
+      throw error;
+    }
+
+    // Verify host ownership if userId is provided
+    if (userId && tournament.createdBy.toString() !== userId.toString()) {
+      const error = new Error('You are not authorized to create Lichess games for this tournament');
+      error.statusCode = 403;
       throw error;
     }
 
@@ -149,7 +157,8 @@ export const createLichessGameForPairing = async (
 export const createAllLichessGamesForRound = async (
   tournamentId,
   roundNumber,
-  options = {}
+  options = {},
+  userId = null
 ) => {
   if (!mongoose.isValidObjectId(tournamentId)) {
     const error = new Error('Tournament not found');
@@ -168,6 +177,13 @@ export const createAllLichessGamesForRound = async (
   if (!tournament) {
     const error = new Error('Tournament not found');
     error.statusCode = 404;
+    throw error;
+  }
+
+  // Verify host ownership if userId is provided
+  if (userId && tournament.createdBy.toString() !== userId.toString()) {
+    const error = new Error('You are not authorized to create Lichess games for this tournament');
+    error.statusCode = 403;
     throw error;
   }
 
@@ -278,7 +294,8 @@ export const syncPairingResult = async (
   tournamentId,
   roundNumber,
   pairingId,
-  options = {}
+  options = {},
+  userId = null
 ) => {
   // If only pairingId was provided as first argument
   let tId = tournamentId;
@@ -356,6 +373,19 @@ export const syncPairingResult = async (
     const error = new Error('Pairing does not belong to the specified round.');
     error.statusCode = 400;
     throw error;
+  }
+
+  // Verify ownership or participant authorization if userId is provided
+  if (userId) {
+    const isCreator = tournament && tournament.createdBy.toString() === userId.toString();
+    const isPlayer =
+      (pairing.whitePlayer && pairing.whitePlayer._id.toString() === userId.toString()) ||
+      (pairing.blackPlayer && pairing.blackPlayer._id.toString() === userId.toString());
+    if (!isCreator && !isPlayer) {
+      const error = new Error('You are not authorized to sync this pairing result');
+      error.statusCode = 403;
+      throw error;
+    }
   }
 
   // 4. Verify pairing has a Lichess game ID

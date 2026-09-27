@@ -1,3 +1,13 @@
+/**
+ * ============================================================================
+ * LEGACY / TEST-ONLY UTILITIES
+ * ============================================================================
+ * NOTE: devUser utilities were used for Milestones 3–8 prototypes.
+ * In production API requests, identity and authorization are derived from
+ * real JWT authentication via req.user.
+ * These utilities are retained solely for backward compatibility with legacy tests.
+ * ============================================================================
+ */
 import User from '../models/User.js';
 import { DEFAULT_DEV_PLAYERS } from '../config/lichess.js';
 

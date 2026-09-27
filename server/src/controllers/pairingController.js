@@ -8,11 +8,14 @@ export const createPairingLichessGame = async (req, res, next) => {
   try {
     const tournamentId = req.params.tournamentId || req.params.id;
     const { roundNumber, pairingId } = req.params;
+    const userId = req.user ? req.user._id : null;
 
     const pairing = await pairingService.createLichessGameForPairing(
       tournamentId,
       roundNumber,
-      pairingId
+      pairingId,
+      {},
+      userId
     );
 
     res.status(200).json({
@@ -32,10 +35,13 @@ export const createAllRoundLichessGames = async (req, res, next) => {
   try {
     const tournamentId = req.params.tournamentId || req.params.id;
     const { roundNumber } = req.params;
+    const userId = req.user ? req.user._id : null;
 
     const summary = await pairingService.createAllLichessGamesForRound(
       tournamentId,
-      roundNumber
+      roundNumber,
+      {},
+      userId
     );
 
     res.status(200).json({
@@ -55,11 +61,14 @@ export const syncPairingResult = async (req, res, next) => {
   try {
     const tournamentId = req.params.tournamentId || req.params.id;
     const { roundNumber, pairingId } = req.params;
+    const userId = req.user ? req.user._id : null;
 
     const pairing = await pairingService.syncPairingResult(
       tournamentId,
       roundNumber,
-      pairingId
+      pairingId,
+      {},
+      userId
     );
 
     res.status(200).json({

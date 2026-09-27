@@ -7,23 +7,24 @@ import {
   deleteTournament,
 } from '../controllers/tournamentController.js';
 import { getTournamentStandings } from '../controllers/standingsController.js';
+import { requireAuth, optionalAuth } from '../middleware/authMiddleware.js';
 import tournamentPlayerRoutes from './tournamentPlayerRoutes.js';
 import roundRoutes from './roundRoutes.js';
 
 const router = express.Router();
 
 router.route('/')
-  .post(createTournament)
+  .post(requireAuth, createTournament)
   .get(getTournaments);
 
-// Standings endpoint
+// Standings endpoint (public)
 router.route('/:id/standings')
   .get(getTournamentStandings);
 
 router.route('/:id')
-  .get(getTournamentById)
-  .patch(updateTournament)
-  .delete(deleteTournament);
+  .get(optionalAuth, getTournamentById)
+  .patch(requireAuth, updateTournament)
+  .delete(requireAuth, deleteTournament);
 
 // Player registration subroutes (join, leave, players)
 router.use('/:id', tournamentPlayerRoutes);

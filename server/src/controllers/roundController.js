@@ -6,7 +6,8 @@ import * as roundService from '../services/roundService.js';
  */
 export const createRound = async (req, res, next) => {
   try {
-    const result = await roundService.createRound(req.params.id);
+    const userId = req.user._id;
+    const result = await roundService.createRound(req.params.id, userId);
 
     res.status(201).json({
       success: true,

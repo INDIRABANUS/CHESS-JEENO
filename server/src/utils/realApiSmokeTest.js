@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import Pairing from '../models/Pairing.js';
 import Round from '../models/Round.js';
+import Tournament from '../models/Tournament.js';
+import { generateToken } from '../services/authService.js';
 
 dotenv.config();
 
@@ -13,6 +15,14 @@ const runSmokeTest = async () => {
   console.log(`🎯 Tournament ID: ${TOURNAMENT_ID}\n`);
 
   await mongoose.connect(process.env.MONGODB_URI);
+
+  const tourney = await Tournament.findById(TOURNAMENT_ID);
+  if (!tourney) throw new Error('Tournament not found');
+  const hostToken = generateToken(tourney.createdBy);
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${hostToken}`,
+  };
 
   // -------------------------------------------------------------
   // Step 0: Ensure Round 1 pairing is ready with real game p6GtWsRf
@@ -43,7 +53,7 @@ const runSmokeTest = async () => {
   // Attempt POST /rounds while incomplete
   const rejectRes = await fetch(`${API_BASE}/tournaments/${TOURNAMENT_ID}/rounds`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders,
   });
   const rejectData = await rejectRes.json();
   console.log(`HTTP Status: ${rejectRes.status} | Response:`, rejectData);
@@ -63,7 +73,7 @@ const runSmokeTest = async () => {
     `${API_BASE}/tournaments/${TOURNAMENT_ID}/rounds/1/pairings/${pairingId}/sync`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
     }
   );
   const syncData = await syncRes.json();
@@ -135,7 +145,7 @@ const runSmokeTest = async () => {
   console.log('\n--- Step 5: Creating Round 2 ---');
   const createR2Res = await fetch(`${API_BASE}/tournaments/${TOURNAMENT_ID}/rounds`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders,
   });
   const createR2Data = await createR2Res.json();
   console.log(`Create Round 2 HTTP Status: ${createR2Res.status}`);
