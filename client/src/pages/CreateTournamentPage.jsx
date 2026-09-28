@@ -32,6 +32,7 @@ const CreateTournamentPage = () => {
     name: '',
     description: '',
     format: 'SWISS',
+    totalRounds: 5,
     rated: false,
     clockLimit: 300, // 5 minutes in seconds
     increment: 0,
@@ -93,12 +94,21 @@ const CreateTournamentPage = () => {
       return;
     }
 
+    if (formData.format === 'SWISS') {
+      const rounds = Number(formData.totalRounds);
+      if (!rounds || !Number.isInteger(rounds) || rounds < 1 || rounds > 20) {
+        setError('Total rounds for Swiss tournaments must be an integer between 1 and 20');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         format: formData.format,
+        totalRounds: formData.format === 'SWISS' ? Number(formData.totalRounds) : null,
         rated: Boolean(formData.rated),
         clockLimit: Number(formData.clockLimit),
         increment: Number(formData.increment),
@@ -230,6 +240,36 @@ const CreateTournamentPage = () => {
                 </button>
               ))}
             </div>
+
+            {/* Swiss Total Rounds Field */}
+            {formData.format === 'SWISS' && (
+              <div className="mt-4 p-4 rounded-lg bg-indigo-50/60 border border-indigo-100">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <label htmlFor="totalRounds" className="block text-sm font-bold text-slate-800">
+                      Number of Rounds <span className="text-rose-500">*</span>
+                    </label>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Configure total Swiss rounds to be played (1 to 20).
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="number"
+                      id="totalRounds"
+                      min="1"
+                      max="20"
+                      value={formData.totalRounds || ''}
+                      onChange={(e) => setFormData({ ...formData, totalRounds: e.target.value })}
+                      className="w-24 px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-center"
+                      placeholder="5"
+                      required
+                    />
+                    <span className="text-xs font-medium text-slate-500">Rounds</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Time Controls Section */}

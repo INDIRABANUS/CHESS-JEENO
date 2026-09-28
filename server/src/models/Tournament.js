@@ -60,6 +60,12 @@ const tournamentSchema = new mongoose.Schema(
       min: [2, 'maxPlayers must be at least 2'],
       default: null,
     },
+    totalRounds: {
+      type: Number,
+      default: null,
+      min: [1, 'Total rounds must be at least 1'],
+      max: [20, 'Total rounds cannot exceed 20'],
+    },
   },
   {
     timestamps: true,

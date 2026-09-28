@@ -45,6 +45,7 @@ const runPlayerRegistrationTests = async () => {
         clockLimit: 300,
         increment: 0,
         maxPlayers: 2,
+        totalRounds: 5,
         rated: false,
       },
       devUserId

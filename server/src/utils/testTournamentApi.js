@@ -28,6 +28,7 @@ const runTournamentTests = async () => {
         clockLimit: 300,
         increment: 3,
         maxPlayers: 16,
+        totalRounds: 5,
         startTime: new Date(Date.now() + 86400000).toISOString(),
       },
       devUserId

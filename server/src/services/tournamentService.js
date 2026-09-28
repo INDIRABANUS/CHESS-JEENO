@@ -12,6 +12,7 @@ const ALLOWED_UPDATE_FIELDS = [
   'increment',
   'startTime',
   'maxPlayers',
+  'totalRounds',
 ];
 
 /**
@@ -85,6 +86,23 @@ export const validateTournamentPayload = (payload, isPartial = false) => {
     error.statusCode = 400;
     throw error;
   }
+
+  // Swiss totalRounds validation
+  if (format === 'SWISS') {
+    if (!isPartial || payload.totalRounds !== undefined) {
+      if (payload.totalRounds === undefined || payload.totalRounds === null || payload.totalRounds === '') {
+        const error = new Error('Total rounds is required for Swiss tournaments');
+        error.statusCode = 400;
+        throw error;
+      }
+      const rounds = Number(payload.totalRounds);
+      if (isNaN(rounds) || !Number.isInteger(rounds) || rounds < 1 || rounds > 20) {
+        const error = new Error('Total rounds for Swiss tournaments must be an integer between 1 and 20');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+  }
 };
 
 /**
@@ -102,12 +120,14 @@ export const createTournament = async (payload, creatorId) => {
     increment = 0,
     startTime = null,
     maxPlayers = null,
+    totalRounds = null,
   } = payload;
 
   const tournament = await Tournament.create({
     name: name.trim(),
     description: typeof description === 'string' ? description.trim() : '',
     format,
+    totalRounds: format === 'SWISS' ? Number(totalRounds) : null,
     rated: Boolean(rated),
     clockLimit: Number(clockLimit),
     increment: Number(increment),
@@ -256,6 +276,11 @@ export const updateTournament = async (id, updateData, currentUserId = null) => 
   if (sanitizedUpdates.startTime !== undefined) {
     sanitizedUpdates.startTime = sanitizedUpdates.startTime
       ? new Date(sanitizedUpdates.startTime)
+      : null;
+  }
+  if (sanitizedUpdates.totalRounds !== undefined) {
+    sanitizedUpdates.totalRounds = sanitizedUpdates.totalRounds
+      ? Number(sanitizedUpdates.totalRounds)
       : null;
   }
 

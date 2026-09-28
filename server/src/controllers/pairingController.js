@@ -1,4 +1,7 @@
 import * as pairingService from '../services/pairingService.js';
+import * as standingsService from '../services/standingsService.js';
+import * as roundService from '../services/roundService.js';
+import { getIo } from '../realtime/socket.js';
 
 /**
  * Create a Lichess game for a single pairing.
@@ -70,6 +73,31 @@ export const syncPairingResult = async (req, res, next) => {
       {},
       userId
     );
+
+    // If game reached terminal status, broadcast realtime standings & round status
+    if (pairing.status === 'FINISHED' || pairing.status === 'ABORTED') {
+      try {
+        const io = getIo();
+        if (io) {
+          const standingsData = await standingsService.getTournamentStandings(tournamentId);
+          io.to(`tournament:${tournamentId}`).emit('STANDINGS_UPDATED', {
+            tournamentId,
+            standings: standingsData.standings,
+          });
+
+          const roundStatus = await roundService.getRoundCompletionStatus(tournamentId, roundNumber);
+          if (roundStatus.complete) {
+            io.to(`tournament:${tournamentId}`).emit('ROUND_COMPLETED', {
+              tournamentId,
+              roundNumber: Number(roundNumber),
+              complete: true,
+            });
+          }
+        }
+      } catch (broadcastErr) {
+        console.warn('[Realtime] Broadcast on manual sync failed:', broadcastErr.message);
+      }
+    }
 
     res.status(200).json({
       success: true,

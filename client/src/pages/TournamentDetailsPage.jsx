@@ -42,6 +42,7 @@ import {
   getTournamentStandings,
   getRoundStatus,
 } from '../services/tournamentService';
+import { joinTournamentRoom, leaveTournamentRoom } from '../services/socket';
 
 const FORMAT_LABELS = {
   SWISS: 'Swiss System',
@@ -157,6 +158,93 @@ const TournamentDetailsPage = () => {
     fetchTournamentData();
   }, [id]);
 
+  // Realtime Socket.IO subscription
+  useEffect(() => {
+    if (!id) return;
+
+    const handleGameUpdate = (event) => {
+      if (event.tournamentId && event.tournamentId !== id) return;
+
+      setRounds((prevRounds) => {
+        return prevRounds.map((round) => {
+          if (event.roundNumber && round.roundNumber !== event.roundNumber) {
+            return round;
+          }
+          const updatedPairings = (round.pairings || []).map((pairing) => {
+            const matchesId =
+              (event.pairingId && (pairing._id === event.pairingId || String(pairing._id) === String(event.pairingId))) ||
+              (event.lichessGameId && pairing.lichessGameId === event.lichessGameId);
+
+            if (matchesId) {
+              const nextPairing = { ...pairing };
+              if (event.status) nextPairing.lichessStatus = event.status;
+              if (event.result && event.result !== 'PENDING') {
+                nextPairing.result = event.result;
+              }
+              if (
+                event.eventType === 'GAME_FINISHED' ||
+                ['1-0', '0-1', '1/2-1/2'].includes(event.result)
+              ) {
+                nextPairing.status = 'FINISHED';
+              } else if (event.eventType === 'GAME_ABORTED' || event.result === 'ABORTED') {
+                nextPairing.status = 'ABORTED';
+              } else if (
+                event.status === 'started' ||
+                event.eventType === 'GAME_STARTED' ||
+                event.eventType === 'GAME_STATE'
+              ) {
+                nextPairing.status = 'ACTIVE';
+              }
+              if (event.clocks) nextPairing.clocks = event.clocks;
+              if (event.lastMove) nextPairing.lastMove = event.lastMove;
+              return nextPairing;
+            }
+            return pairing;
+          });
+          return { ...round, pairings: updatedPairings };
+        });
+      });
+    };
+
+    const handleStandingsUpdate = (data) => {
+      if (data.tournamentId && data.tournamentId !== id) return;
+      if (data.standings && Array.isArray(data.standings)) {
+        setStandings(data.standings);
+      }
+    };
+
+    const handleRoundCompleted = (data) => {
+      if (data.tournamentId && data.tournamentId !== id) return;
+      setRounds((prevRounds) => {
+        return prevRounds.map((r) => {
+          if (r.roundNumber === data.roundNumber) {
+            return { ...r, status: 'COMPLETED' };
+          }
+          return r;
+        });
+      });
+    };
+
+    joinTournamentRoom(id, {
+      onGameStarted: handleGameUpdate,
+      onGameState: handleGameUpdate,
+      onGameFinished: (evt) => {
+        handleGameUpdate(evt);
+        fetchTournamentData();
+      },
+      onGameAborted: (evt) => {
+        handleGameUpdate(evt);
+        fetchTournamentData();
+      },
+      onStandingsUpdated: handleStandingsUpdate,
+      onRoundCompleted: handleRoundCompleted,
+    });
+
+    return () => {
+      leaveTournamentRoom(id);
+    };
+  }, [id]);
+
   // Derived registration status
   const currentUserId = currentUser?._id;
   const isRegistered =
@@ -166,13 +254,15 @@ const TournamentDetailsPage = () => {
   const isFull =
     Boolean(tournament?.maxPlayers) && players.length >= tournament.maxPlayers;
 
-  // Derived Round Robin progression & completion status
+  // Derived progression & completion status
   const playerCount = players.length;
   const maxRounds =
     tournament?.format === 'ROUND_ROBIN' && playerCount >= 2
       ? playerCount % 2 === 0
         ? playerCount - 1
         : playerCount
+      : tournament?.format === 'SWISS'
+      ? Number(tournament?.totalRounds) || 0
       : 0;
 
   const allRoundsCreated = rounds.length > 0 && maxRounds > 0 && rounds.length >= maxRounds;
@@ -188,7 +278,8 @@ const TournamentDetailsPage = () => {
       ))
   );
 
-  const isTournamentComplete = allRoundsCreated && isLatestRoundComplete;
+  const isTournamentComplete =
+    tournament?.status === 'FINISHED' || (allRoundsCreated && isLatestRoundComplete);
 
   // Handle Joining Tournament
   const handleJoin = async () => {
@@ -472,6 +563,7 @@ const TournamentDetailsPage = () => {
 
             <span className="text-xs text-slate-500 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full">
               {FORMAT_LABELS[tournament.format] || tournament.format}
+              {tournament.format === 'SWISS' && tournament.totalRounds ? ` (${tournament.totalRounds} Rounds)` : ''}
             </span>
           </div>
 
@@ -514,7 +606,11 @@ const TournamentDetailsPage = () => {
               {FORMAT_LABELS[tournament.format] || tournament.format}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">
-              Standard tournament bracket
+              {tournament.format === 'SWISS' && tournament.totalRounds
+                ? `${tournament.totalRounds} scheduled rounds`
+                : tournament.format === 'ROUND_ROBIN'
+                ? 'All-play-all schedule'
+                : 'Standard tournament bracket'}
             </div>
           </div>
 
@@ -941,9 +1037,16 @@ const TournamentDetailsPage = () => {
             <h2 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
               <Swords className="h-5 w-5 text-indigo-600" />
               <span>Rounds & Pairings</span>
+              {tournament.format === 'SWISS' && maxRounds > 0 && (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  Round: {rounds.length} / {maxRounds}
+                </span>
+              )}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Round Robin schedule and match pairings
+              {tournament.format === 'SWISS'
+                ? 'Swiss system match pairings and standings'
+                : 'Round Robin schedule and match pairings'}
             </p>
           </div>
 
@@ -1200,7 +1303,7 @@ const TournamentDetailsPage = () => {
                               <div className="flex flex-wrap items-center space-x-2 text-xs self-end sm:self-center">
                                 {/* Pairing Status Badge */}
                                 <span
-                                  className={`px-2 py-0.5 rounded font-semibold text-[11px] ${
+                                  className={`px-2 py-0.5 rounded font-semibold text-[11px] flex items-center space-x-1 ${
                                     pairing.status === 'FINISHED' || pairing.status === 'COMPLETED'
                                       ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                       : pairing.status === 'ABORTED' || pairing.status === 'CANCELLED'
@@ -1210,8 +1313,35 @@ const TournamentDetailsPage = () => {
                                       : 'bg-slate-100 text-slate-600'
                                   }`}
                                 >
-                                  {pairing.status}
+                                  {pairing.status === 'ACTIVE' ? (
+                                    <>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse mr-1" />
+                                      <span>LIVE</span>
+                                    </>
+                                  ) : (
+                                    <span>{pairing.status}</span>
+                                  )}
                                 </span>
+
+                                {/* Realtime Clocks if available */}
+                                {pairing.clocks && (typeof pairing.clocks.white === 'number' || typeof pairing.clocks.black === 'number') && (
+                                  <span
+                                    className="px-1.5 py-0.5 rounded font-mono text-[10px] text-slate-600 bg-slate-50 border border-slate-200"
+                                    title="Remaining clock time"
+                                  >
+                                    ⏱ {typeof pairing.clocks.white === 'number' ? `${Math.floor(pairing.clocks.white / 60)}:${String(pairing.clocks.white % 60).padStart(2, '0')}` : '—'} / {typeof pairing.clocks.black === 'number' ? `${Math.floor(pairing.clocks.black / 60)}:${String(pairing.clocks.black % 60).padStart(2, '0')}` : '—'}
+                                  </span>
+                                )}
+
+                                {/* Realtime Last Move if available */}
+                                {pairing.lastMove && (
+                                  <span
+                                    className="px-1.5 py-0.5 rounded font-mono text-[10px] text-slate-600 bg-slate-100 border border-slate-200"
+                                    title={`Last move: ${pairing.lastMove}`}
+                                  >
+                                    Move: {pairing.lastMove}
+                                  </span>
+                                )}
 
                                 {/* Lichess Raw Status Badge */}
                                 {pairing.lichessStatus && (

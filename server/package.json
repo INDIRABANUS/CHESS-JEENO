@@ -15,7 +15,10 @@
     "test:players": "node src/utils/testPlayerRegistration.js",
     "test:pairings": "node src/utils/testPairingEngine.js",
     "test:lichess": "node src/utils/testLichessIntegration.js",
-    "test:standings": "node src/utils/testStandingsAndRounds.js"
+    "test:standings": "node src/utils/testStandingsAndRounds.js",
+    "test:realtime": "node src/utils/testRealtimeUpdates.js",
+    "test:swiss": "node src/utils/testSwissTournament.js",
+    "smoke:swiss": "node src/utils/smokeTestSwissReal.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -23,9 +26,11 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^8.9.5"
+    "mongoose": "^8.9.5",
+    "socket.io": "^4.8.4"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "socket.io-client": "^4.8.4"
   }
 }

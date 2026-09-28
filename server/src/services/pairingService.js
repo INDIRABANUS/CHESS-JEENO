@@ -167,6 +167,37 @@ export const createLichessGameForPairing = async (
     // Result remains PENDING / null as required
     await pairing.save();
 
+    // 12. Trigger background Lichess game stream
+    try {
+      const { startStream } = await import('../realtime/gameStreamManager.js');
+      const { getIo } = await import('../realtime/socket.js');
+      const io = getIo();
+      if (io) {
+        io.to(`tournament:${tournamentId}`).emit('GAME_STARTED', {
+          tournamentId: tournamentId.toString(),
+          roundNumber: numRound,
+          pairingId: pairing._id.toString(),
+          lichessGameId: gameId,
+          status: 'started',
+          result: null,
+          white: { id: whiteUsername, name: pairing.whitePlayer?.name || whiteUsername },
+          black: { id: blackUsername, name: pairing.blackPlayer?.name || blackUsername },
+        });
+      }
+
+      startStream({
+        tournamentId: tournamentId.toString(),
+        roundNumber: numRound,
+        pairingId: pairing._id.toString(),
+        lichessGameId: gameId,
+        token: resolvedWhiteToken || resolvedBlackToken,
+      }).catch((streamErr) => {
+        console.warn(`[Realtime] Stream start warning for ${gameId}:`, streamErr.message);
+      });
+    } catch (realtimeErr) {
+      console.warn('[Realtime] Failed to initiate stream:', realtimeErr.message);
+    }
+
     return pairing;
   } finally {
     inFlightPairingIds.delete(pairingIdStr);

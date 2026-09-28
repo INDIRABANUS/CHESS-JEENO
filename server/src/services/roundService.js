@@ -4,6 +4,8 @@ import TournamentPlayer from '../models/TournamentPlayer.js';
 import Round from '../models/Round.js';
 import Pairing from '../models/Pairing.js';
 import { generateRoundRobinSchedule } from '../utils/roundRobin.js';
+import { generateSwissPairings } from '../utils/swissPairing.js';
+import * as standingsService from './standingsService.js';
 
 /**
  * Creates the next round and its Round Robin pairings.
@@ -52,9 +54,22 @@ export const createRound = async (tournamentId, userId = null) => {
     throw error;
   }
 
-  // Generate full Round Robin schedule
-  const schedule = generateRoundRobinSchedule(registeredPlayers);
-  const totalRounds = schedule.length;
+  const isSwiss = tournament.format === 'SWISS';
+  let totalRounds;
+
+  // Determine total rounds based on tournament format
+  if (isSwiss) {
+    totalRounds = tournament.totalRounds;
+    if (!totalRounds || totalRounds < 1) {
+      const error = new Error('Swiss tournament totalRounds is not configured.');
+      error.statusCode = 400;
+      throw error;
+    }
+  } else {
+    // Generate full Round Robin schedule
+    const schedule = generateRoundRobinSchedule(registeredPlayers);
+    totalRounds = schedule.length;
+  }
 
   // Determine next round number
   const existingRounds = await Round.find({ tournamentId }).sort({ roundNumber: 1 });
@@ -62,7 +77,9 @@ export const createRound = async (tournamentId, userId = null) => {
 
   if (nextRoundNumber > totalRounds) {
     const error = new Error(
-      `All ${totalRounds} rounds have already been created for this Round Robin tournament.`
+      isSwiss
+        ? `All ${totalRounds} rounds have already been created for this Swiss tournament.`
+        : `All ${totalRounds} rounds have already been created for this Round Robin tournament.`
     );
     error.statusCode = 400;
     throw error;
@@ -90,7 +107,21 @@ export const createRound = async (tournamentId, userId = null) => {
   }
 
   // Extract planned pairings and bye for nextRoundNumber
-  const roundPlan = schedule[nextRoundNumber - 1];
+  let roundPlan;
+  if (isSwiss) {
+    const fullPreviousRounds = await getRounds(tournamentId);
+    const standingsData = await standingsService.getTournamentStandings(tournamentId);
+
+    roundPlan = generateSwissPairings({
+      players: registeredPlayers,
+      standings: standingsData.standings,
+      previousRounds: fullPreviousRounds,
+      roundNumber: nextRoundNumber,
+    });
+  } else {
+    const schedule = generateRoundRobinSchedule(registeredPlayers);
+    roundPlan = schedule[nextRoundNumber - 1];
+  }
 
   let round;
   let pairings = [];
@@ -344,9 +375,24 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
     await round.save();
   }
 
+  // If complete, check if Swiss tournament should transition to FINISHED
+  if (complete) {
+    if (
+      tournament.format === 'SWISS' &&
+      tournament.totalRounds &&
+      numRound >= tournament.totalRounds
+    ) {
+      if (tournament.status !== 'FINISHED') {
+        tournament.status = 'FINISHED';
+        await tournament.save();
+      }
+    }
+  }
+
   return {
     roundNumber: numRound,
     complete,
+    isComplete: complete,
     totalPairings,
     finishedPairings,
     abortedPairings,
