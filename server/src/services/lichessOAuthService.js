@@ -439,8 +439,10 @@ export const resolveLichessPlayerCredentials = async (userId, options = {}) => {
   let accessToken = user.lichessOAuth?.accessToken || null;
   let source = 'oauth';
 
-  // 3. Fallback to development-token bridge ONLY if explicitly enabled
-  if (!accessToken && options.allowDevBridge) {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // 3. Fallback to development-token bridge ONLY if explicitly enabled AND NOT in production
+  if (!accessToken && options.allowDevBridge && !isProduction) {
     const devToken = getTokenForUser(user.lichessUsername);
     if (devToken) {
       accessToken = devToken;
@@ -452,7 +454,7 @@ export const resolveLichessPlayerCredentials = async (userId, options = {}) => {
   if (!accessToken) {
     const error = new Error(
       user.lichessUsername
-        ? 'Lichess connection is incomplete. Player has not connected a Lichess account.'
+        ? `Player has not connected a valid Lichess account via OAuth (@${user.lichessUsername}). Lichess connection is incomplete.`
         : 'Player has not connected a Lichess account.'
     );
     error.statusCode = 400;

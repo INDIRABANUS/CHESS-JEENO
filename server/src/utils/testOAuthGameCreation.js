@@ -13,10 +13,12 @@ import * as pairingService from '../services/pairingService.js';
 import * as roundService from '../services/roundService.js';
 import * as tournamentPlayerService from '../services/tournamentPlayerService.js';
 import * as tournamentService from '../services/tournamentService.js';
+import { httpServer } from '../server.js';
 
 dotenv.config();
 
-const API_BASE = 'http://localhost:5000/api';
+const PORT = process.env.PORT || 5000;
+const API_BASE = `http://localhost:${PORT}/api`;
 
 const runOAuthGameCreationTests = async () => {
   console.log('🧪 Starting Milestone 11: OAuth Game Creation Test Suite...\n');
@@ -384,6 +386,9 @@ const runOAuthGameCreationTests = async () => {
       await User.deleteMany({ _id: { $in: createdUserIds } });
     }
     setMockTransport(null);
+    if (httpServer?.listening) {
+      await new Promise((resolve) => httpServer.close(resolve));
+    }
     await mongoose.disconnect();
     console.log('✨ Cleanup complete.');
   }

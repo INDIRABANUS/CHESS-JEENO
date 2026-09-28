@@ -74,23 +74,31 @@ export const createGame = async ({
   const incSec = Number(increment) || 0;
   const isRated = Boolean(rated);
 
+  const isProduction = process.env.NODE_ENV === 'production';
+
   // 2. Resolve individual player authorization tokens
-  const resolvedWhiteToken = whiteToken || getTokenForUser(white);
+  const resolvedWhiteToken = whiteToken || (!isProduction ? getTokenForUser(white) : null);
   if (!resolvedWhiteToken) {
     const error = new Error(`Missing Lichess token for player: ${white}`);
     error.statusCode = 400;
     throw error;
   }
 
-  const resolvedBlackToken = blackToken || getTokenForUser(black);
+  const resolvedBlackToken = blackToken || (!isProduction ? getTokenForUser(black) : null);
   if (!resolvedBlackToken) {
     const error = new Error(`Missing Lichess token for player: ${black}`);
     error.statusCode = 400;
     throw error;
   }
 
+  if (resolvedWhiteToken === resolvedBlackToken) {
+    const error = new Error('White and Black tokens cannot be identical.');
+    error.statusCode = 400;
+    throw error;
+  }
+
   // 3. Ensure organizer API token is present
-  const apiToken = token || resolvedWhiteToken || requireLichessToken();
+  const apiToken = token || (isProduction ? (process.env.LICHESS_API_TOKEN || resolvedWhiteToken) : (resolvedWhiteToken || requireLichessToken()));
 
   const playersPayload = `${resolvedWhiteToken}:${resolvedBlackToken}`;
 

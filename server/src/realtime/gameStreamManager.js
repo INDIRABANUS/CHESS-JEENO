@@ -61,7 +61,7 @@ export const startStream = async ({
     }
   }
 
-  // 3. Resolve token if not explicitly provided
+  const isProduction = process.env.NODE_ENV === 'production';
   let streamToken = token;
   if (!streamToken && pairingId && mongoose.isValidObjectId(pairingId)) {
     try {
@@ -70,7 +70,7 @@ export const startStream = async ({
         try {
           const creds = await lichessOAuthService.resolveLichessPlayerCredentials(
             pairing.whitePlayer._id,
-            { allowDevBridge: true }
+            { allowDevBridge: !isProduction }
           );
           streamToken = creds.accessToken;
         } catch {
@@ -81,11 +81,11 @@ export const startStream = async ({
         try {
           const creds = await lichessOAuthService.resolveLichessPlayerCredentials(
             pairing.blackPlayer._id,
-            { allowDevBridge: true }
+            { allowDevBridge: !isProduction }
           );
           streamToken = creds.accessToken;
         } catch {
-          // Fall back to dev token
+          // Fall back to dev token only in non-production
         }
       }
     } catch {
@@ -93,7 +93,7 @@ export const startStream = async ({
     }
   }
 
-  if (!streamToken && !mockStreamTransport) {
+  if (!streamToken && !mockStreamTransport && !isProduction) {
     try {
       streamToken = requireLichessToken();
     } catch {

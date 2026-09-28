@@ -64,13 +64,6 @@ export const createLichessGameForPairing = async (
       throw error;
     }
 
-    // Verify host ownership if userId is provided
-    if (userId && tournament.createdBy.toString() !== userId.toString()) {
-      const error = new Error('You are not authorized to create Lichess games for this tournament');
-      error.statusCode = 403;
-      throw error;
-    }
-
     // 4. Find Round
     const round = await Round.findOne({
       tournamentId: tournament._id,
@@ -106,6 +99,25 @@ export const createLichessGameForPairing = async (
       throw error;
     }
 
+    const whiteUserId = (pairing.whitePlayer?._id || pairing.whitePlayer)?.toString();
+    const blackUserId = (pairing.blackPlayer?._id || pairing.blackPlayer)?.toString();
+
+    // Authorization check:
+    // Only the tournament creator (host) OR either of the two paired players can create the game.
+    // Host identity cannot substitute for either player; non-participants are rejected with 403.
+    if (userId) {
+      const callerId = userId.toString();
+      const isHost = tournament.createdBy.toString() === callerId;
+      const isWhite = whiteUserId === callerId;
+      const isBlack = blackUserId === callerId;
+
+      if (!isHost && !isWhite && !isBlack) {
+        const error = new Error('You are not authorized to create a Lichess game for this pairing.');
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+
     // 7. Duplicate game protection
     if (pairing.lichessGameId) {
       const error = new Error('Lichess game has already been created for this pairing.');
@@ -130,17 +142,15 @@ export const createLichessGameForPairing = async (
       throw error;
     }
 
-    const whiteUserId = pairing.whitePlayer?._id || pairing.whitePlayer;
-    const blackUserId = pairing.blackPlayer?._id || pairing.blackPlayer;
-
     if (!whiteUserId || !blackUserId) {
       const error = new Error('Both players must be valid tournament participants.');
       error.statusCode = 400;
       throw error;
     }
 
-    // Explicitly allow development-token bridge fallback only when options.allowDevBridge is true
-    const allowDevBridge = Boolean(options.allowDevBridge || options.useDevBridge);
+    // Explicitly allow development-token bridge fallback only when options.allowDevBridge is true AND NOT in production
+    const isProduction = process.env.NODE_ENV === 'production';
+    const allowDevBridge = !isProduction && Boolean(options.allowDevBridge || options.useDevBridge);
 
     // 9. Resolve both players' Lichess OAuth credentials securely from User records
     const whiteCreds = await lichessOAuthService.resolveLichessPlayerCredentials(whiteUserId, {
@@ -154,6 +164,18 @@ export const createLichessGameForPairing = async (
     const blackUsername = blackCreds.lichessUsername;
     const resolvedWhiteToken = options.whiteToken || whiteCreds.accessToken;
     const resolvedBlackToken = options.blackToken || blackCreds.accessToken;
+
+    if (whiteUsername.toLowerCase() === blackUsername.toLowerCase()) {
+      const error = new Error('White and Black players cannot share the same Lichess account.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (resolvedWhiteToken === resolvedBlackToken) {
+      const error = new Error('White and Black players cannot share the same Lichess token.');
+      error.statusCode = 400;
+      throw error;
+    }
 
     // 10. Call Lichess API (or mock transport in tests) using resolved credentials
     const { gameId, gameUrl } = await lichessService.createGame({
@@ -314,11 +336,17 @@ export const createAllLichessGamesForRound = async (
     }
 
     try {
+      const isProduction = process.env.NODE_ENV === 'production';
+      const sanitizedOptions = {
+        ...options,
+        allowDevBridge: !isProduction && Boolean(options.allowDevBridge),
+      };
+
       const updated = await createLichessGameForPairing(
         tournamentId,
         numRound,
         p._id,
-        options,
+        sanitizedOptions,
         userId
       );
       created++;

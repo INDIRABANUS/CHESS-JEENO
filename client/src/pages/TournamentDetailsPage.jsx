@@ -43,6 +43,7 @@ import {
   getRoundStatus,
 } from '../services/tournamentService';
 import { joinTournamentRoom, leaveTournamentRoom } from '../services/socket';
+import { useAuth } from '../context/AuthContext';
 
 const FORMAT_LABELS = {
   SWISS: 'Swiss System',
@@ -95,10 +96,18 @@ const TournamentDetailsPage = () => {
   const [players, setPlayers] = useState([]);
   const [rounds, setRounds] = useState([]);
   const [standings, setStandings] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
+  const { user: authUser } = useAuth();
+  const [currentUser, setCurrentUser] = useState(authUser || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+
+  // Synchronize authUser into currentUser
+  useEffect(() => {
+    if (authUser) {
+      setCurrentUser(authUser);
+    }
+  }, [authUser]);
 
   // Player action state
   const [actionLoading, setActionLoading] = useState(false);
@@ -128,10 +137,9 @@ const TournamentDetailsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [tourneyRes, playersRes, userRes, roundsRes, standingsRes] = await Promise.all([
+      const [tourneyRes, playersRes, roundsRes, standingsRes] = await Promise.all([
         getTournamentById(id),
         getTournamentPlayers(id),
-        getCurrentDevUser().catch(() => ({ data: null })),
         getTournamentRounds(id).catch(() => ({ data: [] })),
         getTournamentStandings(id).catch(() => ({ data: { standings: [] } })),
       ]);
@@ -140,8 +148,14 @@ const TournamentDetailsPage = () => {
       setPlayers(playersRes.data || []);
       setRounds(roundsRes.data || []);
       setStandings(standingsRes.data?.standings || []);
-      if (userRes && userRes.data) {
-        setCurrentUser(userRes.data);
+
+      if (authUser) {
+        setCurrentUser(authUser);
+      } else if (import.meta.env.DEV) {
+        const userRes = await getCurrentDevUser().catch(() => ({ data: null }));
+        if (userRes && userRes.data) {
+          setCurrentUser(userRes.data);
+        }
       }
     } catch (err) {
       setError(
@@ -1340,6 +1354,15 @@ const TournamentDetailsPage = () => {
                           const isGameReady = Boolean(pairing.lichessGameId);
                           const isBye = pairing.status === 'BYE' || pairing.result === 'BYE' || !pairing.blackPlayer;
 
+                          const whiteUserId = (pairing.whitePlayer?._id || pairing.whitePlayer)?.toString();
+                          const blackUserId = (pairing.blackPlayer?._id || pairing.blackPlayer)?.toString();
+                          const myUserId = currentUserId?.toString();
+
+                          const isCurrentWhite = Boolean(myUserId && whiteUserId && whiteUserId === myUserId);
+                          const isCurrentBlack = Boolean(myUserId && blackUserId && blackUserId === myUserId);
+                          const isParticipant = isCurrentWhite || isCurrentBlack;
+                          const canManageGame = isHost || isParticipant;
+
                           return (
                             <div
                               key={pairing._id}
@@ -1513,14 +1536,32 @@ const TournamentDetailsPage = () => {
                                       }
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
-                                      title="Open game on Lichess in a new tab"
+                                      className={`inline-flex items-center space-x-1.5 px-3 py-1.5 text-white rounded-lg text-xs font-semibold shadow-xs transition ${
+                                        isCurrentWhite
+                                          ? 'bg-emerald-600 hover:bg-emerald-700'
+                                          : isCurrentBlack
+                                          ? 'bg-slate-900 hover:bg-black'
+                                          : 'bg-indigo-600 hover:bg-indigo-700'
+                                      }`}
+                                      title={
+                                        isCurrentWhite
+                                          ? `Play as White (@${pairing.whitePlayer?.lichessUsername || 'White'}) on Lichess`
+                                          : isCurrentBlack
+                                          ? `Play as Black (@${pairing.blackPlayer?.lichessUsername || 'Black'}) on Lichess`
+                                          : 'Open game on Lichess in a new tab'
+                                      }
                                     >
-                                      <span>PLAY ON LICHESS</span>
+                                      <span>
+                                        {isCurrentWhite
+                                          ? 'PLAY AS WHITE ♔'
+                                          : isCurrentBlack
+                                          ? 'PLAY AS BLACK ♚'
+                                          : 'VIEW ON LICHESS'}
+                                      </span>
                                       <ExternalLink className="h-3.5 w-3.5" />
                                     </a>
                                   </div>
-                                ) : (
+                                ) : canManageGame ? (
                                   <button
                                     onClick={() =>
                                       handleCreatePairingGame(round.roundNumber, pairing._id)
@@ -1541,6 +1582,13 @@ const TournamentDetailsPage = () => {
                                       </>
                                     )}
                                   </button>
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center px-2.5 py-1 bg-slate-100 text-slate-500 rounded-lg text-xs font-medium"
+                                    title="Game not created yet by participants or host"
+                                  >
+                                    Awaiting Game
+                                  </span>
                                 )}
                               </div>
                             </div>

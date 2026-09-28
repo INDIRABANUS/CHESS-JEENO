@@ -56,6 +56,11 @@ export const DEFAULT_DEV_PLAYERS = {
 export const getPlayerTokenMap = () => {
   const map = new Map();
 
+  // In production, development player tokens must NEVER be used or loaded
+  if (process.env.NODE_ENV === 'production') {
+    return map;
+  }
+
   // 1. Process numbered player environment variables (1 to 4)
   for (let i = 1; i <= 4; i++) {
     const defaultUser = DEFAULT_DEV_PLAYERS[i]?.username || `player${i}`;
@@ -88,11 +93,15 @@ export const getPlayerTokenMap = () => {
 
 /**
  * Resolves the authorization token for a specific Lichess username.
+ * In production mode, this always returns null to enforce strict OAuth tokens.
  * 
  * @param {string} lichessUsername
  * @returns {string|null}
  */
 export const getTokenForUser = (lichessUsername) => {
+  if (process.env.NODE_ENV === 'production') {
+    return null;
+  }
   if (!lichessUsername) return null;
   const map = getPlayerTokenMap();
   return map.get(lichessUsername.trim().toLowerCase()) || null;
