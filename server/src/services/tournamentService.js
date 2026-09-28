@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import Tournament from '../models/Tournament.js';
 import TournamentPlayer from '../models/TournamentPlayer.js';
+import Round from '../models/Round.js';
+import Pairing from '../models/Pairing.js';
 
 const VALID_FORMATS = ['ROUND_ROBIN', 'SWISS', 'KNOCKOUT'];
 const ALLOWED_UPDATE_FIELDS = [
@@ -184,10 +186,9 @@ export const getTournamentById = async (id, currentUserId = null) => {
     throw error;
   }
 
-  const tournament = await Tournament.findById(id).populate(
-    'createdBy',
-    'name email avatar lichessUsername'
-  );
+  const tournament = await Tournament.findById(id)
+    .populate('createdBy', 'name email avatar lichessUsername')
+    .populate('winnerPlayer', 'name email avatar lichessUsername');
 
   if (!tournament) {
     const error = new Error('Tournament not found');
@@ -325,6 +326,11 @@ export const deleteTournament = async (id, currentUserId = null) => {
     error.statusCode = 400;
     throw error;
   }
+
+  // Cascade delete associated tournament players, rounds, and pairings
+  await TournamentPlayer.deleteMany({ tournamentId: id });
+  await Round.deleteMany({ tournamentId: id });
+  await Pairing.deleteMany({ tournamentId: id });
 
   await Tournament.findByIdAndDelete(id);
 

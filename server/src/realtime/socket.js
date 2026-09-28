@@ -2,10 +2,12 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { handleJoinTournament, handleLeaveTournament } from './tournamentRoom.js';
+import { corsOriginValidator } from '../config/corsConfig.js';
 
 const getJwtSecret = () => process.env.JWT_SECRET || 'REMOVED_JWT_SECRET';
 
 let io = null;
+
 
 /**
  * Socket.IO authentication middleware.
@@ -96,24 +98,14 @@ export const initSocketServer = (httpServer, options = {}) => {
     return io;
   }
 
-  const allowedOrigins = [
-    process.env.CLIENT_URL,
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-  ].filter(Boolean);
-
   io = new Server(httpServer, {
     cors: {
-      origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-        return callback(null, true);
-      },
+      origin: corsOriginValidator,
       credentials: true,
     },
     ...options,
   });
+
 
   // Attach authentication middleware
   io.use(socketAuthMiddleware);

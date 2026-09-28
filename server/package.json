@@ -4,6 +4,9 @@
   "description": "Backend API for chess tournament platform",
   "main": "src/server.js",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
@@ -18,7 +21,12 @@
     "test:standings": "node src/utils/testStandingsAndRounds.js",
     "test:realtime": "node src/utils/testRealtimeUpdates.js",
     "test:swiss": "node src/utils/testSwissTournament.js",
-    "smoke:swiss": "node src/utils/smokeTestSwissReal.js"
+    "smoke:swiss": "node src/utils/smokeTestSwissReal.js",
+    "test:knockout": "node src/utils/testKnockoutTournament.js",
+    "smoke:knockout": "node src/utils/smokeTestKnockoutReal.js",
+    "test:e2e": "node src/utils/testEndToEnd.js",
+    "smoke:e2e": "node src/utils/smokeTestEndToEnd.js",
+    "verify:deploy": "node src/utils/verifyDeploymentReadiness.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -113,6 +113,13 @@ export const createLichessGameForPairing = async (
       throw error;
     }
 
+    // 7b. Reject game creation for BYE pairings
+    if (pairing.status === 'BYE' || pairing.result === 'BYE' || !pairing.blackPlayer) {
+      const error = new Error('Cannot create Lichess game for a BYE pairing.');
+      error.statusCode = 400;
+      throw error;
+    }
+
     // 8. Verify both players have linked Lichess usernames
     const rawWhiteUsername = pairing.whitePlayer?.lichessUsername?.trim();
     const rawBlackUsername = pairing.blackPlayer?.lichessUsername?.trim();
@@ -269,6 +276,17 @@ export const createAllLichessGamesForRound = async (
   const results = [];
 
   for (const p of pairings) {
+    // Skip BYE pairings (no game needed)
+    if (p.status === 'BYE' || p.result === 'BYE' || !p.blackPlayer) {
+      skipped++;
+      results.push({
+        pairingId: p._id,
+        status: 'SKIPPED',
+        reason: 'BYE pairing does not require a Lichess game',
+      });
+      continue;
+    }
+
     // Already has Lichess game -> skip
     if (p.lichessGameId) {
       skipped++;

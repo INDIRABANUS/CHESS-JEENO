@@ -5,6 +5,12 @@ import Round from '../models/Round.js';
 import Pairing from '../models/Pairing.js';
 import { generateRoundRobinSchedule } from '../utils/roundRobin.js';
 import { generateSwissPairings } from '../utils/swissPairing.js';
+import {
+  calculateTotalRounds,
+  generateKnockoutInitialPairings,
+  generateKnockoutNextRoundPairings,
+  determinePairingWinner,
+} from '../utils/knockoutPairing.js';
 import * as standingsService from './standingsService.js';
 
 /**
@@ -55,6 +61,7 @@ export const createRound = async (tournamentId, userId = null) => {
   }
 
   const isSwiss = tournament.format === 'SWISS';
+  const isKnockout = tournament.format === 'KNOCKOUT';
   let totalRounds;
 
   // Determine total rounds based on tournament format
@@ -65,6 +72,8 @@ export const createRound = async (tournamentId, userId = null) => {
       error.statusCode = 400;
       throw error;
     }
+  } else if (isKnockout) {
+    totalRounds = calculateTotalRounds(registeredPlayers.length);
   } else {
     // Generate full Round Robin schedule
     const schedule = generateRoundRobinSchedule(registeredPlayers);
@@ -79,6 +88,8 @@ export const createRound = async (tournamentId, userId = null) => {
     const error = new Error(
       isSwiss
         ? `All ${totalRounds} rounds have already been created for this Swiss tournament.`
+        : isKnockout
+        ? `All ${totalRounds} rounds have already been created for this Knockout tournament.`
         : `All ${totalRounds} rounds have already been created for this Round Robin tournament.`
     );
     error.statusCode = 400;
@@ -118,6 +129,18 @@ export const createRound = async (tournamentId, userId = null) => {
       previousRounds: fullPreviousRounds,
       roundNumber: nextRoundNumber,
     });
+  } else if (isKnockout) {
+    if (nextRoundNumber === 1) {
+      roundPlan = generateKnockoutInitialPairings(registeredPlayers);
+    } else {
+      const fullPreviousRounds = await getRounds(tournamentId);
+      const prevRound = fullPreviousRounds.find((r) => r.roundNumber === nextRoundNumber - 1);
+      roundPlan = generateKnockoutNextRoundPairings({
+        previousRound: prevRound,
+        roundNumber: nextRoundNumber,
+        totalRounds,
+      });
+    }
   } else {
     const schedule = generateRoundRobinSchedule(registeredPlayers);
     roundPlan = schedule[nextRoundNumber - 1];
@@ -132,8 +155,14 @@ export const createRound = async (tournamentId, userId = null) => {
       tournamentId,
       roundNumber: nextRoundNumber,
       status: 'PENDING',
+      stageName: roundPlan.stageName || null,
       byePlayer: roundPlan.byePlayer || null,
     });
+
+    // If Knockout and totalRounds not persisted yet, persist derived totalRounds
+    if (isKnockout && !tournament.totalRounds) {
+      await Tournament.findByIdAndUpdate(tournamentId, { totalRounds });
+    }
 
     // 2. Create Pairing documents
     if (roundPlan.pairings.length > 0) {
@@ -141,11 +170,12 @@ export const createRound = async (tournamentId, userId = null) => {
         roundId: round._id,
         tournamentId,
         whitePlayer: p.whitePlayer,
-        blackPlayer: p.blackPlayer,
+        blackPlayer: p.blackPlayer || null,
         lichessGameId: null,
         lichessGameUrl: null,
-        status: 'PENDING',
-        result: 'PENDING',
+        status: p.status || 'PENDING',
+        result: p.result || 'PENDING',
+        completedAt: p.status === 'BYE' ? new Date() : null,
       }));
 
       pairings = await Pairing.insertMany(pairingDocs);
@@ -344,6 +374,8 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
     const isFinished =
       p.status === 'FINISHED' ||
       p.status === 'COMPLETED' ||
+      p.status === 'BYE' ||
+      p.result === 'BYE' ||
       ['1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW'].includes(p.result);
 
     const isAborted =
@@ -375,7 +407,7 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
     await round.save();
   }
 
-  // If complete, check if Swiss tournament should transition to FINISHED
+  // If complete, check if Swiss or Knockout tournament should transition to FINISHED
   if (complete) {
     if (
       tournament.format === 'SWISS' &&
@@ -384,6 +416,35 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
     ) {
       if (tournament.status !== 'FINISHED') {
         tournament.status = 'FINISHED';
+        await tournament.save();
+      }
+    } else if (tournament.format === 'ROUND_ROBIN') {
+      const registeredPlayers = await TournamentPlayer.find({ tournamentId });
+      if (registeredPlayers.length >= 2) {
+        const totalRounds = registeredPlayers.length % 2 === 0
+          ? registeredPlayers.length - 1
+          : registeredPlayers.length;
+        if (numRound >= totalRounds) {
+          if (tournament.status !== 'FINISHED') {
+            tournament.status = 'FINISHED';
+            await tournament.save();
+          }
+        }
+      }
+    } else if (tournament.format === 'KNOCKOUT') {
+      const registeredPlayers = await TournamentPlayer.find({ tournamentId });
+      const totalKnockoutRounds = calculateTotalRounds(registeredPlayers.length);
+      if (numRound >= totalKnockoutRounds) {
+        if (tournament.status !== 'FINISHED') {
+          tournament.status = 'FINISHED';
+        }
+        if (pairings.length === 1) {
+          const finalMatch = pairings[0];
+          const championId = determinePairingWinner(finalMatch);
+          if (championId) {
+            tournament.winnerPlayer = championId;
+          }
+        }
         await tournament.save();
       }
     }

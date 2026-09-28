@@ -23,8 +23,11 @@ const pairingSchema = new mongoose.Schema(
     blackPlayer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Black player reference is required'],
+      required: function () {
+        return this.status !== 'BYE';
+      },
       index: true,
+      default: null,
     },
     lichessGameId: {
       type: String,
@@ -41,7 +44,7 @@ const pairingSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['PENDING', 'CREATED', 'ACTIVE', 'READY', 'RUNNING', 'COMPLETED', 'FINISHED', 'CANCELLED', 'ABORTED'],
+        values: ['PENDING', 'CREATED', 'ACTIVE', 'READY', 'RUNNING', 'COMPLETED', 'FINISHED', 'CANCELLED', 'ABORTED', 'BYE'],
         message: '{VALUE} is not a valid pairing status',
       },
       default: 'PENDING',
@@ -49,7 +52,7 @@ const pairingSchema = new mongoose.Schema(
     result: {
       type: String,
       enum: {
-        values: ['PENDING', '1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW', 'ABORTED'],
+        values: ['PENDING', '1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW', 'ABORTED', 'BYE'],
         message: '{VALUE} is not a valid match result',
       },
       default: 'PENDING',

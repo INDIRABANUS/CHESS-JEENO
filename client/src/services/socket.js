@@ -4,8 +4,16 @@ let socket = null;
 let currentTournamentId = null;
 
 const getServerUrl = () => {
-  return import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+  if (import.meta.env.VITE_SERVER_URL) {
+    return import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '');
+  }
+  if (import.meta.env.VITE_API_URL) {
+    // Strip trailing /api and any slashes, e.g. "https://api.example.com/api/" -> "https://api.example.com"
+    return import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+  }
+  return 'http://localhost:5000';
 };
+
 
 /**
  * Connects the Socket.IO client using the CHESS JEENO JWT.

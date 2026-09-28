@@ -27,12 +27,15 @@ export const getOAuthClientId = () => {
 };
 
 export const getOAuthRedirectUri = () => {
-  return process.env.LICHESS_OAUTH_REDIRECT_URI || 'http://localhost:5000/api/lichess/callback';
+  const uri = process.env.LICHESS_OAUTH_REDIRECT_URI || 'http://localhost:5000/api/lichess/callback';
+  return uri.trim();
 };
 
 export const getFrontendClientUrl = () => {
-  return process.env.CLIENT_URL || 'http://localhost:5173';
+  const url = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0].trim() : 'http://localhost:5173';
+  return url.replace(/\/+$/, '');
 };
+
 
 export default {
   ...LICHESS_OAUTH_CONFIG,

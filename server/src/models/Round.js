@@ -26,6 +26,11 @@ const roundSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    stageName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     startedAt: {
       type: Date,
       default: null,

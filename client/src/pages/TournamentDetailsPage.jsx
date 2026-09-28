@@ -263,6 +263,8 @@ const TournamentDetailsPage = () => {
         : playerCount
       : tournament?.format === 'SWISS'
       ? Number(tournament?.totalRounds) || 0
+      : tournament?.format === 'KNOCKOUT' && playerCount >= 2
+      ? Math.ceil(Math.log2(playerCount))
       : 0;
 
   const allRoundsCreated = rounds.length > 0 && maxRounds > 0 && rounds.length >= maxRounds;
@@ -273,8 +275,8 @@ const TournamentDetailsPage = () => {
     latestRound.pairings &&
     (latestRound.pairings.length === 0 ||
       latestRound.pairings.every((p) =>
-        ['FINISHED', 'COMPLETED', 'ABORTED', 'CANCELLED'].includes(p.status) ||
-        ['1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW', 'ABORTED'].includes(p.result)
+        ['FINISHED', 'COMPLETED', 'ABORTED', 'CANCELLED', 'BYE'].includes(p.status) ||
+        ['1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW', 'ABORTED', 'BYE'].includes(p.result)
       ))
   );
 
@@ -564,6 +566,7 @@ const TournamentDetailsPage = () => {
             <span className="text-xs text-slate-500 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full">
               {FORMAT_LABELS[tournament.format] || tournament.format}
               {tournament.format === 'SWISS' && tournament.totalRounds ? ` (${tournament.totalRounds} Rounds)` : ''}
+              {tournament.format === 'KNOCKOUT' && maxRounds > 0 ? ` (${maxRounds} Stages)` : ''}
             </span>
           </div>
 
@@ -579,6 +582,29 @@ const TournamentDetailsPage = () => {
             <p className="mt-3 text-xs italic text-slate-400">
               No description provided for this tournament.
             </p>
+          )}
+
+          {/* Tournament Champion Banner */}
+          {tournament.status === 'FINISHED' && tournament.winnerPlayer && (
+            <div className="mt-5 p-4 bg-gradient-to-r from-amber-500/15 via-yellow-400/25 to-amber-500/10 border-2 border-amber-300 rounded-xl flex items-center space-x-3.5 shadow-xs">
+              <div className="p-2.5 bg-amber-500 text-white rounded-lg shadow-sm">
+                <Trophy className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Tournament Champion</div>
+                <div className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center space-x-2">
+                  <span>{tournament.winnerPlayer?.name || 'Tournament Winner'}</span>
+                  {tournament.winnerPlayer?.lichessUsername && (
+                    <span className="text-xs font-mono text-amber-800 font-semibold">
+                      (@{tournament.winnerPlayer.lichessUsername})
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-amber-700 mt-0.5">
+                  Winner of {tournament.name} ({FORMAT_LABELS[tournament.format] || tournament.format})
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
@@ -610,6 +636,8 @@ const TournamentDetailsPage = () => {
                 ? `${tournament.totalRounds} scheduled rounds`
                 : tournament.format === 'ROUND_ROBIN'
                 ? 'All-play-all schedule'
+                : tournament.format === 'KNOCKOUT'
+                ? 'Single-elimination bracket'
                 : 'Standard tournament bracket'}
             </div>
           </div>
@@ -1037,15 +1065,19 @@ const TournamentDetailsPage = () => {
             <h2 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
               <Swords className="h-5 w-5 text-indigo-600" />
               <span>Rounds & Pairings</span>
-              {tournament.format === 'SWISS' && maxRounds > 0 && (
+              {maxRounds > 0 && (
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  Round: {rounds.length} / {maxRounds}
+                  {tournament.format === 'KNOCKOUT'
+                    ? `Stage: ${rounds.length} / ${maxRounds}`
+                    : `Round: ${rounds.length} / ${maxRounds}`}
                 </span>
               )}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               {tournament.format === 'SWISS'
                 ? 'Swiss system match pairings and standings'
+                : tournament.format === 'KNOCKOUT'
+                ? 'Single-elimination knockout bracket and stage pairings'
                 : 'Round Robin schedule and match pairings'}
             </p>
           </div>
@@ -1096,6 +1128,8 @@ const TournamentDetailsPage = () => {
                     <span>
                       {createRoundLoading
                         ? 'Creating Round...'
+                        : tournament.format === 'KNOCKOUT'
+                        ? 'CREATE NEXT STAGE'
                         : `CREATE NEXT ROUND (Round ${rounds.length + 1})`}
                     </span>
                   </button>
@@ -1134,6 +1168,64 @@ const TournamentDetailsPage = () => {
           </div>
         )}
 
+        {/* Knockout Bracket Stage Progression View */}
+        {tournament.format === 'KNOCKOUT' && rounds.length > 0 && (
+          <div className="p-6 bg-slate-50/70 border-b border-slate-200">
+            <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">
+              <Trophy className="h-4 w-4 text-indigo-600" />
+              <span>Knockout Bracket Progression</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-2">
+              {rounds.map((r) => {
+                const stageTitle = r.stageName || (r.pairings?.length === 1 ? 'Final' : `Round ${r.roundNumber}`);
+                return (
+                  <div key={r._id} className="bg-white rounded-lg border border-slate-200 shadow-xs p-3 flex flex-col justify-between">
+                    <div className="border-b border-slate-100 pb-2 mb-2 flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        {stageTitle}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {r.pairings?.length || 0} match(es)
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {r.pairings?.map((p, mIdx) => {
+                        const wWinner = p.result === '1-0' || p.result === 'WHITE_WIN' || p.status === 'BYE' || p.result === 'BYE';
+                        const bWinner = p.result === '0-1' || p.result === 'BLACK_WIN';
+                        return (
+                          <div key={p._id || mIdx} className="bg-slate-50/80 rounded border border-slate-200 p-2 text-xs space-y-1">
+                            {/* White player slot */}
+                            <div className={`flex items-center justify-between px-1 py-0.5 rounded ${wWinner ? 'bg-emerald-50 text-emerald-900 font-bold' : 'text-slate-700'}`}>
+                              <span className="truncate max-w-[130px]">{p.whitePlayer?.name || 'Player'}</span>
+                              <span className="font-mono text-[11px] font-bold">
+                                {p.status === 'BYE' || p.result === 'BYE' ? 'BYE' : p.result === '1-0' ? '1' : p.result === '0-1' ? '0' : p.result === '1/2-1/2' ? '½' : '—'}
+                              </span>
+                            </div>
+                            {/* Black player slot */}
+                            <div className={`flex items-center justify-between px-1 py-0.5 rounded ${bWinner ? 'bg-emerald-50 text-emerald-900 font-bold' : 'text-slate-700'}`}>
+                              <span className="truncate max-w-[130px] italic text-slate-500">
+                                {p.status === 'BYE' || !p.blackPlayer ? 'BYE (Advances)' : (p.blackPlayer?.name || 'Player')}
+                              </span>
+                              <span className="font-mono text-[11px] font-bold">
+                                {p.status === 'BYE' || !p.blackPlayer ? '' : p.result === '0-1' ? '1' : p.result === '1-0' ? '0' : p.result === '1/2-1/2' ? '½' : '—'}
+                              </span>
+                            </div>
+                            {(wWinner || bWinner) && (
+                              <div className="text-[10px] text-emerald-700 font-semibold pt-1 border-t border-slate-200/60 flex items-center space-x-1">
+                                <span>Winner: {wWinner ? (p.whitePlayer?.name || 'White') : (p.blackPlayer?.name || 'Black')}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Rounds Content */}
         {rounds.length === 0 ? (
           <div className="p-12 text-center">
@@ -1150,14 +1242,20 @@ const TournamentDetailsPage = () => {
         ) : (
           <div className="p-6 space-y-6">
             {rounds.map((round) => {
-              const hasPendingGames =
-                round.pairings && round.pairings.some((p) => !p.lichessGameId);
+              const roundPairings = round.pairings || [];
+              const hasPendingGames = roundPairings.some(
+                (p) =>
+                  !p.lichessGameId &&
+                  p.status !== 'BYE' &&
+                  p.result !== 'BYE' &&
+                  p.blackPlayer &&
+                  !['FINISHED', 'COMPLETED', 'ABORTED', 'CANCELLED'].includes(p.status)
+              );
               const isRoundBulkLoading = Boolean(roundBulkLoading[round.roundNumber]);
 
-              const roundPairings = round.pairings || [];
               const completedGamesCount = roundPairings.filter((p) =>
-                ['FINISHED', 'COMPLETED', 'ABORTED', 'CANCELLED'].includes(p.status) ||
-                ['1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW', 'ABORTED'].includes(p.result)
+                ['FINISHED', 'COMPLETED', 'ABORTED', 'CANCELLED', 'BYE'].includes(p.status) ||
+                ['1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW', 'ABORTED', 'BYE'].includes(p.result)
               ).length;
               const isRoundDone =
                 roundPairings.length === 0 || completedGamesCount === roundPairings.length;
@@ -1171,7 +1269,7 @@ const TournamentDetailsPage = () => {
                   <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center space-x-3">
                       <span className="font-bold text-slate-900 text-base">
-                        Round {round.roundNumber}
+                        {round.stageName ? `${round.stageName} (Round ${round.roundNumber})` : `Round ${round.roundNumber}`}
                       </span>
                       <span
                         className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
@@ -1240,6 +1338,7 @@ const TournamentDetailsPage = () => {
                         {round.pairings.map((pairing, pIdx) => {
                           const isPairingLoading = Boolean(pairingGameLoading[pairing._id]);
                           const isGameReady = Boolean(pairing.lichessGameId);
+                          const isBye = pairing.status === 'BYE' || pairing.result === 'BYE' || !pairing.blackPlayer;
 
                           return (
                             <div
@@ -1275,28 +1374,36 @@ const TournamentDetailsPage = () => {
 
                                 {/* VS separator */}
                                 <span className="text-xs font-bold text-slate-400 px-2 py-0.5 bg-slate-100 rounded">
-                                  VS
+                                  {isBye ? '—' : 'VS'}
                                 </span>
 
-                                {/* Black Player */}
-                                <div className="flex items-center space-x-2 flex-1 justify-start text-left">
-                                  <span
-                                    className="w-5 h-5 rounded-full bg-slate-900 border-2 border-slate-900 flex items-center justify-center text-xs font-bold text-white shadow-2xs"
-                                    title="Black Pieces"
-                                  >
-                                    ♚
-                                  </span>
-                                  <div>
-                                    <div className="text-xs font-semibold text-slate-900">
-                                      {pairing.blackPlayer?.name || 'Player'}
-                                    </div>
-                                    {pairing.blackPlayer?.lichessUsername && (
-                                      <div className="text-[10px] text-slate-400 font-mono">
-                                        @{pairing.blackPlayer.lichessUsername}
-                                      </div>
-                                    )}
+                                {/* Black Player / BYE */}
+                                {isBye ? (
+                                  <div className="flex items-center space-x-2 flex-1 justify-start text-left">
+                                    <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
+                                      BYE (Auto-Advance)
+                                    </span>
                                   </div>
-                                </div>
+                                ) : (
+                                  <div className="flex items-center space-x-2 flex-1 justify-start text-left">
+                                    <span
+                                      className="w-5 h-5 rounded-full bg-slate-900 border-2 border-slate-900 flex items-center justify-center text-xs font-bold text-white shadow-2xs"
+                                      title="Black Pieces"
+                                    >
+                                      ♚
+                                    </span>
+                                    <div>
+                                      <div className="text-xs font-semibold text-slate-900">
+                                        {pairing.blackPlayer?.name || 'Player'}
+                                      </div>
+                                      {pairing.blackPlayer?.lichessUsername && (
+                                        <div className="text-[10px] text-slate-400 font-mono">
+                                          @{pairing.blackPlayer.lichessUsername}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
 
                               {/* Match Status, Result & Lichess Actions */}
@@ -1304,7 +1411,9 @@ const TournamentDetailsPage = () => {
                                 {/* Pairing Status Badge */}
                                 <span
                                   className={`px-2 py-0.5 rounded font-semibold text-[11px] flex items-center space-x-1 ${
-                                    pairing.status === 'FINISHED' || pairing.status === 'COMPLETED'
+                                    isBye
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : pairing.status === 'FINISHED' || pairing.status === 'COMPLETED'
                                       ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                       : pairing.status === 'ABORTED' || pairing.status === 'CANCELLED'
                                       ? 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -1318,6 +1427,8 @@ const TournamentDetailsPage = () => {
                                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse mr-1" />
                                       <span>LIVE</span>
                                     </>
+                                  ) : isBye ? (
+                                    <span>BYE</span>
                                   ) : (
                                     <span>{pairing.status}</span>
                                   )}
@@ -1356,16 +1467,23 @@ const TournamentDetailsPage = () => {
                                 {/* Result */}
                                 <span
                                   className={`px-2 py-0.5 rounded font-mono text-[11px] font-bold ${
-                                    pairing.result && pairing.result !== 'PENDING'
+                                    isBye
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : pairing.result && pairing.result !== 'PENDING'
                                       ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                                       : 'text-slate-500 bg-slate-50 border border-slate-200'
                                   }`}
                                 >
-                                  {pairing.result === 'PENDING' ? '—' : pairing.result}
+                                  {isBye ? 'BYE' : pairing.result === 'PENDING' ? '—' : pairing.result}
                                 </span>
 
                                 {/* Lichess Action Buttons */}
-                                {isGameReady ? (
+                                {isBye ? (
+                                  <div className="flex items-center space-x-1 px-2.5 py-1 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold">
+                                    <CheckCircle className="h-3.5 w-3.5" />
+                                    <span>AUTO-ADVANCED</span>
+                                  </div>
+                                ) : isGameReady ? (
                                   <div className="flex items-center space-x-1.5">
                                     {/* SYNC RESULT Button */}
                                     <button
