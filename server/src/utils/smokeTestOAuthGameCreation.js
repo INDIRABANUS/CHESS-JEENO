@@ -86,7 +86,7 @@ const runRealSmokeTest = async () => {
         access_token: tokenPlayer1,
         token_type: 'Bearer',
         expires_in: 31536000,
-        scope: 'preference:read challenge:read challenge:write board:play',
+        scope: 'preference:read challenge:read challenge:write challenge:bulk board:play',
       },
     });
     console.log(`  -> User A connected to Lichess account @${account1.username}`);
@@ -110,7 +110,7 @@ const runRealSmokeTest = async () => {
           access_token: tokenPlayer2,
           token_type: 'Bearer',
           expires_in: 31536000,
-          scope: 'preference:read challenge:read challenge:write board:play',
+          scope: 'preference:read challenge:read challenge:write challenge:bulk board:play',
         },
       });
       console.log(`  -> User B connected to Lichess account @${account2.username}`);

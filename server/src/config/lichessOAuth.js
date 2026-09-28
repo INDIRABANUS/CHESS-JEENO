@@ -18,6 +18,7 @@ export const LICHESS_OAUTH_CONFIG = {
     'preference:read',
     'challenge:read',
     'challenge:write',
+    'challenge:bulk',
     'board:play',
   ],
 };

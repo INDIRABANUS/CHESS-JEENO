@@ -133,7 +133,12 @@ const runOAuthTests = async () => {
     assert(scopesParam.includes('preference:read'), 'Scope includes preference:read');
     assert(scopesParam.includes('challenge:read'), 'Scope includes challenge:read');
     assert(scopesParam.includes('challenge:write'), 'Scope includes challenge:write');
+    assert(scopesParam.includes('challenge:bulk'), 'Scope includes challenge:bulk');
     assert(scopesParam.includes('board:play'), 'Scope includes board:play');
+    assert(
+      scopesParam === 'preference:read challenge:read challenge:write challenge:bulk board:play',
+      'Scope parameter contains exact 5 required scopes in order'
+    );
 
     assert(lichessOAuthService.hasOAuthTransaction(authResult.state) === true, 'Authorization URL generation stored state transaction');
 
@@ -238,7 +243,7 @@ const runOAuthTests = async () => {
                 access_token: 'mock_lichess_oauth_access_token_xyz987',
                 token_type: 'Bearer',
                 expires_in: 31536000,
-                scope: 'preference:read challenge:read challenge:write board:play',
+                scope: 'preference:read challenge:read challenge:write challenge:bulk board:play',
               }),
             };
           }

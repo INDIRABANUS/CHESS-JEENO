@@ -177,6 +177,13 @@ const runEndToEndTests = async () => {
     assert(authUrlData.url.includes('response_type=code'), '11. Auth URL contains response_type=code');
     assert(authUrlData.url.includes('code_challenge_method=S256'), '11. Auth URL specifies S256 PKCE');
     assert(authUrlData.state.length === 64, '11. OAuth state is a secure 64-char hex string');
+    const authUrlParsed = new URL(authUrlData.url);
+    const scopeParam = authUrlParsed.searchParams.get('scope') || '';
+    assert(scopeParam.includes('challenge:bulk'), '11. Auth URL scope includes challenge:bulk');
+    assert(
+      scopeParam === 'preference:read challenge:read challenge:write challenge:bulk board:play',
+      '11. Auth URL scope matches all 5 required scopes'
+    );
 
     // 12. Single-Use State Consumption
     const consumedState = lichessOAuthService.consumeOAuthTransaction(authUrlData.state);
@@ -191,7 +198,7 @@ const runEndToEndTests = async () => {
         access_token: 'secret_oauth_token_a_123',
         token_type: 'Bearer',
         expires_in: 31536000,
-        scope: 'preference:read challenge:read challenge:write board:play',
+        scope: 'preference:read challenge:read challenge:write challenge:bulk board:play',
       },
     });
 
@@ -201,7 +208,7 @@ const runEndToEndTests = async () => {
         access_token: 'secret_oauth_token_b_456',
         token_type: 'Bearer',
         expires_in: 31536000,
-        scope: 'preference:read challenge:read challenge:write board:play',
+        scope: 'preference:read challenge:read challenge:write challenge:bulk board:play',
       },
     });
 

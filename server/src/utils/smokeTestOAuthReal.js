@@ -104,7 +104,7 @@ const runRealOAuthSmokeTest = async () => {
       access_token: realLichessToken,
       token_type: 'Bearer',
       expires_in: 31536000,
-      scope: 'preference:read challenge:read challenge:write board:play',
+      scope: 'preference:read challenge:read challenge:write challenge:bulk board:play',
     };
 
     await lichessOAuthService.storeLichessConnection(userIdA, {

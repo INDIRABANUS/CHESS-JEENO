@@ -274,6 +274,7 @@ Deploy the `client/` directory to Vercel.
    - `preference:read`
    - `challenge:read`
    - `challenge:write`
+   - `challenge:bulk`
    - `board:play`
 5. Save and copy the **Client ID** (e.g. `chess-jeeno`) into your backend `LICHESS_OAUTH_CLIENT_ID` environment variable.
 
