@@ -298,24 +298,6 @@ const TournamentDetailsPage = () => {
   // Countdown timer state
   const [countdownRemaining, setCountdownRemaining] = useState(null);
 
-  useEffect(() => {
-    if (tournament?.status === 'COUNTDOWN' && tournament?.scheduledStartAt) {
-      const targetTime = new Date(tournament.scheduledStartAt).getTime();
-      const updateRemaining = () => {
-        const diff = Math.max(0, Math.ceil((targetTime - Date.now()) / 1000));
-        setCountdownRemaining(diff);
-        if (diff === 0 && isHost) {
-          handleStartTournament();
-        }
-      };
-      updateRemaining();
-      const interval = setInterval(updateRemaining, 1000);
-      return () => clearInterval(interval);
-    } else {
-      setCountdownRemaining(null);
-    }
-  }, [tournament?.status, tournament?.scheduledStartAt, isHost]);
-
   // Derived user / host / registration status
   const currentUserId = (currentUser?._id || authUser?._id)?.toString();
   const creatorId = (
@@ -540,6 +522,25 @@ const TournamentDetailsPage = () => {
       setActionLoading(false);
     }
   };
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (tournament?.status === 'COUNTDOWN' && tournament?.scheduledStartAt) {
+      const targetTime = new Date(tournament.scheduledStartAt).getTime();
+      const updateRemaining = () => {
+        const diff = Math.max(0, Math.ceil((targetTime - Date.now()) / 1000));
+        setCountdownRemaining(diff);
+        if (diff === 0 && isHost) {
+          handleStartTournament();
+        }
+      };
+      updateRemaining();
+      const interval = setInterval(updateRemaining, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setCountdownRemaining(null);
+    }
+  }, [tournament?.status, tournament?.scheduledStartAt, isHost]);
 
   // Handle Rematch for Aborted Pairing
   const handleRematch = async (roundNumber, pairingId) => {
