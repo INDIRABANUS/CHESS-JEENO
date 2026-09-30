@@ -313,6 +313,15 @@ export const storeLichessConnection = async (userId, { account, tokenData }) => 
     ? new Date(Date.now() + tokenData.expires_in * 1000)
     : null;
 
+  let grantedScope = LICHESS_OAUTH_CONFIG.defaultScopes.join(' ');
+  if (tokenData && tokenData.scope) {
+    if (Array.isArray(tokenData.scope)) {
+      grantedScope = tokenData.scope.join(' ');
+    } else if (typeof tokenData.scope === 'string' && tokenData.scope.trim().length > 0) {
+      grantedScope = tokenData.scope.trim();
+    }
+  }
+
   user.lichessUsername = account.username;
   user.lichessUserId = normalizedLichessId;
   user.lichessOAuth = {
@@ -320,7 +329,7 @@ export const storeLichessConnection = async (userId, { account, tokenData }) => 
     refreshToken: tokenData.refresh_token || null,
     expiresAt,
     tokenType: tokenData.token_type || 'Bearer',
-    scope: tokenData.scope || LICHESS_OAUTH_CONFIG.defaultScopes.join(' '),
+    scope: grantedScope,
     connectedAt: new Date(),
   };
 
@@ -387,7 +396,7 @@ export const getConnectionStatus = async (userId) => {
     throw error;
   }
 
-  const user = await User.findById(userId);
+  const user = await User.findById(userId).select('+lichessOAuth.scope');
   if (!user) {
     const error = new Error('User not found');
     error.statusCode = 404;
@@ -395,12 +404,15 @@ export const getConnectionStatus = async (userId) => {
   }
 
   const isConnected = Boolean(user.lichessUserId && user.lichessUsername);
+  const userScopeStr = user.lichessOAuth?.scope || '';
+  const hasBulkScope = userScopeStr.includes('challenge:bulk');
 
   return {
     connected: isConnected,
     username: user.lichessUsername || null,
     lichessUserId: user.lichessUserId || null,
     connectedAt: user.lichessOAuth?.connectedAt || null,
+    hasRequiredScopes: isConnected ? hasBulkScope : false,
   };
 };
 
@@ -422,7 +434,7 @@ export const resolveLichessPlayerCredentials = async (userId, options = {}) => {
   }
 
   // 1. Explicitly select the normally-hidden OAuth credential fields
-  const user = await User.findById(userId).select('+lichessOAuth.accessToken');
+  const user = await User.findById(userId).select('+lichessOAuth.accessToken +lichessOAuth.scope');
   if (!user) {
     const error = new Error('User not found');
     error.statusCode = 404;
@@ -468,11 +480,30 @@ export const resolveLichessPlayerCredentials = async (userId, options = {}) => {
     throw error;
   }
 
+  // 6. Verify required OAuth scopes
+  const requiredScopes = options.requiredScopes;
+  if (requiredScopes && requiredScopes.length > 0 && source === 'oauth') {
+    const userScopeStr = user.lichessOAuth?.scope || '';
+    const userScopes = new Set(userScopeStr.split(/\s+/).filter(Boolean));
+    const missingScopes = requiredScopes.filter((s) => !userScopes.has(s));
+
+    if (missingScopes.length > 0) {
+      const error = new Error(
+        `Player @${user.lichessUsername} must reconnect their Lichess account with required permissions (missing scope: ${missingScopes.join(', ')}). Please disconnect and reconnect Lichess in Profile settings.`
+      );
+      error.statusCode = 400;
+      error.code = 'OAUTH_SCOPE_MISSING';
+      error.missingScopes = missingScopes;
+      throw error;
+    }
+  }
+
   return {
     userId: user._id.toString(),
     lichessUsername: user.lichessUsername,
     lichessUserId: user.lichessUserId || user.lichessUsername.toLowerCase(),
     accessToken,
+    scope: user.lichessOAuth?.scope || null,
     source,
   };
 };

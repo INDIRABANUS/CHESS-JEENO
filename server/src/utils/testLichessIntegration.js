@@ -38,6 +38,7 @@ const runLichessTests = async () => {
       userData.lichessOAuth = {
         accessToken: `mock_tok_${lichessUsername}`,
         tokenType: 'Bearer',
+        scope: 'preference:read challenge:read challenge:write challenge:bulk board:play',
         connectedAt: new Date(),
       };
     }

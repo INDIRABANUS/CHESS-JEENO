@@ -97,8 +97,9 @@ export const createGame = async ({
     throw error;
   }
 
-  // 3. Ensure organizer API token is present
-  const apiToken = token || (isProduction ? (process.env.LICHESS_API_TOKEN || resolvedWhiteToken) : (resolvedWhiteToken || requireLichessToken()));
+  // 3. Ensure API token is present for bulk-pairing
+  // In production, strictly enforce OAuth tokens; never fall back to LICHESS_API_TOKEN
+  const apiToken = token || (isProduction ? resolvedWhiteToken : (resolvedWhiteToken || (process.env.LICHESS_API_TOKEN ? requireLichessToken() : null)));
 
   const playersPayload = `${resolvedWhiteToken}:${resolvedBlackToken}`;
 
@@ -178,7 +179,11 @@ export const createGame = async ({
       if (response.status === 401) {
         error.message = `Lichess API authentication failed (HTTP 401): ${details}. Please verify LICHESS_API_TOKEN.`;
       } else if (response.status === 403) {
-        error.message = `Lichess API forbidden (HTTP 403): ${details}`;
+        if (details && (details.includes('challenge:bulk') || details.includes('Missing scope'))) {
+          error.message = `Lichess API rejected game creation (missing scope: challenge:bulk). One or both players must reconnect their Lichess account with required permissions. Please disconnect and reconnect Lichess in Profile settings.`;
+        } else {
+          error.message = `Lichess API forbidden (HTTP 403): ${details}`;
+        }
       } else if (response.status === 404) {
         error.message = `One of the players ('${white}' or '${black}') was not found on Lichess: ${details}`;
       } else {

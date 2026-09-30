@@ -31,7 +31,7 @@ export const errorHandler = (err, req, res, next) => {
   // Ensure message does not expose internal filesystem paths or tokens
   if (typeof message === 'string') {
     // Strip file paths if any (e.g. C:\Users\... or /home/...)
-    message = message.replace(/(?:[a-zA-Z]:|\/)[^\s:;"']+/g, '[redacted_path]');
+    message = message.replace(/(?:[a-zA-Z]:[\\\/]|\/(?:[a-zA-Z0-9_\-\.]+\/)+)[^\s:;"']+/g, '[redacted_path]');
     // Strip potential tokens
     message = message.replace(/(?:bearer\s+|token[=:]\s*)[a-zA-Z0-9_\-\.]{20,}/gi, '[redacted_token]');
   }

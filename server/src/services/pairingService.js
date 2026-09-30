@@ -155,9 +155,11 @@ export const createLichessGameForPairing = async (
     // 9. Resolve both players' Lichess OAuth credentials securely from User records
     const whiteCreds = await lichessOAuthService.resolveLichessPlayerCredentials(whiteUserId, {
       allowDevBridge,
+      requiredScopes: ['challenge:bulk'],
     });
     const blackCreds = await lichessOAuthService.resolveLichessPlayerCredentials(blackUserId, {
       allowDevBridge,
+      requiredScopes: ['challenge:bulk'],
     });
 
     const whiteUsername = whiteCreds.lichessUsername;

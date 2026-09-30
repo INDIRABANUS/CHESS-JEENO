@@ -59,6 +59,7 @@ const runOAuthGameCreationTests = async () => {
       lichessOAuth: {
         accessToken: 'oauth_access_token_alice_secret_999',
         tokenType: 'Bearer',
+        scope: 'preference:read challenge:read challenge:write challenge:bulk board:play',
         connectedAt: new Date(),
       },
     });
@@ -76,6 +77,7 @@ const runOAuthGameCreationTests = async () => {
       lichessOAuth: {
         accessToken: 'oauth_access_token_bob_secret_888',
         tokenType: 'Bearer',
+        scope: 'preference:read challenge:read challenge:write challenge:bulk board:play',
         connectedAt: new Date(),
       },
     });
@@ -366,6 +368,141 @@ const runOAuthGameCreationTests = async () => {
     );
     assert(bulkRoundData.skipped === 1, 'Round-level creation skips already-created game');
     assert(bulkRoundData.created === 0, 'No new games created when all already exist');
+
+    // =========================================================================
+    // SECTION 5: Scope Validation & Security Isolation Tests
+    // =========================================================================
+    console.log('\n--- SECTION 5: Scope Validation & Security Isolation ---');
+
+    // 17. OAuth authorization requests challenge:bulk
+    const authUrlData = lichessOAuthService.createAuthorizationUrl(userA._id);
+    const parsedAuth = new URL(authUrlData.url);
+    const requestedScope = parsedAuth.searchParams.get('scope') || '';
+    assert(requestedScope.includes('challenge:bulk'), '17. OAuth authorization requests challenge:bulk');
+    assert(
+      requestedScope === 'preference:read challenge:read challenge:write challenge:bulk board:play',
+      '17. Exact 5 required scopes requested in authorization URL'
+    );
+
+    // 18. New OAuth connection stores challenge:bulk
+    const freshUser = await User.create({
+      name: 'Fresh User',
+      email: `${testPrefix}_fresh@chessjeeno.local`,
+      passwordHash: 'dummy_hash',
+      authProvider: 'local',
+    });
+    createdUserIds.push(freshUser._id);
+    await lichessOAuthService.storeLichessConnection(freshUser._id, {
+      account: { id: 'fresh_user_lic', username: 'fresh_user_lic' },
+      tokenData: {
+        access_token: 'fresh_oauth_token_999',
+        scope: 'preference:read challenge:read challenge:write challenge:bulk board:play',
+      },
+    });
+    const freshUserDoc = await User.findById(freshUser._id).select('+lichessOAuth.scope');
+    assert(freshUserDoc.lichessOAuth?.scope.includes('challenge:bulk'), '18. New OAuth connection stores challenge:bulk');
+
+    // 19. Existing token missing challenge:bulk is rejected cleanly
+    const staleUser = await User.create({
+      name: 'Stale Token User',
+      email: `${testPrefix}_stale@chessjeeno.local`,
+      passwordHash: 'dummy_hash',
+      authProvider: 'local',
+      lichessUsername: 'stale_user_lic',
+      lichessUserId: 'stale_user_lic',
+      lichessOAuth: {
+        accessToken: 'stale_oauth_token_without_bulk',
+        tokenType: 'Bearer',
+        scope: 'preference:read challenge:read challenge:write board:play', // MISSING challenge:bulk!
+        connectedAt: new Date(),
+      },
+    });
+    createdUserIds.push(staleUser._id);
+
+    let staleScopeError = null;
+    try {
+      await lichessOAuthService.resolveLichessPlayerCredentials(staleUser._id, {
+        requiredScopes: ['challenge:bulk'],
+      });
+    } catch (err) {
+      staleScopeError = err;
+    }
+    assert(Boolean(staleScopeError), '19. Existing token missing challenge:bulk is rejected cleanly');
+    assert(staleScopeError?.statusCode === 400, '19. Rejected with HTTP 400');
+    assert(
+      staleScopeError?.message.includes('must reconnect their Lichess account') &&
+        staleScopeError?.message.includes('challenge:bulk'),
+      '19. Actionable reconnect instruction returned'
+    );
+
+    // 20. Stale token in pairing API request returns clean HTTP 400
+    const tourneyStale = await tournamentService.createTournament(
+      {
+        name: `${testPrefix} Stale Test Tourney`,
+        format: 'ROUND_ROBIN',
+        clockLimit: 300,
+        increment: 0,
+        maxPlayers: 2,
+      },
+      userA._id
+    );
+    createdTournamentIds.push(tourneyStale._id);
+    await tournamentPlayerService.joinTournament(tourneyStale._id, staleUser._id);
+    await tournamentPlayerService.joinTournament(tourneyStale._id, userB._id);
+    const roundStale = await roundService.createRound(tourneyStale._id, userA._id);
+    const pairingStale = roundStale.pairings[0];
+
+    const stalePairingRes = await fetch(
+      `${API_BASE}/tournaments/${tourneyStale._id}/rounds/1/pairings/${pairingStale._id}/lichess`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokenA}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    const stalePairingData = await stalePairingRes.json();
+    assert(stalePairingRes.status === 400, '20. Stale token pairing returns HTTP 400');
+    assert(
+      stalePairingData.message.includes('must reconnect their Lichess account') &&
+        stalePairingData.message.includes('challenge:bulk'),
+      '20. Clear instruction to reconnect Lichess in Profile settings'
+    );
+
+    // 21. No fallback to LICHESS_API_TOKEN in production
+    const savedEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    process.env.LICHESS_API_TOKEN = 'secret_env_organizer_token';
+    let prodNoFallbackCaught = false;
+    try {
+      await lichessService.createGame({
+        whiteUsername: 'player_without_token',
+        blackUsername: 'player_also_without_token',
+        clockLimit: 300,
+        increment: 0,
+      });
+    } catch (err) {
+      prodNoFallbackCaught = true;
+      assert(err.statusCode === 400, '21. Production rejects missing player token with HTTP 400');
+      assert(err.message.includes('Missing Lichess token for player'), '21. No fallback to LICHESS_API_TOKEN in production');
+    }
+    assert(prodNoFallbackCaught, '21. Production strictly prevents LICHESS_API_TOKEN fallback');
+    process.env.NODE_ENV = savedEnv;
+    delete process.env.LICHESS_API_TOKEN;
+
+    // 22. Player tokens are never substituted with host token
+    assert(
+      capturedLichessCall.whiteToken !== tokenA,
+      '22. Player A token is never substituted with host token'
+    );
+    assert(
+      capturedLichessCall.blackToken !== tokenA,
+      '22. Player B token is never substituted with host token'
+    );
+
+    // 23. Valid newly authorized tokens can create the Lichess game
+    assert(dbPairing1.lichessGameId === 'lic_oauth_game_123', '23. Valid newly authorized tokens can create the Lichess game');
 
     // Reset mock transport to null
     setMockTransport(null);
