@@ -4,6 +4,7 @@ import Round from '../models/Round.js';
 import Pairing from '../models/Pairing.js';
 import lichessService from './lichessService.js';
 import * as lichessOAuthService from './lichessOAuthService.js';
+import * as standingsService from './standingsService.js';
 
 // In-flight concurrency lock to prevent duplicate game creation race conditions
 const inFlightPairingIds = new Set();
@@ -522,8 +523,10 @@ export const syncPairingResult = async (
     if (gameData.result) {
       pairing.result = gameData.result;
     }
-    if (!pairing.completedAt) {
+    if (gameData.pairingStatus === 'FINISHED' && !pairing.completedAt) {
       pairing.completedAt = new Date();
+    } else if (gameData.pairingStatus === 'ABORTED') {
+      pairing.completedAt = null;
     }
   } else {
     // Game still running
@@ -531,11 +534,278 @@ export const syncPairingResult = async (
   }
 
   await pairing.save();
+  if (pairing.tournamentId) {
+    await standingsService.syncTournamentPlayerScores(pairing.tournamentId);
+  }
   return pairing;
+};
+
+// In-flight concurrency lock to prevent duplicate rematch requests
+const inFlightRematchPairingIds = new Set();
+
+/**
+ * Initiates a rematch for an aborted Lichess game pairing.
+ * Creates a new Lichess game while preserving previous game ID/URL history.
+ * Fully protected against concurrent double-click rematch race conditions.
+ *
+ * @param {string} tournamentId
+ * @param {number|string} roundNumber
+ * @param {string} pairingId
+ * @param {Object} [options]
+ * @param {string|mongoose.Types.ObjectId} [userId]
+ * @returns {Promise<Pairing>}
+ */
+export const rematchAbortedPairing = async (
+  tournamentId,
+  roundNumber,
+  pairingId,
+  options = {},
+  userId = null
+) => {
+  if (!mongoose.isValidObjectId(tournamentId)) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const numRound = Number(roundNumber);
+  if (isNaN(numRound) || numRound < 1) {
+    const error = new Error('Round not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (!mongoose.isValidObjectId(pairingId)) {
+    const error = new Error('Pairing not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const pairingIdStr = pairingId.toString();
+
+  // In-flight memory concurrency guard
+  if (inFlightRematchPairingIds.has(pairingIdStr)) {
+    const error = new Error('A rematch request for this pairing is already in progress.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  inFlightRematchPairingIds.add(pairingIdStr);
+
+  try {
+    // 1. Fetch Tournament
+    const tournament = await Tournament.findById(tournamentId);
+    if (!tournament) {
+      const error = new Error('Tournament not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // 2. Fetch Round
+    const round = await Round.findOne({
+      tournamentId: tournament._id,
+      roundNumber: numRound,
+    });
+    if (!round) {
+      const error = new Error('Round not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // 3. Find Pairing
+    const rawPairing = await Pairing.findById(pairingId)
+      .populate('whitePlayer', 'name email avatar lichessUsername')
+      .populate('blackPlayer', 'name email avatar lichessUsername');
+
+    if (!rawPairing) {
+      const error = new Error('Pairing not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (rawPairing.tournamentId.toString() !== tournament._id.toString()) {
+      const error = new Error('Pairing does not belong to the specified tournament.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (rawPairing.roundId.toString() !== round._id.toString()) {
+      const error = new Error('Pairing does not belong to the specified round.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // 4. Authorization check: Host or paired player
+    const whiteUserId = (rawPairing.whitePlayer?._id || rawPairing.whitePlayer)?.toString();
+    const blackUserId = (rawPairing.blackPlayer?._id || rawPairing.blackPlayer)?.toString();
+
+    if (userId) {
+      const callerId = userId.toString();
+      const isHost = tournament.createdBy.toString() === callerId;
+      const isWhite = whiteUserId === callerId;
+      const isBlack = blackUserId === callerId;
+
+      if (!isHost && !isWhite && !isBlack) {
+        const error = new Error('You are not authorized to request a rematch for this pairing.');
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+
+    // 5. Atomic state transition: Ensure pairing is currently ABORTED and transition to REMATCHING
+    const lockedPairing = await Pairing.findOneAndUpdate(
+      {
+        _id: rawPairing._id,
+        $or: [
+          { status: 'ABORTED' },
+          { result: 'ABORTED' },
+        ],
+        status: { $ne: 'REMATCHING' },
+      },
+      {
+        $set: { status: 'REMATCHING' },
+      },
+      { new: true }
+    )
+      .populate('whitePlayer', 'name email avatar lichessUsername')
+      .populate('blackPlayer', 'name email avatar lichessUsername');
+
+    if (!lockedPairing) {
+      const error = new Error(
+        'Rematch is only permitted for an aborted game or another rematch request is already in progress.'
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // 6. Preserve old game ID and URL in history
+    const oldGameId = lockedPairing.lichessGameId;
+    const oldGameUrl = lockedPairing.lichessGameUrl;
+
+    if (oldGameId) {
+      if (!Array.isArray(lockedPairing.previousGames)) {
+        lockedPairing.previousGames = [];
+      }
+      lockedPairing.previousGames.push({
+        lichessGameId: oldGameId,
+        lichessGameUrl: oldGameUrl,
+        status: 'ABORTED',
+        result: 'ABORTED',
+        archivedAt: new Date(),
+      });
+      // Stop old stream
+      try {
+        const { stopStream } = await import('../realtime/gameStreamManager.js');
+        stopStream(oldGameId);
+      } catch (sErr) {}
+    }
+
+    lockedPairing.rematchCount = (lockedPairing.rematchCount || 0) + 1;
+
+    // 7. Resolve player credentials securely from User records
+    const isProduction = process.env.NODE_ENV === 'production';
+    const allowDevBridge = !isProduction && Boolean(options.allowDevBridge);
+
+    let whiteCreds;
+    let blackCreds;
+    try {
+      whiteCreds = await lichessOAuthService.resolveLichessPlayerCredentials(whiteUserId, {
+        allowDevBridge,
+        requiredScopes: ['challenge:bulk'],
+      });
+      blackCreds = await lichessOAuthService.resolveLichessPlayerCredentials(blackUserId, {
+        allowDevBridge,
+        requiredScopes: ['challenge:bulk'],
+      });
+    } catch (credErr) {
+      // Rollback to ABORTED
+      lockedPairing.status = 'ABORTED';
+      await lockedPairing.save();
+      throw credErr;
+    }
+
+    // 8. Invoke Lichess API to create new game
+    let gameResult;
+    try {
+      gameResult = await lichessService.createGame({
+        whiteUsername: whiteCreds.lichessUsername,
+        blackUsername: blackCreds.lichessUsername,
+        whiteToken: whiteCreds.accessToken,
+        blackToken: blackCreds.accessToken,
+        clockLimit: tournament.clockLimit,
+        increment: tournament.increment,
+        rated: tournament.rated,
+      });
+    } catch (apiErr) {
+      // Rollback to ABORTED
+      lockedPairing.status = 'ABORTED';
+      await lockedPairing.save();
+      throw apiErr;
+    }
+
+    const newGameId = gameResult.gameId;
+    const newGameUrl = gameResult.gameUrl;
+
+    // 9. Update Pairing with new game details
+    lockedPairing.lichessGameId = newGameId;
+    lockedPairing.lichessGameUrl = newGameUrl;
+    lockedPairing.status = 'ACTIVE';
+    lockedPairing.result = 'PENDING';
+    lockedPairing.startedAt = new Date();
+    lockedPairing.completedAt = null;
+    await lockedPairing.save();
+
+    // 10. Realtime notification and stream initiation
+    try {
+      const { startStream } = await import('../realtime/gameStreamManager.js');
+      const { getIo } = await import('../realtime/socket.js');
+      const io = getIo();
+      if (io) {
+        io.to(`tournament:${tournamentId}`).emit('GAME_REMATCHED', {
+          tournamentId: tournamentId.toString(),
+          roundNumber: numRound,
+          pairingId: lockedPairing._id.toString(),
+          oldGameId,
+          newGameId,
+          status: 'ACTIVE',
+          white: { id: whiteCreds.lichessUsername, name: lockedPairing.whitePlayer?.name || whiteCreds.lichessUsername },
+          black: { id: blackCreds.lichessUsername, name: lockedPairing.blackPlayer?.name || blackCreds.lichessUsername },
+        });
+
+        io.to(`tournament:${tournamentId}`).emit('GAME_STARTED', {
+          tournamentId: tournamentId.toString(),
+          roundNumber: numRound,
+          pairingId: lockedPairing._id.toString(),
+          lichessGameId: newGameId,
+          status: 'started',
+          result: null,
+          white: { id: whiteCreds.lichessUsername, name: lockedPairing.whitePlayer?.name || whiteCreds.lichessUsername },
+          black: { id: blackCreds.lichessUsername, name: lockedPairing.blackPlayer?.name || blackCreds.lichessUsername },
+        });
+      }
+
+      startStream({
+        tournamentId: tournamentId.toString(),
+        roundNumber: numRound,
+        pairingId: lockedPairing._id.toString(),
+        lichessGameId: newGameId,
+        token: whiteCreds.accessToken || blackCreds.accessToken,
+      }).catch((sErr) => {
+        console.warn(`[Realtime] Stream start warning for rematch ${newGameId}:`, sErr.message);
+      });
+    } catch (rtErr) {
+      console.warn('[Realtime] Failed to initiate stream for rematch:', rtErr.message);
+    }
+
+    return lockedPairing;
+  } finally {
+    inFlightRematchPairingIds.delete(pairingIdStr);
+  }
 };
 
 export default {
   createLichessGameForPairing,
   createAllLichessGamesForRound,
   syncPairingResult,
+  rematchAbortedPairing,
 };

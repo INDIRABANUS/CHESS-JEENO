@@ -149,7 +149,12 @@ export const getTournamentStandings = async (tournamentId) => {
       return b.wins - a.wins;
     }
     // 3. Name ascending
-    return (a.name || '').localeCompare(b.name || '');
+    const nameDiff = (a.name || '').localeCompare(b.name || '');
+    if (nameDiff !== 0) {
+      return nameDiff;
+    }
+    // 4. Deterministic fallback: Player ID string
+    return (a.playerId?.toString() || '').localeCompare(b.playerId?.toString() || '');
   });
 
   // Assign 1-indexed rank
@@ -163,6 +168,30 @@ export const getTournamentStandings = async (tournamentId) => {
   };
 };
 
+/**
+ * Idempotently syncs calculated scores and statistics back to TournamentPlayer records.
+ * 
+ * @param {string} tournamentId
+ */
+export const syncTournamentPlayerScores = async (tournamentId) => {
+  const { standings } = await getTournamentStandings(tournamentId);
+  for (const s of standings) {
+    await TournamentPlayer.updateOne(
+      { tournamentId, userId: s.playerId },
+      {
+        $set: {
+          score: s.score,
+          wins: s.wins,
+          draws: s.draws,
+          losses: s.losses,
+          gamesPlayed: s.gamesPlayed,
+        },
+      }
+    );
+  }
+};
+
 export default {
   getTournamentStandings,
+  syncTournamentPlayerScores,
 };

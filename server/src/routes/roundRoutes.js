@@ -9,6 +9,7 @@ import {
   createPairingLichessGame,
   createAllRoundLichessGames,
   syncPairingResult,
+  rematchAbortedPairing,
 } from '../controllers/pairingController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 
@@ -35,5 +36,9 @@ router.route('/:roundNumber/pairings/:pairingId/lichess')
 // Lichess Game Sync Endpoint (authenticated host or participant)
 router.route('/:roundNumber/pairings/:pairingId/sync')
   .post(requireAuth, syncPairingResult);
+
+// Lichess Game Rematch Endpoint (authenticated host or participant)
+router.route('/:roundNumber/pairings/:pairingId/rematch')
+  .post(requireAuth, rematchAbortedPairing);
 
 export default router;

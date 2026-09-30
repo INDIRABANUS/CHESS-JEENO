@@ -40,10 +40,17 @@ export const createRound = async (tournamentId, userId = null) => {
     throw error;
   }
 
-  // Round creation initially allowed only during REGISTRATION
-  if (tournament.status !== 'REGISTRATION') {
+  // Round creation allowed during pre-start and active tournament statuses
+  const ALLOWED_ROUND_CREATION_STATUSES = [
+    'REGISTRATION',
+    'READY_CHECK',
+    'COUNTDOWN',
+    'RUNNING',
+    'IN_PROGRESS',
+  ];
+  if (!ALLOWED_ROUND_CREATION_STATUSES.includes(tournament.status)) {
     const error = new Error(
-      `Cannot create rounds for tournament with status '${tournament.status}'. Initial rounds can only be created during REGISTRATION.`
+      `Cannot create rounds for tournament with status '${tournament.status}'.`
     );
     error.statusCode = 400;
     throw error;
@@ -395,10 +402,12 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
   }
 
   const totalPairings = pairings.length;
-  // Complete when every pairing is terminal (FINISHED or ABORTED)
-  // and no active or pending pairings exist. A BYE alone with 0 pairings is also complete.
+  // A round is complete ONLY when every pairing has finished (or BYE),
+  // and ZERO aborted, active, or pending pairings remain.
+  // In V2, an aborted pairing is UNRESOLVED until rematched/recovered.
   const complete =
-    totalPairings === 0 || (finishedPairings + abortedPairings === totalPairings);
+    totalPairings === 0 ||
+    (finishedPairings === totalPairings && abortedPairings === 0 && activePairings === 0 && pendingPairings === 0);
 
   // If complete and round.status is not COMPLETED, mark it COMPLETED
   if (complete && round.status !== 'COMPLETED') {
@@ -407,17 +416,15 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
     await round.save();
   }
 
-  // If complete, check if Swiss or Knockout tournament should transition to FINISHED
+  // If complete, check if tournament should transition to FINISHED
   if (complete) {
+    let tournamentShouldFinish = false;
     if (
       tournament.format === 'SWISS' &&
       tournament.totalRounds &&
       numRound >= tournament.totalRounds
     ) {
-      if (tournament.status !== 'FINISHED') {
-        tournament.status = 'FINISHED';
-        await tournament.save();
-      }
+      tournamentShouldFinish = true;
     } else if (tournament.format === 'ROUND_ROBIN') {
       const registeredPlayers = await TournamentPlayer.find({ tournamentId });
       if (registeredPlayers.length >= 2) {
@@ -425,19 +432,14 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
           ? registeredPlayers.length - 1
           : registeredPlayers.length;
         if (numRound >= totalRounds) {
-          if (tournament.status !== 'FINISHED') {
-            tournament.status = 'FINISHED';
-            await tournament.save();
-          }
+          tournamentShouldFinish = true;
         }
       }
     } else if (tournament.format === 'KNOCKOUT') {
       const registeredPlayers = await TournamentPlayer.find({ tournamentId });
       const totalKnockoutRounds = calculateTotalRounds(registeredPlayers.length);
       if (numRound >= totalKnockoutRounds) {
-        if (tournament.status !== 'FINISHED') {
-          tournament.status = 'FINISHED';
-        }
+        tournamentShouldFinish = true;
         if (pairings.length === 1) {
           const finalMatch = pairings[0];
           const championId = determinePairingWinner(finalMatch);
@@ -445,7 +447,47 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
             tournament.winnerPlayer = championId;
           }
         }
+      }
+    }
+
+    if (tournamentShouldFinish) {
+      if (tournament.status !== 'FINISHED' && tournament.status !== 'COMPLETED') {
+        tournament.status = 'FINISHED';
+
+        // Deterministic winner resolution from final standings if not already assigned
+        if (!tournament.winnerPlayer) {
+          try {
+            const standingsData = await standingsService.getTournamentStandings(tournamentId);
+            if (standingsData.standings.length > 0 && standingsData.standings[0].playerId) {
+              tournament.winnerPlayer = standingsData.standings[0].playerId;
+            }
+          } catch (stErr) {
+            console.warn(`[RoundService] Winner resolution warning: ${stErr.message}`);
+          }
+        }
+
         await tournament.save();
+
+        // Broadcast tournament completion
+        try {
+          const { getIo } = await import('../realtime/socket.js');
+          const io = getIo();
+          if (io) {
+            const populated = await tournament.populate('winnerPlayer', 'name email avatar lichessUsername');
+            io.to(`tournament:${tournamentId}`).emit('TOURNAMENT_COMPLETED', {
+              tournamentId: tournament._id.toString(),
+              status: 'FINISHED',
+              winner: populated.winnerPlayer
+                ? {
+                    id: populated.winnerPlayer._id.toString(),
+                    name: populated.winnerPlayer.name,
+                  }
+                : null,
+            });
+          }
+        } catch (bErr) {
+          // Non-fatal
+        }
       }
     }
   }

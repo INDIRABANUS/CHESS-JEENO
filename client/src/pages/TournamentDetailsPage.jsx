@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Trophy,
@@ -41,6 +41,13 @@ import {
   syncPairingResult,
   getTournamentStandings,
   getRoundStatus,
+  setPlayerReady,
+  setPlayerNotReady,
+  startReadyCheck,
+  startCountdown,
+  cancelCountdown,
+  startTournament,
+  rematchPairing,
 } from '../services/tournamentService';
 import { joinTournamentRoom, leaveTournamentRoom } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
@@ -54,8 +61,12 @@ const FORMAT_LABELS = {
 const STATUS_BADGES = {
   DRAFT: 'bg-slate-100 text-slate-700 border-slate-200',
   REGISTRATION: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  READY_CHECK: 'bg-purple-50 text-purple-700 border-purple-200',
+  COUNTDOWN: 'bg-orange-50 text-orange-700 border-orange-200',
   RUNNING: 'bg-amber-50 text-amber-700 border-amber-200',
+  IN_PROGRESS: 'bg-amber-50 text-amber-700 border-amber-200',
   FINISHED: 'bg-blue-50 text-blue-700 border-blue-200',
+  COMPLETED: 'bg-blue-50 text-blue-700 border-blue-200',
   CANCELLED: 'bg-rose-50 text-rose-700 border-rose-200',
 };
 
@@ -250,14 +261,60 @@ const TournamentDetailsPage = () => {
         handleGameUpdate(evt);
         fetchTournamentData();
       },
+      onGameRematched: (evt) => {
+        handleGameUpdate(evt);
+        fetchTournamentData();
+      },
       onStandingsUpdated: handleStandingsUpdate,
       onRoundCompleted: handleRoundCompleted,
+      onPlayerReadyChanged: () => {
+        fetchTournamentData();
+      },
+      onReadyCheckStarted: () => {
+        fetchTournamentData();
+      },
+      onCountdownStarted: () => {
+        fetchTournamentData();
+      },
+      onCountdownCancelled: () => {
+        fetchTournamentData();
+      },
+      onTournamentStarted: () => {
+        fetchTournamentData();
+      },
+      onTournamentCompleted: () => {
+        fetchTournamentData();
+      },
     });
 
     return () => {
       leaveTournamentRoom(id);
     };
   }, [id]);
+
+  // Rematch loading state
+  const [rematchLoading, setRematchLoading] = useState({});
+
+  // Countdown timer state
+  const [countdownRemaining, setCountdownRemaining] = useState(null);
+
+  useEffect(() => {
+    if (tournament?.status === 'COUNTDOWN' && tournament?.scheduledStartAt) {
+      const targetTime = new Date(tournament.scheduledStartAt).getTime();
+      const updateRemaining = () => {
+        const diff = Math.max(0, Math.ceil((targetTime - Date.now()) / 1000));
+        setCountdownRemaining(diff);
+        if (diff === 0 && isHost) {
+          handleStartTournament();
+        }
+      };
+      updateRemaining();
+      const interval = setInterval(updateRemaining, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setCountdownRemaining(null);
+    }
+  }, [tournament?.status, tournament?.scheduledStartAt, isHost]);
 
   // Derived user / host / registration status
   const currentUserId = (currentUser?._id || authUser?._id)?.toString();
@@ -303,13 +360,47 @@ const TournamentDetailsPage = () => {
     latestRound.pairings &&
     (latestRound.pairings.length === 0 ||
       latestRound.pairings.every((p) =>
-        ['FINISHED', 'COMPLETED', 'ABORTED', 'CANCELLED', 'BYE'].includes(p.status) ||
-        ['1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW', 'ABORTED', 'BYE'].includes(p.result)
+        ['FINISHED', 'COMPLETED', 'BYE'].includes(p.status) ||
+        ['1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW', 'BYE'].includes(p.result)
       ))
   );
 
   const isTournamentComplete =
     tournament?.status === 'FINISHED' || (allRoundsCreated && isLatestRoundComplete);
+
+  // Current user's standing and active pairing
+  const currentStanding = useMemo(() => {
+    if (!currentUserId || !standings || standings.length === 0) return null;
+    return standings.find((s) => {
+      const sId = (s.playerId?._id || s.playerId?.id || s.playerId)?.toString();
+      return sId && sId === currentUserId;
+    });
+  }, [standings, currentUserId]);
+
+  // Find latest pairing for current user
+  const myCurrentPairing = useMemo(() => {
+    if (!currentUserId || rounds.length === 0) return null;
+    for (let i = rounds.length - 1; i >= 0; i--) {
+      const r = rounds[i];
+      const match = (r.pairings || []).find((p) => {
+        const wId = (p.whitePlayer?._id || p.whitePlayer?.id || p.whitePlayer)?.toString();
+        const bId = (p.blackPlayer?._id || p.blackPlayer?.id || p.blackPlayer)?.toString();
+        return wId === currentUserId || bId === currentUserId;
+      });
+      if (match) {
+        const isWhite = (match.whitePlayer?._id || match.whitePlayer?.id || match.whitePlayer)?.toString() === currentUserId;
+        const opponent = isWhite ? match.blackPlayer : match.whitePlayer;
+        return {
+          roundNumber: r.roundNumber,
+          stageName: r.stageName,
+          pairing: match,
+          isWhite,
+          opponent,
+        };
+      }
+    }
+    return null;
+  }, [rounds, currentUserId]);
 
   // Handle Joining Tournament
   const handleJoin = async () => {
@@ -344,6 +435,127 @@ const TournamentDetailsPage = () => {
       );
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Readiness derived state
+  const currentPlayerRecord = currentUserId
+    ? players.find((p) => {
+        const pUid = (p.userId?._id || p.userId?.id || p.userId)?.toString();
+        return pUid === currentUserId;
+      })
+    : null;
+  const isCurrentUserReady = Boolean(currentPlayerRecord?.isReady || tournament?.isCurrentUserReady);
+  const readyPlayerCount = players.filter((p) => p.isReady).length || tournament?.readyPlayers || 0;
+  const allPlayersReady = players.length >= 2 && readyPlayerCount === players.length;
+
+  // Handle Toggle Player Ready
+  const handleToggleReady = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      if (isCurrentUserReady) {
+        await setPlayerNotReady(id);
+      } else {
+        await setPlayerReady(id);
+      }
+      await fetchTournamentData();
+    } catch (err) {
+      setActionError(
+        err.response?.data?.message || err.message || 'Failed to update readiness status'
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Start Ready Check (Host)
+  const handleStartReadyCheck = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await startReadyCheck(id);
+      setSuccessMessage('Ready check initiated! Players can now mark themselves ready.');
+      await fetchTournamentData();
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err) {
+      setActionError(
+        err.response?.data?.message || err.message || 'Failed to start ready check'
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Start Countdown (Host)
+  const handleStartCountdown = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await startCountdown(id, { countdownSeconds: 60 });
+      setSuccessMessage('Countdown started! Tournament will begin shortly.');
+      await fetchTournamentData();
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err) {
+      setActionError(
+        err.response?.data?.message || err.message || 'Failed to start countdown'
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Cancel Countdown (Host)
+  const handleCancelCountdown = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await cancelCountdown(id);
+      setSuccessMessage('Countdown cancelled.');
+      await fetchTournamentData();
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err) {
+      setActionError(
+        err.response?.data?.message || err.message || 'Failed to cancel countdown'
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Start Tournament Now (Host)
+  const handleStartTournament = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await startTournament(id);
+      setSuccessMessage('Tournament started! Round 1 pairings have been generated.');
+      await fetchTournamentData();
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err) {
+      setActionError(
+        err.response?.data?.message || err.message || 'Failed to start tournament'
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Rematch for Aborted Pairing
+  const handleRematch = async (roundNumber, pairingId) => {
+    setRematchLoading((prev) => ({ ...prev, [pairingId]: true }));
+    setGameError(null);
+    try {
+      await rematchPairing(id, roundNumber, pairingId);
+      setSuccessMessage('New rematch game created successfully on Lichess!');
+      await fetchTournamentData();
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err) {
+      setGameError(
+        err.response?.data?.message || err.message || 'Failed to create rematch game'
+      );
+    } finally {
+      setRematchLoading((prev) => ({ ...prev, [pairingId]: false }));
     }
   };
 
@@ -678,8 +890,9 @@ const TournamentDetailsPage = () => {
             <div className="text-base font-bold text-slate-800">
               {players.length} / {tournament.maxPlayers ? tournament.maxPlayers : 'Open'}
             </div>
-            <div className="text-[11px] text-slate-400 mt-0.5">
-              {isFull ? 'Tournament Full' : 'Spots Available'}
+            <div className="text-[11px] text-slate-500 mt-0.5 font-medium flex items-center space-x-1.5">
+              <span className={`inline-block w-2 h-2 rounded-full ${allPlayersReady ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span>{readyPlayerCount} / {players.length} READY</span>
             </div>
           </div>
 
@@ -697,74 +910,181 @@ const TournamentDetailsPage = () => {
           </div>
         </div>
 
-        {/* Registration CTA Banner */}
-        <div className="p-6 sm:p-8 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Registration CTA & Readiness Banner */}
+        <div className="p-6 sm:p-8 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
               <UserCheck className="h-4 w-4 text-indigo-600" />
-              <span>Tournament Participation</span>
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {tournament.status === 'REGISTRATION'
-                ? isRegistered
-                  ? 'You are currently registered for this tournament.'
-                  : isFull
-                  ? 'This tournament has reached its maximum player limit.'
-                  : 'Registration is currently open. Join now to secure your spot!'
-                : tournament.status === 'RUNNING'
-                ? 'Tournament is currently in progress. Registrations are closed.'
-                : tournament.status === 'FINISHED'
-                ? 'This tournament has concluded.'
-                : 'Registration is currently closed.'}
-            </p>
+              <h3 className="text-sm font-bold text-slate-900">
+                Tournament Participation & Readiness
+              </h3>
+              {['REGISTRATION', 'READY_CHECK'].includes(tournament.status) && (
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-semibold border border-indigo-200">
+                  {readyPlayerCount} / {players.length} READY
+                </span>
+              )}
+            </div>
+
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+              {isRegistered ? (
+                isCurrentUserReady ? (
+                  <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded border border-emerald-300">
+                    YOU ARE READY ✓
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 font-bold rounded border border-amber-300">
+                    YOU ARE NOT READY
+                  </span>
+                )
+              ) : null}
+
+              <span className="text-slate-500">
+                {tournament.status === 'REGISTRATION'
+                  ? isRegistered
+                    ? 'Mark yourself ready when you are prepared for Round 1 pairings.'
+                    : isFull
+                    ? 'This tournament has reached its maximum player limit.'
+                    : 'Registration is currently open. Join now to secure your spot!'
+                  : tournament.status === 'READY_CHECK'
+                  ? 'Ready check in progress. Please confirm you are ready!'
+                  : tournament.status === 'COUNTDOWN'
+                  ? 'Tournament countdown is active. Starting soon!'
+                  : tournament.status === 'RUNNING' || tournament.status === 'IN_PROGRESS'
+                  ? 'Tournament is currently in progress.'
+                  : tournament.status === 'FINISHED' || tournament.status === 'COMPLETED'
+                  ? 'This tournament has concluded.'
+                  : 'Registration is currently closed.'}
+              </span>
+            </div>
           </div>
 
-          {/* Registration Buttons */}
-          <div className="flex-shrink-0">
-            {tournament.status === 'REGISTRATION' && (
-              <>
-                {isRegistered ? (
-                  <button
-                    onClick={handleLeave}
-                    disabled={actionLoading}
-                    className="inline-flex items-center space-x-1.5 px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-semibold hover:bg-rose-700 disabled:opacity-50 transition shadow-sm"
-                  >
-                    {actionLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <UserMinus className="h-4 w-4" />
-                    )}
-                    <span>{actionLoading ? 'Leaving...' : 'LEAVE TOURNAMENT'}</span>
-                  </button>
-                ) : isFull ? (
-                  <button
-                    disabled
-                    className="inline-flex items-center space-x-1.5 px-4 py-2 bg-slate-200 text-slate-500 cursor-not-allowed rounded-lg text-sm font-semibold border border-slate-300 shadow-none"
-                  >
-                    <Users className="h-4 w-4" />
-                    <span>TOURNAMENT FULL</span>
-                  </button>
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Player Ready Toggle */}
+            {isRegistered && ['REGISTRATION', 'READY_CHECK'].includes(tournament.status) && (
+              <button
+                onClick={handleToggleReady}
+                disabled={actionLoading}
+                className={`inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm ${
+                  isCurrentUserReady
+                    ? 'bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-300'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                {actionLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <button
-                    onClick={handleJoin}
-                    disabled={actionLoading}
-                    className="inline-flex items-center space-x-1.5 px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
-                  >
-                    {actionLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <UserPlus className="h-4 w-4" />
-                    )}
-                    <span>{actionLoading ? 'Joining...' : 'JOIN TOURNAMENT'}</span>
-                  </button>
+                  <CheckCircle className="h-4 w-4" />
                 )}
-              </>
+                <span>{isCurrentUserReady ? 'MARK NOT READY' : "I'M READY ✓"}</span>
+              </button>
             )}
 
-            {tournament.status === 'RUNNING' && (
-              <span className="inline-flex items-center px-3 py-1.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-lg border border-amber-300">
-                Tournament in Progress
-              </span>
+            {/* Leave Tournament */}
+            {isRegistered && tournament.status === 'REGISTRATION' && (
+              <button
+                onClick={handleLeave}
+                disabled={actionLoading}
+                className="inline-flex items-center space-x-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition"
+              >
+                <UserMinus className="h-4 w-4" />
+                <span>LEAVE</span>
+              </button>
+            )}
+
+            {/* Join Tournament */}
+            {!isRegistered && tournament.status === 'REGISTRATION' && (
+              isFull ? (
+                <button
+                  disabled
+                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-slate-200 text-slate-500 cursor-not-allowed rounded-lg text-xs font-semibold border border-slate-300"
+                >
+                  <Users className="h-4 w-4" />
+                  <span>TOURNAMENT FULL</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleJoin}
+                  disabled={actionLoading}
+                  className="inline-flex items-center space-x-1.5 px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
+                >
+                  {actionLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  <span>JOIN TOURNAMENT</span>
+                </button>
+              )
+            )}
+
+            {/* Host Controls */}
+            {isHost && (
+              <div className="flex flex-wrap items-center gap-1.5 border-l border-slate-200 pl-2 ml-1">
+                {tournament.status === 'REGISTRATION' && (
+                  <button
+                    onClick={handleStartReadyCheck}
+                    disabled={actionLoading || players.length < 2}
+                    title={players.length < 2 ? 'At least 2 players required' : 'Prompt all players for ready confirmation'}
+                    className="inline-flex items-center space-x-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50"
+                  >
+                    <span>START READY CHECK</span>
+                  </button>
+                )}
+
+                {['REGISTRATION', 'READY_CHECK'].includes(tournament.status) && (
+                  <>
+                    <button
+                      onClick={handleStartCountdown}
+                      disabled={actionLoading || !allPlayersReady}
+                      title={
+                        !allPlayersReady
+                          ? players.length < 2
+                            ? 'At least 2 players are required'
+                            : `${readyPlayerCount} of ${players.length} players are ready. All players must be ready.`
+                          : 'Start 60-second tournament countdown'
+                      }
+                      className="inline-flex items-center space-x-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50"
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>COUNTDOWN (60s)</span>
+                    </button>
+
+                    <button
+                      onClick={handleStartTournament}
+                      disabled={actionLoading || !allPlayersReady}
+                      title={
+                        !allPlayersReady
+                          ? `${readyPlayerCount} of ${players.length} players ready. All players must be ready to start.`
+                          : 'Immediately start tournament and generate pairings'
+                      }
+                      className="inline-flex items-center space-x-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50"
+                    >
+                      <Zap className="h-3.5 w-3.5" />
+                      <span>START NOW</span>
+                    </button>
+                  </>
+                )}
+
+                {tournament.status === 'COUNTDOWN' && (
+                  <>
+                    <button
+                      onClick={handleStartTournament}
+                      disabled={actionLoading}
+                      className="inline-flex items-center space-x-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+                    >
+                      <span>START NOW</span>
+                    </button>
+                    <button
+                      onClick={handleCancelCountdown}
+                      disabled={actionLoading}
+                      className="inline-flex items-center space-x-1 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+                    >
+                      <span>CANCEL COUNTDOWN</span>
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -793,25 +1113,230 @@ const TournamentDetailsPage = () => {
         </div>
       </div>
 
-      {/* Tournament Complete Indicator */}
-      {isTournamentComplete && (
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-sm text-white flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center space-x-3 text-center sm:text-left">
-            <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-xs flex-shrink-0">
-              <Trophy className="h-6 w-6 text-white" />
+      {/* Live Countdown Banner */}
+      {tournament.status === 'COUNTDOWN' && (
+        <div className="p-6 bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 text-white rounded-xl shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-xs animate-pulse">
+              <Clock className="h-8 w-8 text-white" />
             </div>
             <div>
-              <div className="font-extrabold text-base tracking-wide flex items-center space-x-2">
-                <span>TOURNAMENT COMPLETE</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-white/30 rounded-full">
-                  All Rounds Finished
-                </span>
+              <div className="text-xs font-bold uppercase tracking-wider text-amber-200">
+                Tournament Countdown Active
               </div>
-              <p className="text-xs text-emerald-100 mt-0.5">
-                All scheduled Round Robin matches have concluded. Final standings are displayed below.
-              </p>
+              <div className="text-3xl font-black font-mono tracking-tight">
+                Starting in {typeof countdownRemaining === 'number' ? `00:${String(countdownRemaining).padStart(2, '0')}` : '60s'}
+              </div>
+              <div className="text-xs text-indigo-100 mt-1">
+                Round 1 pairings will generate automatically when the countdown reaches zero.
+              </div>
             </div>
           </div>
+          {isHost && (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleStartTournament}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg text-xs shadow-sm transition"
+              >
+                START NOW
+              </button>
+              <button
+                onClick={handleCancelCountdown}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-bold rounded-lg text-xs border border-white/30 transition"
+              >
+                CANCEL
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Personal Match / Result Card (Sections 19, 20, 21) */}
+      {isRegistered && myCurrentPairing && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center space-x-2">
+              <Swords className="h-5 w-5 text-amber-400" />
+              <span className="font-extrabold text-sm tracking-wide">
+                YOUR PAIRING — {myCurrentPairing.stageName || `Round ${myCurrentPairing.roundNumber}`}
+              </span>
+            </div>
+            <div className="flex items-center space-x-3 text-xs">
+              <span className="text-slate-300">
+                Tournament Score: <span className="font-bold text-amber-400 font-mono">{currentStanding?.score ?? 0} pts</span>
+              </span>
+              {currentStanding?.rank && (
+                <span className="text-slate-300">
+                  Current Position: <span className="font-bold text-white">#{currentStanding.rank}</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-5">
+            {(() => {
+              const p = myCurrentPairing.pairing;
+              const isWhite = myCurrentPairing.isWhite;
+              const opponent = myCurrentPairing.opponent;
+              const isAborted = p.status === 'ABORTED' || p.result === 'ABORTED';
+              const isFinished = p.status === 'FINISHED' || ['1-0', '0-1', '1/2-1/2'].includes(p.result);
+
+              let resultLabel = null;
+              let pointDelta = null;
+              let bannerStyle = '';
+
+              if (isFinished) {
+                if (p.result === '1-0') {
+                  resultLabel = isWhite ? 'YOU WON' : 'GAME LOST';
+                  pointDelta = isWhite ? '+1 POINT' : '+0 POINTS';
+                  bannerStyle = isWhite ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800';
+                } else if (p.result === '0-1') {
+                  resultLabel = !isWhite ? 'YOU WON' : 'GAME LOST';
+                  pointDelta = !isWhite ? '+1 POINT' : '+0 POINTS';
+                  bannerStyle = !isWhite ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800';
+                } else if (p.result === '1/2-1/2') {
+                  resultLabel = 'DRAW';
+                  pointDelta = '+0.5 POINT';
+                  bannerStyle = 'bg-blue-50 border-blue-200 text-blue-800';
+                }
+              }
+
+              return (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                    <div>
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Opponent</div>
+                      <div className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                        <span>{opponent?.name || 'Opponent'}</span>
+                        {opponent?.lichessUsername && (
+                          <span className="text-xs font-mono text-indigo-600 font-semibold">
+                            (@{opponent.lichessUsername})
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        You are playing as <span className="font-semibold">{isWhite ? 'White ♔' : 'Black ♚'}</span>
+                      </div>
+                    </div>
+
+                    {isFinished && resultLabel && (
+                      <div className={`p-3 rounded-lg border flex items-center space-x-3 ${bannerStyle}`}>
+                        <Trophy className="h-5 w-5 flex-shrink-0" />
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-wider">GAME COMPLETE</div>
+                          <div className="text-sm font-extrabold flex items-center space-x-2">
+                            <span>{resultLabel}</span>
+                            <span className="text-xs px-2 py-0.5 rounded bg-white/80 font-mono shadow-2xs">{pointDelta}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {isAborted && (
+                      <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-bold uppercase tracking-wider text-amber-800">GAME ABORTED</div>
+                          <div className="text-xs text-amber-700">No tournament result was recorded. Request a rematch below.</div>
+                        </div>
+                        <button
+                          onClick={() => handleRematch(myCurrentPairing.roundNumber, p._id)}
+                          disabled={Boolean(rematchLoading[p._id])}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm transition disabled:opacity-50"
+                        >
+                          {Boolean(rematchLoading[p._id]) ? 'REMATCHING...' : 'REMATCH'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-slate-500">Status:</span>
+                      <span className="font-semibold text-xs text-slate-800 uppercase px-2 py-0.5 rounded bg-slate-100">
+                        {p.status}
+                      </span>
+                      {p.result && p.result !== 'PENDING' && (
+                        <span className="font-bold text-xs text-indigo-700 font-mono px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200">
+                          {p.result}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      {p.lichessGameId && (
+                        <>
+                          <button
+                            onClick={() => handleSyncResult(myCurrentPairing.roundNumber, p._id)}
+                            disabled={Boolean(syncLoading[p._id])}
+                            className="inline-flex items-center space-x-1 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            <span>SYNC RESULT</span>
+                          </button>
+                          <a
+                            href={p.lichessGameUrl || `https://lichess.org/${p.lichessGameId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center space-x-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition"
+                          >
+                            <span>PLAY ON LICHESS</span>
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Tournament Complete Indicator (Section 22) */}
+      {isTournamentComplete && (
+        <div className="p-6 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 rounded-xl shadow-md text-white flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-xs flex-shrink-0">
+              <Trophy className="h-8 w-8 text-amber-300" />
+            </div>
+            <div>
+              <div className="font-black text-lg tracking-wide flex items-center space-x-2">
+                <span>TOURNAMENT COMPLETE</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-white/30 rounded-full">
+                  Concluded
+                </span>
+              </div>
+              {tournament.winnerPlayer ? (
+                <p className="text-sm text-emerald-100 mt-1">
+                  🏆 Champion: <strong className="text-white underline">{tournament.winnerPlayer.name}</strong>
+                  {tournament.winnerPlayer.lichessUsername && ` (@${tournament.winnerPlayer.lichessUsername})`}
+                </p>
+              ) : (
+                <p className="text-xs text-emerald-100 mt-1">
+                  All scheduled matches have concluded. Final standings are displayed below.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {currentStanding && (
+            <div className="bg-white/10 rounded-lg p-3 text-xs border border-white/20 flex items-center space-x-4">
+              <div>
+                <span className="text-emerald-200">Your Rank:</span>{' '}
+                <strong className="text-white text-sm">#{currentStanding.rank}</strong>
+              </div>
+              <div className="border-l border-white/20 pl-3">
+                <span className="text-emerald-200">Score:</span>{' '}
+                <strong className="text-white font-mono text-sm">{currentStanding.score} pts</strong>
+              </div>
+              <div className="border-l border-white/20 pl-3 text-emerald-100 font-mono">
+                {currentStanding.wins}W / {currentStanding.draws}D / {currentStanding.losses}L
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -995,6 +1520,7 @@ const TournamentDetailsPage = () => {
                   <th className="px-6 py-3 w-16">#</th>
                   <th className="px-6 py-3">Player</th>
                   <th className="px-6 py-3">Lichess ID</th>
+                  <th className="px-6 py-3 text-center">Ready</th>
                   <th className="px-6 py-3">Joined</th>
                   <th className="px-6 py-3 text-right">Score</th>
                 </tr>
@@ -1064,6 +1590,19 @@ const TournamentDetailsPage = () => {
                       {/* Lichess Username */}
                       <td className="px-6 py-4 text-xs font-mono text-indigo-600">
                         {p.userId?.lichessUsername ? `@${p.userId.lichessUsername}` : '—'}
+                      </td>
+
+                      {/* Ready Status */}
+                      <td className="px-6 py-4 text-center">
+                        {p.isReady ? (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            READY ✓
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-500">
+                            NOT READY
+                          </span>
+                        )}
                       </td>
 
                       {/* Joined Date */}
@@ -1285,8 +1824,8 @@ const TournamentDetailsPage = () => {
               const isRoundBulkLoading = Boolean(roundBulkLoading[round.roundNumber]);
 
               const completedGamesCount = roundPairings.filter((p) =>
-                ['FINISHED', 'COMPLETED', 'ABORTED', 'CANCELLED', 'BYE'].includes(p.status) ||
-                ['1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW', 'ABORTED', 'BYE'].includes(p.result)
+                ['FINISHED', 'COMPLETED', 'BYE'].includes(p.status) ||
+                ['1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW', 'BYE'].includes(p.result)
               ).length;
               const isRoundDone =
                 roundPairings.length === 0 || completedGamesCount === roundPairings.length;
@@ -1524,6 +2063,41 @@ const TournamentDetailsPage = () => {
                                   <div className="flex items-center space-x-1 px-2.5 py-1 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold">
                                     <CheckCircle className="h-3.5 w-3.5" />
                                     <span>AUTO-ADVANCED</span>
+                                  </div>
+                                ) : pairing.status === 'ABORTED' || pairing.result === 'ABORTED' ? (
+                                  <div className="flex items-center space-x-1.5">
+                                    {canManageGame && (
+                                      <button
+                                        onClick={() => handleRematch(round.roundNumber, pairing._id)}
+                                        disabled={Boolean(rematchLoading[pairing._id])}
+                                        title="Start a new Lichess rematch game for this aborted pairing"
+                                        className="inline-flex items-center space-x-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-xs disabled:opacity-50 transition"
+                                      >
+                                        {Boolean(rematchLoading[pairing._id]) ? (
+                                          <>
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                            <span>REMATCHING...</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <RefreshCw className="h-3 w-3" />
+                                            <span>REMATCH</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    )}
+                                    {pairing.lichessGameId && (
+                                      <a
+                                        href={pairing.lichessGameUrl || `https://lichess.org/${pairing.lichessGameId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium border border-slate-200 transition"
+                                        title="View aborted game on Lichess"
+                                      >
+                                        <span>Aborted Game</span>
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    )}
                                   </div>
                                 ) : isGameReady ? (
                                   <div className="flex items-center space-x-1.5">

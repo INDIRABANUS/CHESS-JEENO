@@ -168,6 +168,83 @@ export const getRoundStatus = async (tournamentId, roundNumber) => {
   return response.data;
 };
 
+/**
+ * Mark current player READY.
+ * @param {string} tournamentId
+ */
+export const setPlayerReady = async (tournamentId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/ready`);
+  return response.data;
+};
+
+/**
+ * Mark current player NOT READY.
+ * @param {string} tournamentId
+ */
+export const setPlayerNotReady = async (tournamentId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/not-ready`);
+  return response.data;
+};
+
+/**
+ * Fetch tournament readiness stats.
+ * @param {string} tournamentId
+ */
+export const getTournamentReadiness = async (tournamentId) => {
+  const response = await api.get(`/tournaments/${tournamentId}/readiness`);
+  return response.data;
+};
+
+/**
+ * Start ready check phase (host only).
+ * @param {string} tournamentId
+ */
+export const startReadyCheck = async (tournamentId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/ready-check`);
+  return response.data;
+};
+
+/**
+ * Start tournament countdown (host only).
+ * @param {string} tournamentId
+ * @param {Object} [data]
+ */
+export const startCountdown = async (tournamentId, data = {}) => {
+  const response = await api.post(`/tournaments/${tournamentId}/countdown/start`, data);
+  return response.data;
+};
+
+/**
+ * Cancel active countdown (host only).
+ * @param {string} tournamentId
+ */
+export const cancelCountdown = async (tournamentId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/countdown/cancel`);
+  return response.data;
+};
+
+/**
+ * Start tournament / Round 1.
+ * @param {string} tournamentId
+ */
+export const startTournament = async (tournamentId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/start`);
+  return response.data;
+};
+
+/**
+ * Rematch an aborted pairing.
+ * @param {string} tournamentId
+ * @param {number|string} roundNumber
+ * @param {string} pairingId
+ */
+export const rematchPairing = async (tournamentId, roundNumber, pairingId) => {
+  const response = await api.post(
+    `/tournaments/${tournamentId}/rounds/${roundNumber}/pairings/${pairingId}/rematch`
+  );
+  return response.data;
+};
+
 export default {
   getTournaments,
   getTournamentById,
@@ -186,4 +263,12 @@ export default {
   syncPairingResult,
   getTournamentStandings,
   getRoundStatus,
+  setPlayerReady,
+  setPlayerNotReady,
+  getTournamentReadiness,
+  startReadyCheck,
+  startCountdown,
+  cancelCountdown,
+  startTournament,
+  rematchPairing,
 };

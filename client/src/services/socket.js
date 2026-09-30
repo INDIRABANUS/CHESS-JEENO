@@ -119,15 +119,29 @@ export const joinTournamentRoom = (tournamentId, handlers = {}) => {
     socket.off('GAME_STATE');
     socket.off('GAME_FINISHED');
     socket.off('GAME_ABORTED');
+    socket.off('GAME_REMATCHED');
     socket.off('STANDINGS_UPDATED');
     socket.off('ROUND_COMPLETED');
+    socket.off('PLAYER_READY_CHANGED');
+    socket.off('READY_CHECK_STARTED');
+    socket.off('COUNTDOWN_STARTED');
+    socket.off('COUNTDOWN_CANCELLED');
+    socket.off('TOURNAMENT_STARTED');
+    socket.off('TOURNAMENT_COMPLETED');
 
     if (handlers.onGameStarted) socket.on('GAME_STARTED', handlers.onGameStarted);
     if (handlers.onGameState) socket.on('GAME_STATE', handlers.onGameState);
     if (handlers.onGameFinished) socket.on('GAME_FINISHED', handlers.onGameFinished);
     if (handlers.onGameAborted) socket.on('GAME_ABORTED', handlers.onGameAborted);
+    if (handlers.onGameRematched) socket.on('GAME_REMATCHED', handlers.onGameRematched);
     if (handlers.onStandingsUpdated) socket.on('STANDINGS_UPDATED', handlers.onStandingsUpdated);
     if (handlers.onRoundCompleted) socket.on('ROUND_COMPLETED', handlers.onRoundCompleted);
+    if (handlers.onPlayerReadyChanged) socket.on('PLAYER_READY_CHANGED', handlers.onPlayerReadyChanged);
+    if (handlers.onReadyCheckStarted) socket.on('READY_CHECK_STARTED', handlers.onReadyCheckStarted);
+    if (handlers.onCountdownStarted) socket.on('COUNTDOWN_STARTED', handlers.onCountdownStarted);
+    if (handlers.onCountdownCancelled) socket.on('COUNTDOWN_CANCELLED', handlers.onCountdownCancelled);
+    if (handlers.onTournamentStarted) socket.on('TOURNAMENT_STARTED', handlers.onTournamentStarted);
+    if (handlers.onTournamentCompleted) socket.on('TOURNAMENT_COMPLETED', handlers.onTournamentCompleted);
   }
 };
 
@@ -143,8 +157,15 @@ export const leaveTournamentRoom = (tournamentId) => {
     socket.off('GAME_STATE');
     socket.off('GAME_FINISHED');
     socket.off('GAME_ABORTED');
+    socket.off('GAME_REMATCHED');
     socket.off('STANDINGS_UPDATED');
     socket.off('ROUND_COMPLETED');
+    socket.off('PLAYER_READY_CHANGED');
+    socket.off('READY_CHECK_STARTED');
+    socket.off('COUNTDOWN_STARTED');
+    socket.off('COUNTDOWN_CANCELLED');
+    socket.off('TOURNAMENT_STARTED');
+    socket.off('TOURNAMENT_COMPLETED');
   }
   if (currentTournamentId === tournamentId) {
     currentTournamentId = null;

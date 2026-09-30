@@ -28,6 +28,7 @@
     "smoke:knockout": "node src/utils/smokeTestKnockoutReal.js",
     "test:e2e": "node src/utils/testEndToEnd.js",
     "smoke:e2e": "node src/utils/smokeTestEndToEnd.js",
+    "test:v2:core": "node src/utils/testV2CoreTournamentExperience.js",
     "verify:deploy": "node src/utils/verifyDeploymentReadiness.js"
   },
   "dependencies": {

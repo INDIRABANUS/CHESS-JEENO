@@ -168,16 +168,23 @@ export const getTournaments = async ({ status, format } = {}) => {
   ]);
   const countMap = new Map(playerCounts.map((c) => [c._id.toString(), c.count]));
 
+  const readyCounts = await TournamentPlayer.aggregate([
+    { $match: { tournamentId: { $in: tournamentIds }, isReady: true } },
+    { $group: { _id: '$tournamentId', count: { $sum: 1 } } },
+  ]);
+  const readyMap = new Map(readyCounts.map((c) => [c._id.toString(), c.count]));
+
   return tournaments.map((t) => {
     const obj = t.toObject();
     obj.registeredPlayers = countMap.get(t._id.toString()) || 0;
+    obj.readyPlayers = readyMap.get(t._id.toString()) || 0;
     return obj;
   });
 };
 
 /**
  * Retrieves a single tournament by ID.
- * Dynamically computes registered player count and registration status for current user.
+ * Dynamically computes registered player count, readiness counts, and current user status.
  */
 export const getTournamentById = async (id, currentUserId = null) => {
   if (!mongoose.isValidObjectId(id)) {
@@ -197,13 +204,23 @@ export const getTournamentById = async (id, currentUserId = null) => {
   }
 
   const registeredPlayers = await TournamentPlayer.countDocuments({ tournamentId: id });
-  const isRegistered = currentUserId
-    ? Boolean(await TournamentPlayer.exists({ tournamentId: id, userId: currentUserId }))
-    : false;
+  const readyPlayers = await TournamentPlayer.countDocuments({ tournamentId: id, isReady: true });
+  let isRegistered = false;
+  let isCurrentUserReady = false;
+
+  if (currentUserId) {
+    const playerRecord = await TournamentPlayer.findOne({ tournamentId: id, userId: currentUserId });
+    if (playerRecord) {
+      isRegistered = true;
+      isCurrentUserReady = Boolean(playerRecord.isReady);
+    }
+  }
 
   const result = tournament.toObject();
   result.registeredPlayers = registeredPlayers;
+  result.readyPlayers = readyPlayers;
   result.isRegistered = isRegistered;
+  result.isCurrentUserReady = isCurrentUserReady;
 
   return result;
 };
@@ -337,10 +354,311 @@ export const deleteTournament = async (id, currentUserId = null) => {
   return { message: 'Tournament deleted successfully' };
 };
 
+/**
+ * Initiates the ready check phase for a tournament.
+ * 
+ * @param {string} tournamentId
+ * @param {string|mongoose.Types.ObjectId} userId
+ * @returns {Promise<Tournament>}
+ */
+export const startReadyCheck = async (tournamentId, userId) => {
+  if (!mongoose.isValidObjectId(tournamentId)) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const tournament = await Tournament.findById(tournamentId);
+  if (!tournament) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (tournament.createdBy.toString() !== userId.toString()) {
+    const error = new Error('Only the tournament host can start the ready check.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (tournament.status !== 'REGISTRATION' && tournament.status !== 'DRAFT') {
+    const error = new Error(`Cannot start ready check for tournament with status '${tournament.status}'.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  tournament.status = 'READY_CHECK';
+  await tournament.save();
+
+  try {
+    const { getIo } = await import('../realtime/socket.js');
+    const io = getIo();
+    if (io) {
+      io.to(`tournament:${tournamentId}`).emit('READY_CHECK_STARTED', {
+        tournamentId: tournament._id.toString(),
+        status: 'READY_CHECK',
+      });
+    }
+  } catch (err) {
+    // Non-fatal realtime warning
+  }
+
+  return tournament;
+};
+
+/**
+ * Starts the server-authoritative tournament countdown.
+ * Validates player readiness and prevents duplicate countdowns.
+ * 
+ * @param {string} tournamentId
+ * @param {string|mongoose.Types.ObjectId} userId
+ * @param {Object} [options]
+ * @returns {Promise<Tournament>}
+ */
+export const startCountdown = async (tournamentId, userId, options = {}) => {
+  if (!mongoose.isValidObjectId(tournamentId)) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const tournament = await Tournament.findById(tournamentId);
+  if (!tournament) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Verify host authorization
+  if (tournament.createdBy.toString() !== userId.toString()) {
+    const error = new Error('Only the tournament host can start the countdown.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // If already in COUNTDOWN, reject duplicate countdown creation
+  if (tournament.status === 'COUNTDOWN') {
+    const error = new Error('Tournament countdown is already in progress.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Check tournament status
+  if (['RUNNING', 'IN_PROGRESS', 'FINISHED', 'COMPLETED'].includes(tournament.status)) {
+    const error = new Error('Tournament has already started.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!['REGISTRATION', 'READY_CHECK', 'DRAFT'].includes(tournament.status)) {
+    const error = new Error(`Cannot start countdown from status '${tournament.status}'.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validate player readiness
+  const totalPlayers = await TournamentPlayer.countDocuments({ tournamentId });
+  if (totalPlayers < 2) {
+    const error = new Error('At least 2 players are required to start the tournament.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const readyCount = await TournamentPlayer.countDocuments({ tournamentId, isReady: true });
+  if (readyCount < totalPlayers) {
+    const error = new Error(
+      `${readyCount} of ${totalPlayers} players are ready. All players must be ready before starting countdown.`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const countdownSeconds = Number(options.countdownSeconds) > 0 ? Number(options.countdownSeconds) : 60;
+  const countdownStartedAt = new Date();
+  const scheduledStartAt = new Date(Date.now() + countdownSeconds * 1000);
+
+  // Atomic update to guard against concurrent startCountdown calls
+  const updatedTournament = await Tournament.findOneAndUpdate(
+    {
+      _id: tournamentId,
+      status: { $in: ['REGISTRATION', 'READY_CHECK', 'DRAFT'] },
+    },
+    {
+      $set: {
+        status: 'COUNTDOWN',
+        countdownSeconds,
+        countdownStartedAt,
+        scheduledStartAt,
+      },
+    },
+    { new: true }
+  ).populate('createdBy', 'name email avatar lichessUsername');
+
+  if (!updatedTournament) {
+    const error = new Error('Tournament countdown is already in progress or status changed.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const finalTournament = updatedTournament;
+
+  // Broadcast realtime event
+  try {
+    const { getIo } = await import('../realtime/socket.js');
+    const io = getIo();
+    if (io) {
+      io.to(`tournament:${tournamentId}`).emit('COUNTDOWN_STARTED', {
+        tournamentId: tournamentId.toString(),
+        countdownStartedAt: finalTournament.countdownStartedAt,
+        scheduledStartAt: finalTournament.scheduledStartAt,
+        countdownSeconds: finalTournament.countdownSeconds,
+      });
+    }
+  } catch (err) {
+    // Non-fatal realtime warning
+  }
+
+  const resObj = finalTournament.toObject();
+  resObj.registeredPlayers = totalPlayers;
+  resObj.readyPlayers = readyCount;
+  return resObj;
+};
+
+/**
+ * Cancels an active countdown and returns the tournament to REGISTRATION.
+ * 
+ * @param {string} tournamentId
+ * @param {string|mongoose.Types.ObjectId} userId
+ * @returns {Promise<Tournament>}
+ */
+export const cancelCountdown = async (tournamentId, userId) => {
+  if (!mongoose.isValidObjectId(tournamentId)) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const tournament = await Tournament.findById(tournamentId);
+  if (!tournament) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (tournament.createdBy.toString() !== userId.toString()) {
+    const error = new Error('Only the tournament host can cancel the countdown.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (tournament.status !== 'COUNTDOWN') {
+    return tournament;
+  }
+
+  tournament.status = 'REGISTRATION';
+  tournament.countdownStartedAt = null;
+  tournament.scheduledStartAt = null;
+  await tournament.save();
+
+  try {
+    const { getIo } = await import('../realtime/socket.js');
+    const io = getIo();
+    if (io) {
+      io.to(`tournament:${tournamentId}`).emit('COUNTDOWN_CANCELLED', {
+        tournamentId: tournamentId.toString(),
+        status: 'REGISTRATION',
+      });
+    }
+  } catch (err) {
+    // Non-fatal realtime warning
+  }
+
+  return tournament;
+};
+
+/**
+ * Starts the tournament, transitioning to RUNNING/IN_PROGRESS and generating Round 1 pairings.
+ * Idempotent: repeated calls safely return the running tournament.
+ * 
+ * @param {string} tournamentId
+ * @param {string|mongoose.Types.ObjectId} [userId]
+ * @returns {Promise<Tournament>}
+ */
+export const startTournament = async (tournamentId, userId = null) => {
+  if (!mongoose.isValidObjectId(tournamentId)) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const tournament = await Tournament.findById(tournamentId);
+  if (!tournament) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (userId && tournament.createdBy.toString() !== userId.toString()) {
+    const error = new Error('Only the tournament host can start the tournament.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Idempotency: if already running, return
+  if (tournament.status === 'RUNNING' || tournament.status === 'IN_PROGRESS') {
+    return tournament;
+  }
+
+  const totalPlayers = await TournamentPlayer.countDocuments({ tournamentId });
+  if (totalPlayers < 2) {
+    const error = new Error('At least 2 players are required to start the tournament.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  tournament.status = 'RUNNING';
+  tournament.startTime = tournament.startTime || new Date();
+  tournament.countdownStartedAt = null;
+  tournament.scheduledStartAt = null;
+  await tournament.save();
+
+  // Automatically create Round 1 pairings if none exist yet
+  const existingRound1 = await Round.findOne({ tournamentId, roundNumber: 1 });
+  if (!existingRound1) {
+    try {
+      const roundService = await import('./roundService.js');
+      await roundService.createRound(tournamentId, null);
+    } catch (roundErr) {
+      console.warn(`[TournamentService] Notice on initial round creation: ${roundErr.message}`);
+    }
+  }
+
+  // Broadcast tournament start
+  try {
+    const { getIo } = await import('../realtime/socket.js');
+    const io = getIo();
+    if (io) {
+      io.to(`tournament:${tournamentId}`).emit('TOURNAMENT_STARTED', {
+        tournamentId: tournamentId.toString(),
+        status: 'RUNNING',
+        roundNumber: 1,
+      });
+    }
+  } catch (err) {
+    // Non-fatal realtime warning
+  }
+
+  return tournament;
+};
+
 export default {
   createTournament,
   getTournaments,
   getTournamentById,
   updateTournament,
   deleteTournament,
+  startReadyCheck,
+  startCountdown,
+  cancelCountdown,
+  startTournament,
 };

@@ -309,7 +309,7 @@ const runStandingsAndRoundsTests = async () => {
     await r12.pairings[0].save();
 
     const status12 = await roundService.getRoundCompletionStatus(t12._id, 1);
-    assert(status12.complete === true, 'ABORTED pairing is recognized as terminal');
+    assert(status12.complete === false, 'ABORTED pairing is unresolved and does NOT complete round');
     assert(status12.abortedPairings === 1, 'ABORTED pairings counter reports 1');
 
     // Test 13: BYE does not block completion

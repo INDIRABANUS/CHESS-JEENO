@@ -43,6 +43,18 @@ const tournamentPlayerSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    isReady: {
+      type: Boolean,
+      default: false,
+    },
+    readyAt: {
+      type: Date,
+      default: null,
+    },
+    isApproved: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     // Disable automatic createdAt/updatedAt if not requested, but standard mongoose timestamps: false

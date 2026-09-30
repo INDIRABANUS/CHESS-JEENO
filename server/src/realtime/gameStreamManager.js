@@ -259,6 +259,7 @@ const handleIncomingEvent = async (rawEvent, streamEntry) => {
 
       // Recalculate and broadcast tournament standings
       if (tournamentId) {
+        await standingsService.syncTournamentPlayerScores(tournamentId);
         const standingsData = await standingsService.getTournamentStandings(tournamentId);
         if (io) {
           io.to(`tournament:${tournamentId}`).emit('STANDINGS_UPDATED', {

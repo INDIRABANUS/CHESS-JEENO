@@ -52,3 +52,69 @@ export const getTournamentPlayers = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Mark current player as READY.
+ * @route POST /api/tournaments/:id/ready
+ */
+export const setPlayerReady = async (req, res, next) => {
+  try {
+    const tournamentId = req.params.id;
+    const userId = req.user._id;
+
+    const result = await tournamentPlayerService.setPlayerReady(tournamentId, userId, true);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Mark current player as NOT READY.
+ * @route POST /api/tournaments/:id/not-ready
+ */
+export const setPlayerNotReady = async (req, res, next) => {
+  try {
+    const tournamentId = req.params.id;
+    const userId = req.user._id;
+
+    const result = await tournamentPlayerService.setPlayerReady(tournamentId, userId, false);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get tournament readiness statistics.
+ * @route GET /api/tournaments/:id/readiness
+ */
+export const getTournamentReadiness = async (req, res, next) => {
+  try {
+    const readiness = await tournamentPlayerService.getTournamentReadiness(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      data: readiness,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export default {
+  joinTournament,
+  leaveTournament,
+  getTournamentPlayers,
+  setPlayerReady,
+  setPlayerNotReady,
+  getTournamentReadiness,
+};

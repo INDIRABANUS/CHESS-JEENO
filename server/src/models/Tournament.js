@@ -29,7 +29,17 @@ const tournamentSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['DRAFT', 'REGISTRATION', 'RUNNING', 'FINISHED', 'CANCELLED'],
+        values: [
+          'DRAFT',
+          'REGISTRATION',
+          'READY_CHECK',
+          'COUNTDOWN',
+          'RUNNING',
+          'IN_PROGRESS',
+          'FINISHED',
+          'COMPLETED',
+          'CANCELLED',
+        ],
         message: '{VALUE} is not a valid tournament status',
       },
       default: 'REGISTRATION',
@@ -65,6 +75,18 @@ const tournamentSchema = new mongoose.Schema(
       default: null,
       min: [1, 'Total rounds must be at least 1'],
       max: [20, 'Total rounds cannot exceed 20'],
+    },
+    countdownStartedAt: {
+      type: Date,
+      default: null,
+    },
+    scheduledStartAt: {
+      type: Date,
+      default: null,
+    },
+    countdownSeconds: {
+      type: Number,
+      default: 60,
     },
     winnerPlayer: {
       type: mongoose.Schema.Types.ObjectId,

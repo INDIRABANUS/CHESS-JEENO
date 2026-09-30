@@ -93,3 +93,87 @@ export const deleteTournament = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Start ready check phase.
+ * @route POST /api/tournaments/:id/ready-check
+ */
+export const startReadyCheck = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const tournament = await tournamentService.startReadyCheck(req.params.id, userId);
+
+    res.status(200).json({
+      success: true,
+      data: tournament,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Start countdown phase.
+ * @route POST /api/tournaments/:id/countdown/start
+ */
+export const startCountdown = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const tournament = await tournamentService.startCountdown(req.params.id, userId, req.body);
+
+    res.status(200).json({
+      success: true,
+      data: tournament,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Cancel active countdown.
+ * @route POST /api/tournaments/:id/countdown/cancel
+ */
+export const cancelCountdown = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const tournament = await tournamentService.cancelCountdown(req.params.id, userId);
+
+    res.status(200).json({
+      success: true,
+      data: tournament,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Start tournament / Round 1.
+ * @route POST /api/tournaments/:id/start
+ */
+export const startTournament = async (req, res, next) => {
+  try {
+    const userId = req.user ? req.user._id : null;
+    const tournament = await tournamentService.startTournament(req.params.id, userId);
+
+    res.status(200).json({
+      success: true,
+      data: tournament,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export default {
+  createTournament,
+  getTournaments,
+  getTournamentById,
+  updateTournament,
+  deleteTournament,
+  startReadyCheck,
+  startCountdown,
+  cancelCountdown,
+  startTournament,
+};

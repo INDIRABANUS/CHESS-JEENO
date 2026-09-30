@@ -144,8 +144,115 @@ export const getTournamentPlayers = async (tournamentId) => {
   return players;
 };
 
+/**
+ * Mark a player's readiness state (READY or NOT READY).
+ * Server-authoritative, idempotent, and restricted to the registered player.
+ * 
+ * @param {string} tournamentId
+ * @param {string|mongoose.Types.ObjectId} userId
+ * @param {boolean} isReady
+ * @returns {Promise<Object>}
+ */
+export const setPlayerReady = async (tournamentId, userId, isReady = true) => {
+  if (!mongoose.isValidObjectId(tournamentId)) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const tournament = await Tournament.findById(tournamentId);
+  if (!tournament) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Pre-start state check: only allow toggling ready during REGISTRATION or READY_CHECK
+  if (tournament.status !== 'REGISTRATION' && tournament.status !== 'READY_CHECK') {
+    const error = new Error(
+      `Cannot change ready status when tournament status is '${tournament.status}'.`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const player = await TournamentPlayer.findOne({ tournamentId, userId });
+  if (!player) {
+    const error = new Error('You are not registered for this tournament.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const targetReady = Boolean(isReady);
+  player.isReady = targetReady;
+  player.readyAt = targetReady ? (player.readyAt || new Date()) : null;
+  await player.save();
+
+  // Compute aggregate readiness
+  const totalPlayers = await TournamentPlayer.countDocuments({ tournamentId });
+  const readyCount = await TournamentPlayer.countDocuments({ tournamentId, isReady: true });
+
+  // Broadcast realtime event to tournament room
+  try {
+    const { getIo } = await import('../realtime/socket.js');
+    const io = getIo();
+    if (io) {
+      io.to(`tournament:${tournamentId}`).emit('PLAYER_READY_CHANGED', {
+        tournamentId: tournamentId.toString(),
+        userId: userId.toString(),
+        isReady: targetReady,
+        readyCount,
+        totalPlayers,
+      });
+    }
+  } catch (socketErr) {
+    // Non-fatal warning
+  }
+
+  return {
+    success: true,
+    isReady: targetReady,
+    readyCount,
+    totalPlayers,
+  };
+};
+
+/**
+ * Get tournament readiness statistics.
+ * 
+ * @param {string} tournamentId
+ * @returns {Promise<Object>}
+ */
+export const getTournamentReadiness = async (tournamentId) => {
+  if (!mongoose.isValidObjectId(tournamentId)) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const totalPlayers = await TournamentPlayer.countDocuments({ tournamentId });
+  const readyCount = await TournamentPlayer.countDocuments({ tournamentId, isReady: true });
+  const players = await TournamentPlayer.find({ tournamentId })
+    .populate('userId', 'name email avatar lichessUsername');
+
+  return {
+    tournamentId: tournamentId.toString(),
+    totalPlayers,
+    readyCount,
+    allReady: totalPlayers >= 2 && readyCount === totalPlayers,
+    players: players.map((p) => ({
+      userId: p.userId?._id?.toString() || p.userId?.toString(),
+      name: p.userId?.name || 'Anonymous',
+      isReady: Boolean(p.isReady),
+      readyAt: p.readyAt,
+    })),
+  };
+};
+
 export default {
   joinTournament,
   leaveTournament,
   getTournamentPlayers,
+  setPlayerReady,
+  getTournamentReadiness,
 };

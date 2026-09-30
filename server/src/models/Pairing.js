@@ -44,7 +44,7 @@ const pairingSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['PENDING', 'CREATED', 'ACTIVE', 'READY', 'RUNNING', 'COMPLETED', 'FINISHED', 'CANCELLED', 'ABORTED', 'BYE'],
+        values: ['PENDING', 'CREATED', 'ACTIVE', 'READY', 'RUNNING', 'COMPLETED', 'FINISHED', 'CANCELLED', 'ABORTED', 'REMATCHING', 'BYE'],
         message: '{VALUE} is not a valid pairing status',
       },
       default: 'PENDING',
@@ -61,6 +61,20 @@ const pairingSchema = new mongoose.Schema(
       type: String,
       default: null,
       trim: true,
+    },
+    previousGames: [
+      {
+        lichessGameId: { type: String, trim: true },
+        lichessGameUrl: { type: String, trim: true },
+        status: { type: String, default: 'ABORTED' },
+        result: { type: String, default: 'ABORTED' },
+        archivedAt: { type: Date, default: Date.now },
+      },
+    ],
+    rematchCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     startedAt: {
       type: Date,
