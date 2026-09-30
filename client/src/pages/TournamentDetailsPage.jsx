@@ -259,11 +259,25 @@ const TournamentDetailsPage = () => {
     };
   }, [id]);
 
-  // Derived registration status
-  const currentUserId = currentUser?._id;
+  // Derived user / host / registration status
+  const currentUserId = (currentUser?._id || authUser?._id)?.toString();
+  const creatorId = (
+    tournament?.createdBy?._id ||
+    tournament?.createdBy?.id ||
+    tournament?.createdBy
+  )?.toString();
+  const isHost = Boolean(
+    currentUserId &&
+    creatorId &&
+    currentUserId === creatorId
+  );
   const isRegistered =
     Boolean(tournament?.isRegistered) ||
-    (currentUserId && players.some((p) => (p.userId?._id || p.userId) === currentUserId));
+    (currentUserId &&
+      players.some((p) => {
+        const pUid = (p.userId?._id || p.userId?.id || p.userId)?.toString();
+        return pUid && pUid === currentUserId;
+      }));
 
   const isFull =
     Boolean(tournament?.maxPlayers) && players.length >= tournament.maxPlayers;
@@ -987,15 +1001,18 @@ const TournamentDetailsPage = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {players.map((p, idx) => {
-                  const isHost =
-                    p.userId?._id &&
-                    tournament.createdBy?._id &&
-                    p.userId._id.toString() === tournament.createdBy._id.toString();
+                  const playerUserId = (p.userId?._id || p.userId?.id || p.userId)?.toString();
+                  const isPlayerHost = Boolean(
+                    playerUserId &&
+                    creatorId &&
+                    playerUserId === creatorId
+                  );
 
-                  const isCurrent =
+                  const isCurrent = Boolean(
                     currentUserId &&
-                    p.userId?._id &&
-                    p.userId._id.toString() === currentUserId.toString();
+                    playerUserId &&
+                    playerUserId === currentUserId
+                  );
 
                   return (
                     <tr
@@ -1026,7 +1043,7 @@ const TournamentDetailsPage = () => {
                           <div>
                             <div className="font-semibold text-slate-900 flex items-center space-x-2">
                               <span>{p.userId?.name || 'Anonymous Player'}</span>
-                              {isHost && (
+                              {isPlayerHost && (
                                 <span className="text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.2 rounded">
                                   Host
                                 </span>
@@ -1354,12 +1371,14 @@ const TournamentDetailsPage = () => {
                           const isGameReady = Boolean(pairing.lichessGameId);
                           const isBye = pairing.status === 'BYE' || pairing.result === 'BYE' || !pairing.blackPlayer;
 
-                          const whiteUserId = (pairing.whitePlayer?._id || pairing.whitePlayer)?.toString();
-                          const blackUserId = (pairing.blackPlayer?._id || pairing.blackPlayer)?.toString();
+                          const whiteUserId = (pairing.whitePlayer?._id || pairing.whitePlayer?.id || pairing.whitePlayer)?.toString();
+                          const blackUserId = (pairing.blackPlayer?._id || pairing.blackPlayer?.id || pairing.blackPlayer)?.toString();
                           const myUserId = currentUserId?.toString();
 
                           const isCurrentWhite = Boolean(myUserId && whiteUserId && whiteUserId === myUserId);
                           const isCurrentBlack = Boolean(myUserId && blackUserId && blackUserId === myUserId);
+                          const isWhitePlayer = isCurrentWhite;
+                          const isBlackPlayer = isCurrentBlack;
                           const isParticipant = isCurrentWhite || isCurrentBlack;
                           const canManageGame = isHost || isParticipant;
 
