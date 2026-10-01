@@ -13,47 +13,8 @@ import {
   Shield,
 } from 'lucide-react';
 import { getTournaments } from '../services/tournamentService';
-
-const FORMAT_LABELS = {
-  SWISS: 'Swiss System',
-  ROUND_ROBIN: 'Round Robin',
-  KNOCKOUT: 'Single Elimination',
-};
-
-const STATUS_BADGES = {
-  DRAFT: 'bg-slate-100 text-slate-700 border-slate-200',
-  REGISTRATION: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  RUNNING: 'bg-amber-50 text-amber-700 border-amber-200',
-  FINISHED: 'bg-blue-50 text-blue-700 border-blue-200',
-  CANCELLED: 'bg-rose-50 text-rose-700 border-rose-200',
-};
-
-const formatTimeControl = (clockLimit, increment) => {
-  const mins = Math.floor(clockLimit / 60);
-  const secs = clockLimit % 60;
-  let baseStr = '';
-  if (mins > 0 && secs === 0) {
-    baseStr = `${mins}m`;
-  } else if (mins > 0) {
-    baseStr = `${mins}m ${secs}s`;
-  } else {
-    baseStr = `${secs}s`;
-  }
-  return increment > 0 ? `${baseStr} + ${increment}s` : baseStr;
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return 'Not scheduled';
-  const d = new Date(dateString);
-  if (isNaN(d.getTime())) return 'Not scheduled';
-  return d.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
+import { formatTimeControl, formatDate } from '../utils/formatters';
+import { FORMAT_LABELS, STATUS_BADGES } from '../utils/constants';
 
 const TournamentsPage = () => {
   const [tournaments, setTournaments] = useState([]);

@@ -12,18 +12,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { createTournament } from '../services/tournamentService';
-
-const PRESET_TIME_CONTROLS = [
-  { label: '1+0', name: 'Bullet', clockLimit: 60, increment: 0 },
-  { label: '3+0', name: 'Blitz', clockLimit: 180, increment: 0 },
-  { label: '3+2', name: 'Blitz', clockLimit: 180, increment: 2 },
-  { label: '5+0', name: 'Blitz', clockLimit: 300, increment: 0 },
-  { label: '5+3', name: 'Blitz', clockLimit: 300, increment: 3 },
-  { label: '10+0', name: 'Rapid', clockLimit: 600, increment: 0 },
-  { label: '10+5', name: 'Rapid', clockLimit: 600, increment: 5 },
-  { label: '30+0', name: 'Classical', clockLimit: 1800, increment: 0 },
-  { label: '60+30', name: 'Classical', clockLimit: 3600, increment: 30 },
-];
+import { PRESET_TIME_CONTROLS } from '../utils/constants';
 
 const CreateTournamentPage = () => {
   const navigate = useNavigate();

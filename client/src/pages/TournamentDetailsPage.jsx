@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Clock,
   Users,
-  Calendar,
   Shield,
   Edit2,
   Trash2,
@@ -13,113 +12,78 @@ import {
   AlertCircle,
   CheckCircle,
   X,
-  Layers,
   UserPlus,
   UserMinus,
   UserCheck,
-  User,
   PlusCircle,
   Swords,
-  ChevronRight,
-  ExternalLink,
   Zap,
-  RefreshCw,
-  Medal,
 } from 'lucide-react';
 import {
-  getTournamentById,
   updateTournament,
   deleteTournament,
-  getTournamentPlayers,
-  joinTournament,
-  leaveTournament,
   getCurrentDevUser,
-  getTournamentRounds,
-  createRound,
-  createPairingLichessGame,
-  createAllRoundLichessGames,
-  syncPairingResult,
-  getTournamentStandings,
-  getRoundStatus,
-  setPlayerReady,
-  setPlayerNotReady,
-  startReadyCheck,
-  startCountdown,
-  cancelCountdown,
-  startTournament,
-  rematchPairing,
 } from '../services/tournamentService';
-import { joinTournamentRoom, leaveTournamentRoom } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
+import { useTournamentDetails } from '../hooks/useTournamentDetails';
+import { useTournamentSocket } from '../hooks/useTournamentSocket';
+import { useTournamentLichessActions } from '../hooks/useTournamentLichessActions';
+import { useTournamentPlayerActions } from '../hooks/useTournamentPlayerActions';
+import { useTournamentHostActions } from '../hooks/useTournamentHostActions';
+import { useTournamentRoundActions } from '../hooks/useTournamentRoundActions';
 import RoundCard from '../components/RoundCard';
 import StandingsTable from '../components/StandingsTable';
 import ParticipantsTable from '../components/ParticipantsTable';
-
-const FORMAT_LABELS = {
-  SWISS: 'Swiss System',
-  ROUND_ROBIN: 'Round Robin',
-  KNOCKOUT: 'Single Elimination',
-};
-
-const STATUS_BADGES = {
-  DRAFT: 'bg-slate-100 text-slate-700 border-slate-200',
-  REGISTRATION: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  READY_CHECK: 'bg-purple-50 text-purple-700 border-purple-200',
-  COUNTDOWN: 'bg-orange-50 text-orange-700 border-orange-200',
-  RUNNING: 'bg-amber-50 text-amber-700 border-amber-200',
-  IN_PROGRESS: 'bg-amber-50 text-amber-700 border-amber-200',
-  FINISHED: 'bg-blue-50 text-blue-700 border-blue-200',
-  COMPLETED: 'bg-blue-50 text-blue-700 border-blue-200',
-  CANCELLED: 'bg-rose-50 text-rose-700 border-rose-200',
-};
-
-const formatTimeControl = (clockLimit, increment) => {
-  if (!clockLimit) return 'N/A';
-  const mins = Math.floor(clockLimit / 60);
-  const secs = clockLimit % 60;
-  let baseStr = '';
-  if (mins > 0 && secs === 0) {
-    baseStr = `${mins}m`;
-  } else if (mins > 0) {
-    baseStr = `${mins}m ${secs}s`;
-  } else {
-    baseStr = `${secs}s`;
-  }
-  return increment > 0 ? `${baseStr} + ${increment}s` : baseStr;
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return 'Not scheduled';
-  const d = new Date(dateString);
-  if (isNaN(d.getTime())) return 'Not scheduled';
-  return d.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
+import MyPairingCard from '../components/MyPairingCard';
+import EditTournamentModal from '../components/EditTournamentModal';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import KnockoutBracket from '../components/KnockoutBracket';
+import TournamentCompleteCard from '../components/TournamentCompleteCard';
+import CountdownBanner from '../components/CountdownBanner';
+import TournamentSpecsGrid from '../components/TournamentSpecsGrid';
+import { FORMAT_LABELS, STATUS_BADGES } from '../utils/constants';
 
 const TournamentDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [tournament, setTournament] = useState(null);
-  const [players, setPlayers] = useState([]);
-  const [rounds, setRounds] = useState([]);
-  const [standings, setStandings] = useState([]);
   const { user: authUser } = useAuth();
   const [currentUser, setCurrentUser] = useState(authUser || null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+
+  const {
+    tournament,
+    players,
+    rounds,
+    standings,
+    loading,
+    error,
+    fetchTournamentData,
+    setTournament,
+    setRounds,
+    setStandings,
+  } = useTournamentDetails(id);
+
+  // Realtime Socket.IO subscription
+  useTournamentSocket({
+    tournamentId: id,
+    setRounds,
+    setStandings,
+    fetchTournamentData,
+  });
 
   // Synchronize authUser into currentUser
   useEffect(() => {
     if (authUser) {
       setCurrentUser(authUser);
+    } else if (import.meta.env.DEV) {
+      getCurrentDevUser()
+        .then((res) => {
+          if (res && res.data) {
+            setCurrentUser(res.data);
+          }
+        })
+        .catch(() => {});
     }
   }, [authUser]);
 
@@ -127,15 +91,24 @@ const TournamentDetailsPage = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState(null);
 
-  // Round creation state
-  const [createRoundLoading, setCreateRoundLoading] = useState(false);
-  const [roundError, setRoundError] = useState(null);
 
-  // Lichess Game Creation state
-  const [pairingGameLoading, setPairingGameLoading] = useState({});
-  const [roundBulkLoading, setRoundBulkLoading] = useState({});
-  const [syncLoading, setSyncLoading] = useState({});
-  const [gameError, setGameError] = useState(null);
+  // Lichess actions and state
+  const {
+    pairingGameLoading,
+    roundBulkLoading,
+    syncLoading,
+    rematchLoading,
+    gameError,
+    setGameError,
+    handleRematch,
+    handleCreatePairingGame,
+    handleCreateAllRoundGames,
+    handleSyncResult,
+  } = useTournamentLichessActions({
+    tournamentId: id,
+    fetchTournamentData,
+    setSuccessMessage,
+  });
 
   // Edit Modal State
   const [isEditing, setIsEditing] = useState(false);
@@ -146,157 +119,6 @@ const TournamentDetailsPage = () => {
   // Delete State
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
-  const fetchTournamentData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [tourneyRes, playersRes, roundsRes, standingsRes] = await Promise.all([
-        getTournamentById(id),
-        getTournamentPlayers(id),
-        getTournamentRounds(id).catch(() => ({ data: [] })),
-        getTournamentStandings(id).catch(() => ({ data: { standings: [] } })),
-      ]);
-
-      setTournament(tourneyRes.data);
-      setPlayers(playersRes.data || []);
-      setRounds(roundsRes.data || []);
-      setStandings(standingsRes.data?.standings || []);
-
-      if (authUser) {
-        setCurrentUser(authUser);
-      } else if (import.meta.env.DEV) {
-        const userRes = await getCurrentDevUser().catch(() => ({ data: null }));
-        if (userRes && userRes.data) {
-          setCurrentUser(userRes.data);
-        }
-      }
-    } catch (err) {
-      setError(
-        err.response?.status === 404
-          ? 'Tournament not found'
-          : err.response?.data?.message || err.message || 'Failed to load tournament'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTournamentData();
-  }, [id]);
-
-  // Realtime Socket.IO subscription
-  useEffect(() => {
-    if (!id) return;
-
-    const handleGameUpdate = (event) => {
-      if (event.tournamentId && event.tournamentId !== id) return;
-
-      setRounds((prevRounds) => {
-        return prevRounds.map((round) => {
-          if (event.roundNumber && round.roundNumber !== event.roundNumber) {
-            return round;
-          }
-          const updatedPairings = (round.pairings || []).map((pairing) => {
-            const matchesId =
-              (event.pairingId && (pairing._id === event.pairingId || String(pairing._id) === String(event.pairingId))) ||
-              (event.lichessGameId && pairing.lichessGameId === event.lichessGameId);
-
-            if (matchesId) {
-              const nextPairing = { ...pairing };
-              if (event.status) nextPairing.lichessStatus = event.status;
-              if (event.result && event.result !== 'PENDING') {
-                nextPairing.result = event.result;
-              }
-              if (
-                event.eventType === 'GAME_FINISHED' ||
-                ['1-0', '0-1', '1/2-1/2'].includes(event.result)
-              ) {
-                nextPairing.status = 'FINISHED';
-              } else if (event.eventType === 'GAME_ABORTED' || event.result === 'ABORTED') {
-                nextPairing.status = 'ABORTED';
-              } else if (
-                event.status === 'started' ||
-                event.eventType === 'GAME_STARTED' ||
-                event.eventType === 'GAME_STATE'
-              ) {
-                nextPairing.status = 'ACTIVE';
-              }
-              if (event.clocks) nextPairing.clocks = event.clocks;
-              if (event.lastMove) nextPairing.lastMove = event.lastMove;
-              return nextPairing;
-            }
-            return pairing;
-          });
-          return { ...round, pairings: updatedPairings };
-        });
-      });
-    };
-
-    const handleStandingsUpdate = (data) => {
-      if (data.tournamentId && data.tournamentId !== id) return;
-      if (data.standings && Array.isArray(data.standings)) {
-        setStandings(data.standings);
-      }
-    };
-
-    const handleRoundCompleted = (data) => {
-      if (data.tournamentId && data.tournamentId !== id) return;
-      setRounds((prevRounds) => {
-        return prevRounds.map((r) => {
-          if (r.roundNumber === data.roundNumber) {
-            return { ...r, status: 'COMPLETED' };
-          }
-          return r;
-        });
-      });
-    };
-
-    joinTournamentRoom(id, {
-      onGameStarted: handleGameUpdate,
-      onGameState: handleGameUpdate,
-      onGameFinished: (evt) => {
-        handleGameUpdate(evt);
-        fetchTournamentData();
-      },
-      onGameAborted: (evt) => {
-        handleGameUpdate(evt);
-        fetchTournamentData();
-      },
-      onGameRematched: (evt) => {
-        handleGameUpdate(evt);
-        fetchTournamentData();
-      },
-      onStandingsUpdated: handleStandingsUpdate,
-      onRoundCompleted: handleRoundCompleted,
-      onPlayerReadyChanged: () => {
-        fetchTournamentData();
-      },
-      onReadyCheckStarted: () => {
-        fetchTournamentData();
-      },
-      onCountdownStarted: () => {
-        fetchTournamentData();
-      },
-      onCountdownCancelled: () => {
-        fetchTournamentData();
-      },
-      onTournamentStarted: () => {
-        fetchTournamentData();
-      },
-      onTournamentCompleted: () => {
-        fetchTournamentData();
-      },
-    });
-
-    return () => {
-      leaveTournamentRoom(id);
-    };
-  }, [id]);
-
-  // Rematch loading state
-  const [rematchLoading, setRematchLoading] = useState({});
 
   // Countdown timer state
   const [countdownRemaining, setCountdownRemaining] = useState(null);
@@ -387,41 +209,6 @@ const TournamentDetailsPage = () => {
     return null;
   }, [rounds, currentUserId]);
 
-  // Handle Joining Tournament
-  const handleJoin = async () => {
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      await joinTournament(id);
-      setSuccessMessage('You have successfully joined the tournament!');
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err) {
-      setActionError(
-        err.response?.data?.message || err.message || 'Failed to join tournament'
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle Leaving Tournament
-  const handleLeave = async () => {
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      await leaveTournament(id);
-      setSuccessMessage('You have withdrawn from the tournament.');
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err) {
-      setActionError(
-        err.response?.data?.message || err.message || 'Failed to leave tournament'
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   // Readiness derived state
   const currentPlayerRecord = currentUserId
@@ -434,97 +221,34 @@ const TournamentDetailsPage = () => {
   const readyPlayerCount = players.filter((p) => p.isReady).length || tournament?.readyPlayers || 0;
   const allPlayersReady = players.length >= 2 && readyPlayerCount === players.length;
 
-  // Handle Toggle Player Ready
-  const handleToggleReady = async () => {
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      if (isCurrentUserReady) {
-        await setPlayerNotReady(id);
-      } else {
-        await setPlayerReady(id);
-      }
-      await fetchTournamentData();
-    } catch (err) {
-      setActionError(
-        err.response?.data?.message || err.message || 'Failed to update readiness status'
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  // Player actions
+  const {
+    handleJoin,
+    handleLeave,
+    handleToggleReady,
+  } = useTournamentPlayerActions({
+    tournamentId: id,
+    isRegistered,
+    isCurrentUserReady,
+    fetchTournamentData,
+    setSuccessMessage,
+    setActionLoading,
+    setActionError,
+  });
 
-  // Handle Start Ready Check (Host)
-  const handleStartReadyCheck = async () => {
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      await startReadyCheck(id);
-      setSuccessMessage('Ready check initiated! Players can now mark themselves ready.');
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err) {
-      setActionError(
-        err.response?.data?.message || err.message || 'Failed to start ready check'
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle Start Countdown (Host)
-  const handleStartCountdown = async () => {
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      await startCountdown(id, { countdownSeconds: 60 });
-      setSuccessMessage('Countdown started! Tournament will begin shortly.');
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err) {
-      setActionError(
-        err.response?.data?.message || err.message || 'Failed to start countdown'
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle Cancel Countdown (Host)
-  const handleCancelCountdown = async () => {
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      await cancelCountdown(id);
-      setSuccessMessage('Countdown cancelled.');
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err) {
-      setActionError(
-        err.response?.data?.message || err.message || 'Failed to cancel countdown'
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle Start Tournament Now (Host)
-  const handleStartTournament = async () => {
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      await startTournament(id);
-      setSuccessMessage('Tournament started! Round 1 pairings have been generated.');
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err) {
-      setActionError(
-        err.response?.data?.message || err.message || 'Failed to start tournament'
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  // Host actions
+  const {
+    handleStartReadyCheck,
+    handleStartCountdown,
+    handleCancelCountdown,
+    handleStartTournament,
+  } = useTournamentHostActions({
+    tournamentId: id,
+    fetchTournamentData,
+    setSuccessMessage,
+    setActionLoading,
+    setActionError,
+  });
 
   // Countdown timer effect
   useEffect(() => {
@@ -545,104 +269,18 @@ const TournamentDetailsPage = () => {
     }
   }, [tournament?.status, tournament?.scheduledStartAt, isHost]);
 
-  // Handle Rematch for Aborted Pairing
-  const handleRematch = async (roundNumber, pairingId) => {
-    setRematchLoading((prev) => ({ ...prev, [pairingId]: true }));
-    setGameError(null);
-    try {
-      await rematchPairing(id, roundNumber, pairingId);
-      setSuccessMessage('New rematch game created successfully on Lichess!');
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err) {
-      setGameError(
-        err.response?.data?.message || err.message || 'Failed to create rematch game'
-      );
-    } finally {
-      setRematchLoading((prev) => ({ ...prev, [pairingId]: false }));
-    }
-  };
 
-  // Handle Create Round
-  const handleCreateRound = async () => {
-    setCreateRoundLoading(true);
-    setRoundError(null);
-    try {
-      const res = await createRound(id);
-      setSuccessMessage(
-        `Round ${res.data.round.roundNumber} created successfully with ${res.data.pairings.length} pairing(s)!`
-      );
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err) {
-      setRoundError(
-        err.response?.data?.message || err.message || 'Failed to create round'
-      );
-    } finally {
-      setCreateRoundLoading(false);
-    }
-  };
+  // Round creation actions and state
+  const {
+    handleCreateRound,
+    createRoundLoading,
+    roundError,
+  } = useTournamentRoundActions({
+    tournamentId: id,
+    fetchTournamentData,
+    setSuccessMessage,
+  });
 
-  // Handle Create Lichess Game for single pairing
-  const handleCreatePairingGame = async (roundNumber, pairingId) => {
-    setPairingGameLoading((prev) => ({ ...prev, [pairingId]: true }));
-    setGameError(null);
-    try {
-      await createPairingLichessGame(id, roundNumber, pairingId);
-      setSuccessMessage('Lichess game created successfully!');
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err) {
-      setGameError(
-        err.response?.data?.message || err.message || 'Failed to create Lichess game'
-      );
-    } finally {
-      setPairingGameLoading((prev) => ({ ...prev, [pairingId]: false }));
-    }
-  };
-
-  // Handle Create All Lichess Games for a round
-  const handleCreateAllRoundGames = async (roundNumber) => {
-    setRoundBulkLoading((prev) => ({ ...prev, [roundNumber]: true }));
-    setGameError(null);
-    try {
-      const res = await createAllRoundLichessGames(id, roundNumber);
-      const { created = 0, skipped = 0, failed = 0 } = res.data || {};
-      let msg = `Round ${roundNumber}: ${created} game(s) created`;
-      if (skipped > 0) msg += `, ${skipped} already existed`;
-      if (failed > 0) msg += `, ${failed} failed`;
-      setSuccessMessage(msg);
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (err) {
-      setGameError(
-        err.response?.data?.message || err.message || 'Failed to create Lichess games for round'
-      );
-    } finally {
-      setRoundBulkLoading((prev) => ({ ...prev, [roundNumber]: false }));
-    }
-  };
-
-  // Handle Sync Lichess Game Result
-  const handleSyncResult = async (roundNumber, pairingId) => {
-    setSyncLoading((prev) => ({ ...prev, [pairingId]: true }));
-    setGameError(null);
-    try {
-      const res = await syncPairingResult(id, roundNumber, pairingId);
-      const updatedPairing = res.data;
-      const statusText = updatedPairing.status || 'UPDATED';
-      const resultText = updatedPairing.result && updatedPairing.result !== 'PENDING' ? ` (${updatedPairing.result})` : '';
-      setSuccessMessage(`Game synchronized: ${statusText}${resultText}`);
-      await fetchTournamentData();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err) {
-      setGameError(
-        err.response?.data?.message || err.message || 'Failed to sync game result from Lichess'
-      );
-    } finally {
-      setSyncLoading((prev) => ({ ...prev, [pairingId]: false }));
-    }
-  };
 
   const handleOpenEdit = () => {
     setEditFormData({
@@ -694,11 +332,12 @@ const TournamentDetailsPage = () => {
 
   const handleDelete = async () => {
     setDeleteLoading(true);
+    setActionError(null);
     try {
       await deleteTournament(id);
       navigate('/tournaments');
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to delete tournament');
+      setActionError(err.response?.data?.message || err.message || 'Failed to delete tournament');
       setIsDeleting(false);
       setDeleteLoading(false);
     }
@@ -853,66 +492,12 @@ const TournamentDetailsPage = () => {
         </div>
 
         {/* Specifications Grid */}
-        <div className="p-6 sm:p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 bg-white">
-          <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
-            <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
-              <Clock className="h-4 w-4 text-indigo-600" />
-              <span className="font-semibold uppercase tracking-wider">Time Control</span>
-            </div>
-            <div className="text-base font-bold text-slate-800">
-              {formatTimeControl(tournament.clockLimit, tournament.increment)}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-0.5">
-              {Math.floor(tournament.clockLimit / 60)} min base + {tournament.increment}s inc
-            </div>
-          </div>
-
-          <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
-            <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
-              <Layers className="h-4 w-4 text-indigo-600" />
-              <span className="font-semibold uppercase tracking-wider">Format</span>
-            </div>
-            <div className="text-base font-bold text-slate-800">
-              {FORMAT_LABELS[tournament.format] || tournament.format}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-0.5">
-              {tournament.format === 'SWISS' && tournament.totalRounds
-                ? `${tournament.totalRounds} scheduled rounds`
-                : tournament.format === 'ROUND_ROBIN'
-                ? 'All-play-all schedule'
-                : tournament.format === 'KNOCKOUT'
-                ? 'Single-elimination bracket'
-                : 'Standard tournament bracket'}
-            </div>
-          </div>
-
-          <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
-            <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
-              <Users className="h-4 w-4 text-indigo-600" />
-              <span className="font-semibold uppercase tracking-wider">Players</span>
-            </div>
-            <div className="text-base font-bold text-slate-800">
-              {players.length} / {tournament.maxPlayers ? tournament.maxPlayers : 'Open'}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5 font-medium flex items-center space-x-1.5">
-              <span className={`inline-block w-2 h-2 rounded-full ${allPlayersReady ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-              <span>{readyPlayerCount} / {players.length} READY</span>
-            </div>
-          </div>
-
-          <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
-            <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
-              <Calendar className="h-4 w-4 text-indigo-600" />
-              <span className="font-semibold uppercase tracking-wider">Start Time</span>
-            </div>
-            <div className="text-sm font-bold text-slate-800 truncate">
-              {formatDate(tournament.startTime)}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-0.5">
-              {tournament.startTime ? 'Scheduled' : 'TBD'}
-            </div>
-          </div>
-        </div>
+        <TournamentSpecsGrid
+          tournament={tournament}
+          players={players}
+          readyPlayerCount={readyPlayerCount}
+          allPlayersReady={allPlayersReady}
+        />
 
         {/* Registration CTA & Readiness Banner */}
         <div className="p-6 sm:p-8 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1119,229 +704,33 @@ const TournamentDetailsPage = () => {
 
       {/* Live Countdown Banner */}
       {tournament.status === 'COUNTDOWN' && (
-        <div className="p-6 bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 text-white rounded-xl shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-xs animate-pulse">
-              <Clock className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-amber-200">
-                Tournament Countdown Active
-              </div>
-              <div className="text-3xl font-black font-mono tracking-tight">
-                Starting in {typeof countdownRemaining === 'number' ? `00:${String(countdownRemaining).padStart(2, '0')}` : '60s'}
-              </div>
-              <div className="text-xs text-indigo-100 mt-1">
-                Round 1 pairings will generate automatically when the countdown reaches zero.
-              </div>
-            </div>
-          </div>
-          {isHost && (
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleStartTournament}
-                disabled={actionLoading}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg text-xs shadow-sm transition"
-              >
-                START NOW
-              </button>
-              <button
-                onClick={handleCancelCountdown}
-                disabled={actionLoading}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-bold rounded-lg text-xs border border-white/30 transition"
-              >
-                CANCEL
-              </button>
-            </div>
-          )}
-        </div>
+        <CountdownBanner
+          countdownRemaining={countdownRemaining}
+          isHost={isHost}
+          actionLoading={actionLoading}
+          onStartTournament={handleStartTournament}
+          onCancelCountdown={handleCancelCountdown}
+        />
       )}
 
       {/* Personal Match / Result Card (Sections 19, 20, 21) */}
       {isRegistered && myCurrentPairing && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center space-x-2">
-              <Swords className="h-5 w-5 text-amber-400" />
-              <span className="font-extrabold text-sm tracking-wide">
-                YOUR PAIRING — {myCurrentPairing.stageName || `Round ${myCurrentPairing.roundNumber}`}
-              </span>
-            </div>
-            <div className="flex items-center space-x-3 text-xs">
-              <span className="text-slate-300">
-                Tournament Score: <span className="font-bold text-amber-400 font-mono">{currentStanding?.score ?? 0} pts</span>
-              </span>
-              {currentStanding?.rank && (
-                <span className="text-slate-300">
-                  Current Position: <span className="font-bold text-white">#{currentStanding.rank}</span>
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="p-5">
-            {(() => {
-              const p = myCurrentPairing.pairing;
-              const isWhite = myCurrentPairing.isWhite;
-              const opponent = myCurrentPairing.opponent;
-              const isAborted = p.status === 'ABORTED' || p.result === 'ABORTED';
-              const isFinished = p.status === 'FINISHED' || ['1-0', '0-1', '1/2-1/2'].includes(p.result);
-
-              let resultLabel = null;
-              let pointDelta = null;
-              let bannerStyle = '';
-
-              if (isFinished) {
-                if (p.result === '1-0') {
-                  resultLabel = isWhite ? 'YOU WON' : 'GAME LOST';
-                  pointDelta = isWhite ? '+1 POINT' : '+0 POINTS';
-                  bannerStyle = isWhite ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800';
-                } else if (p.result === '0-1') {
-                  resultLabel = !isWhite ? 'YOU WON' : 'GAME LOST';
-                  pointDelta = !isWhite ? '+1 POINT' : '+0 POINTS';
-                  bannerStyle = !isWhite ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800';
-                } else if (p.result === '1/2-1/2') {
-                  resultLabel = 'DRAW';
-                  pointDelta = '+0.5 POINT';
-                  bannerStyle = 'bg-blue-50 border-blue-200 text-blue-800';
-                }
-              }
-
-              return (
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                    <div>
-                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Opponent</div>
-                      <div className="text-base font-bold text-slate-900 flex items-center space-x-2">
-                        <span>{opponent?.name || 'Opponent'}</span>
-                        {opponent?.lichessUsername && (
-                          <span className="text-xs font-mono text-indigo-600 font-semibold">
-                            (@{opponent.lichessUsername})
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        You are playing as <span className="font-semibold">{isWhite ? 'White ♔' : 'Black ♚'}</span>
-                      </div>
-                    </div>
-
-                    {isFinished && resultLabel && (
-                      <div className={`p-3 rounded-lg border flex items-center space-x-3 ${bannerStyle}`}>
-                        <Trophy className="h-5 w-5 flex-shrink-0" />
-                        <div>
-                          <div className="text-[10px] font-bold uppercase tracking-wider">GAME COMPLETE</div>
-                          <div className="text-sm font-extrabold flex items-center space-x-2">
-                            <span>{resultLabel}</span>
-                            <span className="text-xs px-2 py-0.5 rounded bg-white/80 font-mono shadow-2xs">{pointDelta}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {isAborted && (
-                      <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-xs font-bold uppercase tracking-wider text-amber-800">GAME ABORTED</div>
-                          <div className="text-xs text-amber-700">No tournament result was recorded. Request a rematch below.</div>
-                        </div>
-                        <button
-                          onClick={() => handleRematch(myCurrentPairing.roundNumber, p._id)}
-                          disabled={Boolean(rematchLoading[p._id])}
-                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm transition disabled:opacity-50"
-                        >
-                          {Boolean(rematchLoading[p._id]) ? 'REMATCHING...' : 'REMATCH'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs text-slate-500">Status:</span>
-                      <span className="font-semibold text-xs text-slate-800 uppercase px-2 py-0.5 rounded bg-slate-100">
-                        {p.status}
-                      </span>
-                      {p.result && p.result !== 'PENDING' && (
-                        <span className="font-bold text-xs text-indigo-700 font-mono px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200">
-                          {p.result}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      {p.lichessGameId && (
-                        <>
-                          <button
-                            onClick={() => handleSyncResult(myCurrentPairing.roundNumber, p._id)}
-                            disabled={Boolean(syncLoading[p._id])}
-                            className="inline-flex items-center space-x-1 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition"
-                          >
-                            <RefreshCw className="h-3 w-3" />
-                            <span>SYNC RESULT</span>
-                          </button>
-                          <a
-                            href={p.lichessGameUrl || `https://lichess.org/${p.lichessGameId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center space-x-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition"
-                          >
-                            <span>PLAY ON LICHESS</span>
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
+        <MyPairingCard
+          myCurrentPairing={myCurrentPairing}
+          currentStanding={currentStanding}
+          rematchLoading={rematchLoading}
+          syncLoading={syncLoading}
+          onRematch={handleRematch}
+          onSyncResult={handleSyncResult}
+        />
       )}
 
       {/* Tournament Complete Indicator (Section 22) */}
       {isTournamentComplete && (
-        <div className="p-6 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 rounded-xl shadow-md text-white flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-xs flex-shrink-0">
-              <Trophy className="h-8 w-8 text-amber-300" />
-            </div>
-            <div>
-              <div className="font-black text-lg tracking-wide flex items-center space-x-2">
-                <span>TOURNAMENT COMPLETE</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-white/30 rounded-full">
-                  Concluded
-                </span>
-              </div>
-              {tournament.winnerPlayer ? (
-                <p className="text-sm text-emerald-100 mt-1">
-                  🏆 Champion: <strong className="text-white underline">{tournament.winnerPlayer.name}</strong>
-                  {tournament.winnerPlayer.lichessUsername && ` (@${tournament.winnerPlayer.lichessUsername})`}
-                </p>
-              ) : (
-                <p className="text-xs text-emerald-100 mt-1">
-                  All scheduled matches have concluded. Final standings are displayed below.
-                </p>
-              )}
-            </div>
-          </div>
-
-          {currentStanding && (
-            <div className="bg-white/10 rounded-lg p-3 text-xs border border-white/20 flex items-center space-x-4">
-              <div>
-                <span className="text-emerald-200">Your Rank:</span>{' '}
-                <strong className="text-white text-sm">#{currentStanding.rank}</strong>
-              </div>
-              <div className="border-l border-white/20 pl-3">
-                <span className="text-emerald-200">Score:</span>{' '}
-                <strong className="text-white font-mono text-sm">{currentStanding.score} pts</strong>
-              </div>
-              <div className="border-l border-white/20 pl-3 text-emerald-100 font-mono">
-                {currentStanding.wins}W / {currentStanding.draws}D / {currentStanding.losses}L
-              </div>
-            </div>
-          )}
-        </div>
+        <TournamentCompleteCard
+          tournament={tournament}
+          currentStanding={currentStanding}
+        />
       )}
 
       {/* Standings Section */}
@@ -1473,60 +862,7 @@ const TournamentDetailsPage = () => {
 
         {/* Knockout Bracket Stage Progression View */}
         {tournament.format === 'KNOCKOUT' && rounds.length > 0 && (
-          <div className="p-6 bg-slate-50/70 border-b border-slate-200">
-            <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">
-              <Trophy className="h-4 w-4 text-indigo-600" />
-              <span>Knockout Bracket Progression</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-2">
-              {rounds.map((r) => {
-                const stageTitle = r.stageName || (r.pairings?.length === 1 ? 'Final' : `Round ${r.roundNumber}`);
-                return (
-                  <div key={r._id} className="bg-white rounded-lg border border-slate-200 shadow-xs p-3 flex flex-col justify-between">
-                    <div className="border-b border-slate-100 pb-2 mb-2 flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                        {stageTitle}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {r.pairings?.length || 0} match(es)
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {r.pairings?.map((p, mIdx) => {
-                        const wWinner = p.result === '1-0' || p.result === 'WHITE_WIN' || p.status === 'BYE' || p.result === 'BYE';
-                        const bWinner = p.result === '0-1' || p.result === 'BLACK_WIN';
-                        return (
-                          <div key={p._id || mIdx} className="bg-slate-50/80 rounded border border-slate-200 p-2 text-xs space-y-1">
-                            {/* White player slot */}
-                            <div className={`flex items-center justify-between px-1 py-0.5 rounded ${wWinner ? 'bg-emerald-50 text-emerald-900 font-bold' : 'text-slate-700'}`}>
-                              <span className="truncate max-w-[130px]">{p.whitePlayer?.name || 'Player'}</span>
-                              <span className="font-mono text-[11px] font-bold">
-                                {p.status === 'BYE' || p.result === 'BYE' ? 'BYE' : p.result === '1-0' ? '1' : p.result === '0-1' ? '0' : p.result === '1/2-1/2' ? '½' : '—'}
-                              </span>
-                            </div>
-                            {/* Black player slot */}
-                            <div className={`flex items-center justify-between px-1 py-0.5 rounded ${bWinner ? 'bg-emerald-50 text-emerald-900 font-bold' : 'text-slate-700'}`}>
-                              <span className="truncate max-w-[130px] italic text-slate-500">
-                                {p.status === 'BYE' || !p.blackPlayer ? 'BYE (Advances)' : (p.blackPlayer?.name || 'Player')}
-                              </span>
-                              <span className="font-mono text-[11px] font-bold">
-                                {p.status === 'BYE' || !p.blackPlayer ? '' : p.result === '0-1' ? '1' : p.result === '1-0' ? '0' : p.result === '1/2-1/2' ? '½' : '—'}
-                              </span>
-                            </div>
-                            {(wWinner || bWinner) && (
-                              <div className="text-[10px] text-emerald-700 font-semibold pt-1 border-t border-slate-200/60 flex items-center space-x-1">
-                                <span>Winner: {wWinner ? (p.whitePlayer?.name || 'White') : (p.blackPlayer?.name || 'Black')}</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <KnockoutBracket rounds={rounds} />
         )}
 
         {/* Rounds Content */}
@@ -1565,212 +901,24 @@ const TournamentDetailsPage = () => {
       </div>
 
       {/* Edit Tournament Modal */}
-      {isEditing && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-bold text-slate-900 text-lg">Edit Tournament</h3>
-              <button
-                onClick={() => setIsEditing(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {editError && (
-              <div className="mx-5 mt-4 p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center space-x-2">
-                <AlertCircle className="h-4 w-4 text-rose-500 flex-shrink-0" />
-                <span>{editError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveEdit} className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Tournament Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editFormData.name}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  rows={2}
-                  value={editFormData.description}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, description: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Format
-                  </label>
-                  <select
-                    value={editFormData.format}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, format: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  >
-                    <option value="SWISS">Swiss System</option>
-                    <option value="ROUND_ROBIN">Round Robin</option>
-                    <option value="KNOCKOUT">Single Elimination</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Max Players
-                  </label>
-                  <input
-                    type="number"
-                    min="2"
-                    value={editFormData.maxPlayers}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, maxPlayers: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Clock Limit (Sec)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={editFormData.clockLimit}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, clockLimit: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Increment (Sec)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={editFormData.increment}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, increment: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Start Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={editFormData.startTime}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, startTime: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center space-x-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="ratedCheck"
-                  checked={editFormData.rated}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, rated: e.target.checked })
-                  }
-                  className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4"
-                />
-                <label htmlFor="ratedCheck" className="text-xs font-medium text-slate-700">
-                  Rated Tournament
-                </label>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={editLoading}
-                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 transition"
-                >
-                  {editLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  <span>{editLoading ? 'Saving...' : 'Save Changes'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <EditTournamentModal
+        isOpen={isEditing}
+        onClose={() => setIsEditing(false)}
+        formData={editFormData}
+        onChange={setEditFormData}
+        loading={editLoading}
+        error={editError}
+        onSubmit={handleSaveEdit}
+      />
 
       {/* Delete Confirmation Modal */}
-      {isDeleting && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-sm w-full p-6 text-center space-y-4">
-            <div className="p-3 bg-rose-50 text-rose-600 rounded-full inline-flex">
-              <Trash2 className="h-6 w-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900 text-base">Delete Tournament?</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Are you sure you want to delete <span className="font-semibold">"{tournament.name}"</span>?
-                This action cannot be undone.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-center space-x-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsDeleting(false)}
-                disabled={deleteLoading}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleteLoading}
-                className="inline-flex items-center space-x-1 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition"
-              >
-                {deleteLoading && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-                <span>{deleteLoading ? 'Deleting...' : 'Confirm Delete'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmModal
+        isOpen={isDeleting}
+        onClose={() => setIsDeleting(false)}
+        onConfirm={handleDelete}
+        tournamentName={tournament.name}
+        loading={deleteLoading}
+      />
     </div>
   );
 };
