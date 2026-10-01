@@ -211,6 +211,7 @@ export const generateSwissPairings = ({
       'Cannot generate Swiss pairings: no valid pairings exist without repeat matchups. All possible opponents have already been played.'
     );
     error.statusCode = 400;
+    error.code = 'ALL_MATCHUPS_EXHAUSTED';
     throw error;
   }
 

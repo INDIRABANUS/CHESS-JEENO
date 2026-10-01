@@ -93,6 +93,14 @@ const tournamentSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    completionReason: {
+      type: String,
+      enum: {
+        values: ['TOTAL_ROUNDS_REACHED', 'ALL_MATCHUPS_EXHAUSTED'],
+        message: '{VALUE} is not a valid completion reason',
+      },
+      default: null,
+    },
   },
   {
     timestamps: true,

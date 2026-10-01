@@ -9,7 +9,8 @@ export const createRound = async (req, res, next) => {
     const userId = req.user._id;
     const result = await roundService.createRound(req.params.id, userId);
 
-    res.status(201).json({
+    const statusCode = result.completed ? 200 : 201;
+    res.status(statusCode).json({
       success: true,
       data: result,
     });

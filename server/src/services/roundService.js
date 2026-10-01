@@ -14,6 +14,72 @@ import {
 import * as standingsService from './standingsService.js';
 
 /**
+ * Cleanly and idempotently completes a tournament.
+ * Persists status: 'FINISHED', sets completionReason, resolves winner deterministically,
+ * and emits the existing TOURNAMENT_COMPLETED Socket.IO event.
+ *
+ * @param {Object|string} tournamentOrId
+ * @param {'TOTAL_ROUNDS_REACHED'|'ALL_MATCHUPS_EXHAUSTED'} [reason='TOTAL_ROUNDS_REACHED']
+ * @returns {Promise<Object>} The updated Tournament document
+ */
+export const finishTournament = async (tournamentOrId, reason = 'TOTAL_ROUNDS_REACHED') => {
+  const tournamentId = tournamentOrId?._id || tournamentOrId;
+  const tournament =
+    tournamentOrId && typeof tournamentOrId.save === 'function'
+      ? tournamentOrId
+      : await Tournament.findById(tournamentId);
+
+  if (!tournament) return null;
+
+  // Idempotency: if already finished or completed, return without side effects
+  if (tournament.status === 'FINISHED' || tournament.status === 'COMPLETED') {
+    return tournament;
+  }
+
+  tournament.status = 'FINISHED';
+  if (!tournament.completionReason) {
+    tournament.completionReason = reason;
+  }
+
+  // Deterministic winner resolution from final standings if not already assigned
+  if (!tournament.winnerPlayer) {
+    try {
+      const standingsData = await standingsService.getTournamentStandings(tournament._id);
+      if (standingsData.standings.length > 0 && standingsData.standings[0].playerId) {
+        tournament.winnerPlayer = standingsData.standings[0].playerId;
+      }
+    } catch (stErr) {
+      console.warn(`[RoundService] Winner resolution warning: ${stErr.message}`);
+    }
+  }
+
+  await tournament.save();
+
+  // Broadcast tournament completion via existing Socket.IO mechanism
+  try {
+    const { getIo } = await import('../realtime/socket.js');
+    const io = getIo();
+    if (io) {
+      const populated = await tournament.populate('winnerPlayer', 'name email avatar lichessUsername');
+      io.to(`tournament:${tournament._id.toString()}`).emit('TOURNAMENT_COMPLETED', {
+        tournamentId: tournament._id.toString(),
+        status: 'FINISHED',
+        winner: populated.winnerPlayer
+          ? {
+              id: populated.winnerPlayer._id.toString(),
+              name: populated.winnerPlayer.name,
+            }
+          : null,
+      });
+    }
+  } catch (bErr) {
+    // Non-fatal
+  }
+
+  return tournament;
+};
+
+/**
  * Creates the next round and its Round Robin pairings.
  * 
  * @param {string} tournamentId
@@ -49,6 +115,19 @@ export const createRound = async (tournamentId, userId = null) => {
     'IN_PROGRESS',
   ];
   if (!ALLOWED_ROUND_CREATION_STATUSES.includes(tournament.status)) {
+    if (
+      (tournament.status === 'FINISHED' || tournament.status === 'COMPLETED') &&
+      tournament.completionReason === 'ALL_MATCHUPS_EXHAUSTED'
+    ) {
+      return {
+        round: null,
+        pairings: [],
+        tournament,
+        completed: true,
+        completionReason: 'ALL_MATCHUPS_EXHAUSTED',
+        message: 'All possible matchups have been completed. Tournament has concluded.',
+      };
+    }
     const error = new Error(
       `Cannot create rounds for tournament with status '${tournament.status}'.`
     );
@@ -130,12 +209,34 @@ export const createRound = async (tournamentId, userId = null) => {
     const fullPreviousRounds = await getRounds(tournamentId);
     const standingsData = await standingsService.getTournamentStandings(tournamentId);
 
-    roundPlan = generateSwissPairings({
-      players: registeredPlayers,
-      standings: standingsData.standings,
-      previousRounds: fullPreviousRounds,
-      roundNumber: nextRoundNumber,
-    });
+    try {
+      roundPlan = generateSwissPairings({
+        players: registeredPlayers,
+        standings: standingsData.standings,
+        previousRounds: fullPreviousRounds,
+        roundNumber: nextRoundNumber,
+      });
+    } catch (err) {
+      const isExhausted =
+        err.code === 'ALL_MATCHUPS_EXHAUSTED' ||
+        (err.message && err.message.includes('no valid pairings exist without repeat matchups'));
+
+      if (isExhausted) {
+        // All valid matchups exhausted without repeats: complete tournament cleanly
+        const finishedTournament = await finishTournament(tournament, 'ALL_MATCHUPS_EXHAUSTED');
+        return {
+          round: null,
+          pairings: [],
+          tournament: finishedTournament,
+          completed: true,
+          completionReason: 'ALL_MATCHUPS_EXHAUSTED',
+          message: 'All possible matchups have been completed. Tournament has concluded.',
+        };
+      }
+
+      // Re-throw any other pairing error (duplicate players, invalid input, etc.)
+      throw err;
+    }
   } else if (isKnockout) {
     if (nextRoundNumber === 1) {
       roundPlan = generateKnockoutInitialPairings(registeredPlayers);
@@ -419,12 +520,15 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
   // If complete, check if tournament should transition to FINISHED
   if (complete) {
     let tournamentShouldFinish = false;
+    let finishReason = 'TOTAL_ROUNDS_REACHED';
+
     if (
       tournament.format === 'SWISS' &&
       tournament.totalRounds &&
       numRound >= tournament.totalRounds
     ) {
       tournamentShouldFinish = true;
+      finishReason = 'TOTAL_ROUNDS_REACHED';
     } else if (tournament.format === 'ROUND_ROBIN') {
       const registeredPlayers = await TournamentPlayer.find({ tournamentId });
       if (registeredPlayers.length >= 2) {
@@ -433,6 +537,7 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
           : registeredPlayers.length;
         if (numRound >= totalRounds) {
           tournamentShouldFinish = true;
+          finishReason = 'TOTAL_ROUNDS_REACHED';
         }
       }
     } else if (tournament.format === 'KNOCKOUT') {
@@ -440,6 +545,7 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
       const totalKnockoutRounds = calculateTotalRounds(registeredPlayers.length);
       if (numRound >= totalKnockoutRounds) {
         tournamentShouldFinish = true;
+        finishReason = 'TOTAL_ROUNDS_REACHED';
         if (pairings.length === 1) {
           const finalMatch = pairings[0];
           const championId = determinePairingWinner(finalMatch);
@@ -451,44 +557,7 @@ export const getRoundCompletionStatus = async (tournamentId, roundNumber) => {
     }
 
     if (tournamentShouldFinish) {
-      if (tournament.status !== 'FINISHED' && tournament.status !== 'COMPLETED') {
-        tournament.status = 'FINISHED';
-
-        // Deterministic winner resolution from final standings if not already assigned
-        if (!tournament.winnerPlayer) {
-          try {
-            const standingsData = await standingsService.getTournamentStandings(tournamentId);
-            if (standingsData.standings.length > 0 && standingsData.standings[0].playerId) {
-              tournament.winnerPlayer = standingsData.standings[0].playerId;
-            }
-          } catch (stErr) {
-            console.warn(`[RoundService] Winner resolution warning: ${stErr.message}`);
-          }
-        }
-
-        await tournament.save();
-
-        // Broadcast tournament completion
-        try {
-          const { getIo } = await import('../realtime/socket.js');
-          const io = getIo();
-          if (io) {
-            const populated = await tournament.populate('winnerPlayer', 'name email avatar lichessUsername');
-            io.to(`tournament:${tournamentId}`).emit('TOURNAMENT_COMPLETED', {
-              tournamentId: tournament._id.toString(),
-              status: 'FINISHED',
-              winner: populated.winnerPlayer
-                ? {
-                    id: populated.winnerPlayer._id.toString(),
-                    name: populated.winnerPlayer.name,
-                  }
-                : null,
-            });
-          }
-        } catch (bErr) {
-          // Non-fatal
-        }
-      }
+      await finishTournament(tournament, finishReason);
     }
   }
 
@@ -510,4 +579,5 @@ export default {
   getRounds,
   getRoundByNumber,
   getRoundCompletionStatus,
+  finishTournament,
 };
