@@ -1,17 +1,19 @@
 import * as tournamentPlayerService from '../services/tournamentPlayerService.js';
+import * as tournamentJoinRequestService from '../services/tournamentJoinRequestService.js';
 
 /**
- * Join a tournament.
+ * Join a tournament (creates a join request awaiting host approval).
  * @route POST /api/tournaments/:id/join
  */
 export const joinTournament = async (req, res, next) => {
   try {
     const userId = req.user._id;
-    const player = await tournamentPlayerService.joinTournament(req.params.id, userId);
+    const request = await tournamentJoinRequestService.createJoinRequest(req.params.id, userId);
 
-    res.status(200).json({
+    res.status(201).json({
       success: true,
-      data: player,
+      message: 'Join request submitted successfully. Awaiting host approval.',
+      data: request,
     });
   } catch (error) {
     next(error);

@@ -41,6 +41,7 @@ import KnockoutBracket from '../components/KnockoutBracket';
 import TournamentCompleteCard from '../components/TournamentCompleteCard';
 import CountdownBanner from '../components/CountdownBanner';
 import TournamentSpecsGrid from '../components/TournamentSpecsGrid';
+import JoinRequestsCard from '../components/JoinRequestsCard';
 import { FORMAT_LABELS, STATUS_BADGES } from '../utils/constants';
 
 const TournamentDetailsPage = () => {
@@ -142,6 +143,10 @@ const TournamentDetailsPage = () => {
         const pUid = (p.userId?._id || p.userId?.id || p.userId)?.toString();
         return pUid && pUid === currentUserId;
       }));
+
+  const joinRequestStatus =
+    tournament?.joinRequestStatus ||
+    (isRegistered ? 'PARTICIPANT' : 'NOT_REQUESTED');
 
   const isFull =
     Boolean(tournament?.maxPlayers) && players.length >= tournament.maxPlayers;
@@ -525,15 +530,29 @@ const TournamentDetailsPage = () => {
                     YOU ARE NOT READY
                   </span>
                 )
+              ) : joinRequestStatus === 'PENDING' ? (
+                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 font-bold rounded border border-amber-300 flex items-center space-x-1">
+                  <Clock className="h-3 w-3" />
+                  <span>REQUEST PENDING</span>
+                </span>
+              ) : joinRequestStatus === 'REJECTED' ? (
+                <span className="px-2.5 py-0.5 bg-rose-100 text-rose-800 font-bold rounded border border-rose-300 flex items-center space-x-1">
+                  <X className="h-3 w-3" />
+                  <span>REQUEST REJECTED</span>
+                </span>
               ) : null}
 
               <span className="text-slate-500">
                 {tournament.status === 'REGISTRATION'
                   ? isRegistered
                     ? 'Mark yourself ready when you are prepared for Round 1 pairings.'
+                    : joinRequestStatus === 'PENDING'
+                    ? 'Your join request is pending approval by the host.'
+                    : joinRequestStatus === 'REJECTED'
+                    ? 'Your join request was rejected by the tournament host.'
                     : isFull
                     ? 'This tournament has reached its maximum player limit.'
-                    : 'Registration is currently open. Join now to secure your spot!'
+                    : 'Registration is currently open. Request to join now!'
                   : tournament.status === 'READY_CHECK'
                   ? 'Ready check in progress. Please confirm you are ready!'
                   : tournament.status === 'COUNTDOWN'
@@ -581,9 +600,25 @@ const TournamentDetailsPage = () => {
               </button>
             )}
 
-            {/* Join Tournament */}
+            {/* Non-participant Request States */}
             {!isRegistered && tournament.status === 'REGISTRATION' && (
-              isFull ? (
+              joinRequestStatus === 'PENDING' ? (
+                <button
+                  disabled
+                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold border border-amber-300 cursor-default"
+                >
+                  <Clock className="h-4 w-4 text-amber-600 animate-pulse" />
+                  <span>REQUEST PENDING</span>
+                </button>
+              ) : joinRequestStatus === 'REJECTED' ? (
+                <button
+                  disabled
+                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-rose-50 text-rose-700 rounded-lg text-xs font-semibold border border-rose-300 cursor-not-allowed"
+                >
+                  <X className="h-4 w-4 text-rose-600" />
+                  <span>REQUEST REJECTED</span>
+                </button>
+              ) : isFull ? (
                 <button
                   disabled
                   className="inline-flex items-center space-x-1.5 px-4 py-2 bg-slate-200 text-slate-500 cursor-not-allowed rounded-lg text-xs font-semibold border border-slate-300"
@@ -602,7 +637,7 @@ const TournamentDetailsPage = () => {
                   ) : (
                     <UserPlus className="h-4 w-4" />
                   )}
-                  <span>JOIN TOURNAMENT</span>
+                  <span>REQUEST TO JOIN</span>
                 </button>
               )
             )}
@@ -739,6 +774,16 @@ const TournamentDetailsPage = () => {
         rounds={rounds}
         currentUserId={currentUserId}
       />
+
+      {/* Host Join Requests Management */}
+      {isHost && ['REGISTRATION', 'READY_CHECK'].includes(tournament.status) && (
+        <JoinRequestsCard
+          tournamentId={id}
+          pendingCount={tournament.pendingJoinRequestsCount || 0}
+          onActionComplete={fetchTournamentData}
+          setSuccessMessage={setSuccessMessage}
+        />
+      )}
 
       {/* Participants Section */}
       <ParticipantsTable

@@ -58,11 +58,60 @@ export const getTournamentPlayers = async (tournamentId) => {
 };
 
 /**
- * Register current user for a tournament.
+ * Submit a join request for a tournament.
+ * @param {string} tournamentId
+ */
+export const requestJoinTournament = async (tournamentId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/join-requests`);
+  return response.data;
+};
+
+/**
+ * Register current user for a tournament (kept for backward compatibility; creates request in V2).
  * @param {string} tournamentId
  */
 export const joinTournament = async (tournamentId) => {
-  const response = await api.post(`/tournaments/${tournamentId}/join`);
+  const response = await api.post(`/tournaments/${tournamentId}/join-requests`);
+  return response.data;
+};
+
+/**
+ * Fetch join requests for a tournament (host only).
+ * @param {string} tournamentId
+ * @param {string} [status] - Optional filter: PENDING, APPROVED, REJECTED
+ */
+export const getTournamentJoinRequests = async (tournamentId, status = null) => {
+  const params = status ? { status } : {};
+  const response = await api.get(`/tournaments/${tournamentId}/join-requests`, { params });
+  return response.data;
+};
+
+/**
+ * Approve a join request (host only).
+ * @param {string} tournamentId
+ * @param {string} requestId
+ */
+export const approveJoinRequest = async (tournamentId, requestId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/join-requests/${requestId}/approve`);
+  return response.data;
+};
+
+/**
+ * Reject a join request (host only).
+ * @param {string} tournamentId
+ * @param {string} requestId
+ */
+export const rejectJoinRequest = async (tournamentId, requestId) => {
+  const response = await api.post(`/tournaments/${tournamentId}/join-requests/${requestId}/reject`);
+  return response.data;
+};
+
+/**
+ * Check current user's join request status.
+ * @param {string} tournamentId
+ */
+export const getMyJoinRequestStatus = async (tournamentId) => {
+  const response = await api.get(`/tournaments/${tournamentId}/join-requests/my-status`);
   return response.data;
 };
 
@@ -252,6 +301,11 @@ export default {
   updateTournament,
   deleteTournament,
   getTournamentPlayers,
+  requestJoinTournament,
+  getTournamentJoinRequests,
+  approveJoinRequest,
+  rejectJoinRequest,
+  getMyJoinRequestStatus,
   joinTournament,
   leaveTournament,
   getCurrentDevUser,

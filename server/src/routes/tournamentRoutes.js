@@ -13,6 +13,7 @@ import {
 import { getTournamentStandings } from '../controllers/standingsController.js';
 import { requireAuth, optionalAuth } from '../middleware/authMiddleware.js';
 import tournamentPlayerRoutes from './tournamentPlayerRoutes.js';
+import tournamentJoinRequestRoutes from './tournamentJoinRequestRoutes.js';
 import roundRoutes from './roundRoutes.js';
 
 const router = express.Router();
@@ -35,6 +36,10 @@ router.route('/:id')
   .get(optionalAuth, getTournamentById)
   .patch(requireAuth, updateTournament)
   .delete(requireAuth, deleteTournament);
+
+// Join requests subroutes (request join, list requests, approve, reject)
+router.use('/:id/join-requests', tournamentJoinRequestRoutes);
+router.use('/:id/join-request', tournamentJoinRequestRoutes);
 
 // Player registration subroutes (join, leave, players, ready, not-ready, readiness)
 router.use('/:id', tournamentPlayerRoutes);

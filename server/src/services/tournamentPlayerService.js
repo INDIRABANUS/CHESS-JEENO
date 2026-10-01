@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Tournament from '../models/Tournament.js';
 import TournamentPlayer from '../models/TournamentPlayer.js';
+import TournamentJoinRequest from '../models/TournamentJoinRequest.js';
 
 /**
  * Register a user for a tournament.
@@ -113,6 +114,7 @@ export const leaveTournament = async (tournamentId, userId) => {
   }
 
   await TournamentPlayer.findByIdAndDelete(player._id);
+  await TournamentJoinRequest.deleteMany({ tournament: tournamentId, user: userId });
 
   return { message: 'Successfully left the tournament' };
 };

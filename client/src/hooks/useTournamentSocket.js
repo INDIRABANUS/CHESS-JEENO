@@ -131,6 +131,10 @@ export const useTournamentSocket = (tournamentIdOrOptions, maybeOptions = {}) =>
       onCountdownCancelled: triggerRefetch,
       onTournamentStarted: triggerRefetch,
       onTournamentCompleted: triggerRefetch,
+      onJoinRequestCreated: triggerRefetch,
+      onJoinRequestApproved: triggerRefetch,
+      onJoinRequestRejected: triggerRefetch,
+      onPlayerJoined: triggerRefetch,
     });
 
     return () => {

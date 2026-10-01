@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Tournament from '../models/Tournament.js';
 import TournamentPlayer from '../models/TournamentPlayer.js';
+import TournamentJoinRequest from '../models/TournamentJoinRequest.js';
 import Round from '../models/Round.js';
 import Pairing from '../models/Pairing.js';
 
@@ -207,12 +208,21 @@ export const getTournamentById = async (id, currentUserId = null) => {
   const readyPlayers = await TournamentPlayer.countDocuments({ tournamentId: id, isReady: true });
   let isRegistered = false;
   let isCurrentUserReady = false;
+  let joinRequestStatus = 'NOT_REQUESTED';
+  let userJoinRequest = null;
 
   if (currentUserId) {
     const playerRecord = await TournamentPlayer.findOne({ tournamentId: id, userId: currentUserId });
     if (playerRecord) {
       isRegistered = true;
       isCurrentUserReady = Boolean(playerRecord.isReady);
+      joinRequestStatus = 'PARTICIPANT';
+    } else {
+      const requestRecord = await TournamentJoinRequest.findOne({ tournament: id, user: currentUserId });
+      if (requestRecord) {
+        joinRequestStatus = requestRecord.status;
+        userJoinRequest = requestRecord;
+      }
     }
   }
 
@@ -221,6 +231,19 @@ export const getTournamentById = async (id, currentUserId = null) => {
   result.readyPlayers = readyPlayers;
   result.isRegistered = isRegistered;
   result.isCurrentUserReady = isCurrentUserReady;
+  result.joinRequestStatus = joinRequestStatus;
+  result.userJoinRequest = userJoinRequest;
+
+  // If current user is host, also compute count of pending join requests
+  const creatorIdStr = (tournament.createdBy?._id || tournament.createdBy)?.toString();
+  if (currentUserId && creatorIdStr === currentUserId.toString()) {
+    result.pendingJoinRequestsCount = await TournamentJoinRequest.countDocuments({
+      tournament: id,
+      status: 'PENDING',
+    });
+  } else {
+    result.pendingJoinRequestsCount = 0;
+  }
 
   return result;
 };

@@ -128,6 +128,10 @@ export const joinTournamentRoom = (tournamentId, handlers = {}) => {
     socket.off('COUNTDOWN_CANCELLED');
     socket.off('TOURNAMENT_STARTED');
     socket.off('TOURNAMENT_COMPLETED');
+    socket.off('JOIN_REQUEST_CREATED');
+    socket.off('JOIN_REQUEST_APPROVED');
+    socket.off('JOIN_REQUEST_REJECTED');
+    socket.off('PLAYER_JOINED');
 
     if (handlers.onGameStarted) socket.on('GAME_STARTED', handlers.onGameStarted);
     if (handlers.onGameState) socket.on('GAME_STATE', handlers.onGameState);
@@ -142,6 +146,10 @@ export const joinTournamentRoom = (tournamentId, handlers = {}) => {
     if (handlers.onCountdownCancelled) socket.on('COUNTDOWN_CANCELLED', handlers.onCountdownCancelled);
     if (handlers.onTournamentStarted) socket.on('TOURNAMENT_STARTED', handlers.onTournamentStarted);
     if (handlers.onTournamentCompleted) socket.on('TOURNAMENT_COMPLETED', handlers.onTournamentCompleted);
+    if (handlers.onJoinRequestCreated) socket.on('JOIN_REQUEST_CREATED', handlers.onJoinRequestCreated);
+    if (handlers.onJoinRequestApproved) socket.on('JOIN_REQUEST_APPROVED', handlers.onJoinRequestApproved);
+    if (handlers.onJoinRequestRejected) socket.on('JOIN_REQUEST_REJECTED', handlers.onJoinRequestRejected);
+    if (handlers.onPlayerJoined) socket.on('PLAYER_JOINED', handlers.onPlayerJoined);
   }
 };
 
@@ -166,6 +174,10 @@ export const leaveTournamentRoom = (tournamentId) => {
     socket.off('COUNTDOWN_CANCELLED');
     socket.off('TOURNAMENT_STARTED');
     socket.off('TOURNAMENT_COMPLETED');
+    socket.off('JOIN_REQUEST_CREATED');
+    socket.off('JOIN_REQUEST_APPROVED');
+    socket.off('JOIN_REQUEST_REJECTED');
+    socket.off('PLAYER_JOINED');
   }
   if (currentTournamentId === tournamentId) {
     currentTournamentId = null;

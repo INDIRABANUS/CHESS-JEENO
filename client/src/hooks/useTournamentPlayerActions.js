@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  requestJoinTournament,
   joinTournament,
   leaveTournament,
   setPlayerReady,
@@ -56,24 +57,26 @@ export const useTournamentPlayerActions = ({
     }
   };
 
-  // Handle Joining Tournament
+  // Handle Requesting to Join Tournament
   const handleJoin = async () => {
     setActionLoading(true);
     setActionError(null);
     try {
-      await joinTournament(activeTournamentId);
-      notifySuccess('You have successfully joined the tournament!', 4000);
+      await requestJoinTournament(activeTournamentId);
+      notifySuccess('Join request submitted! Waiting for host approval.', 4000);
       if (fetchTournamentData) {
         await fetchTournamentData();
       }
     } catch (err) {
       setActionError(
-        err.response?.data?.message || err.message || 'Failed to join tournament'
+        err.response?.data?.message || err.message || 'Failed to submit join request'
       );
     } finally {
       setActionLoading(false);
     }
   };
+
+  const handleRequestJoin = handleJoin;
 
   // Handle Leaving Tournament
   const handleLeave = async () => {
@@ -121,6 +124,7 @@ export const useTournamentPlayerActions = ({
     actionError,
     setActionError,
     handleJoin,
+    handleRequestJoin,
     handleLeave,
     handleToggleReady,
   };
