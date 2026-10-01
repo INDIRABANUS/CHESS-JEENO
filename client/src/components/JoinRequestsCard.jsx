@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserCheck, Check, X, Loader2, Clock, AlertCircle } from 'lucide-react';
+import { UserCheck, Check, X, Loader2, Clock, AlertCircle, Share2 } from 'lucide-react';
 import {
   getTournamentJoinRequests,
   approveJoinRequest,
@@ -16,12 +16,14 @@ import { formatDate } from '../utils/formatters';
  * @param {Function} [props.onActionComplete] - Callback to refetch tournament details on approve/reject
  * @param {Function} [props.setSuccessMessage] - Parent success message setter
  * @param {number} [props.pendingCount] - Initial/external pending requests count
+ * @param {Function} [props.onOpenInvite] - Optional callback to open the invite/share modal
  */
 const JoinRequestsCard = ({
   tournamentId,
   onActionComplete,
   setSuccessMessage,
   pendingCount = 0,
+  onOpenInvite,
 }) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -110,13 +112,27 @@ const JoinRequestsCard = ({
           </div>
         </div>
 
-        <button
-          onClick={fetchRequests}
-          disabled={loading}
-          className="text-xs text-slate-500 hover:text-indigo-600 font-medium transition self-start sm:self-auto"
-        >
-          {loading ? 'Refreshing...' : 'Refresh List'}
-        </button>
+        <div className="flex items-center space-x-2 self-start sm:self-auto">
+          {onOpenInvite && (
+            <button
+              type="button"
+              onClick={onOpenInvite}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition"
+            >
+              <Share2 className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Invite Players</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={fetchRequests}
+            disabled={loading}
+            className="text-xs text-slate-500 hover:text-indigo-600 font-medium transition px-2 py-1"
+          >
+            {loading ? 'Refreshing...' : 'Refresh List'}
+          </button>
+        </div>
       </div>
 
       {/* Error message */}

@@ -18,6 +18,7 @@ import {
   PlusCircle,
   Swords,
   Zap,
+  Share2,
 } from 'lucide-react';
 import {
   updateTournament,
@@ -42,15 +43,17 @@ import TournamentCompleteCard from '../components/TournamentCompleteCard';
 import CountdownBanner from '../components/CountdownBanner';
 import TournamentSpecsGrid from '../components/TournamentSpecsGrid';
 import JoinRequestsCard from '../components/JoinRequestsCard';
+import TournamentInviteModal from '../components/TournamentInviteModal';
 import { FORMAT_LABELS, STATUS_BADGES } from '../utils/constants';
 
 const TournamentDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { user: authUser } = useAuth();
+  const { user: authUser, isAuthenticated } = useAuth();
   const [currentUser, setCurrentUser] = useState(authUser || null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
 
   const {
     tournament,
@@ -241,6 +244,14 @@ const TournamentDetailsPage = () => {
     setActionError,
   });
 
+  const handlePlayerJoinClick = () => {
+    if (!isAuthenticated && !currentUserId) {
+      navigate('/login', { state: { from: `/tournaments/${id}` } });
+      return;
+    }
+    handleJoin();
+  };
+
   // Host actions
   const {
     handleStartReadyCheck,
@@ -390,25 +401,39 @@ const TournamentDetailsPage = () => {
         </Link>
 
         {/* Organizer Action Buttons */}
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={handleOpenEdit}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm transition"
-          >
-            <Edit2 className="h-3.5 w-3.5" />
-            <span>Edit</span>
-          </button>
-
-          {canDelete && (
+        {isHost && (
+          <div className="flex items-center space-x-2">
             <button
-              onClick={() => setIsDeleting(true)}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-lg shadow-sm transition"
+              type="button"
+              onClick={() => setIsInviteOpen(true)}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg shadow-sm transition"
+              title="Share tournament link to invite players"
             >
-              <Trash2 className="h-3.5 w-3.5 text-rose-600" />
-              <span>Delete</span>
+              <Share2 className="h-3.5 w-3.5 text-indigo-600" />
+              <span>INVITE PLAYERS</span>
             </button>
-          )}
-        </div>
+
+            <button
+              type="button"
+              onClick={handleOpenEdit}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm transition"
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+              <span>Edit</span>
+            </button>
+
+            {canDelete && (
+              <button
+                type="button"
+                onClick={() => setIsDeleting(true)}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-lg shadow-sm transition"
+              >
+                <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Success Alert */}
@@ -628,7 +653,8 @@ const TournamentDetailsPage = () => {
                 </button>
               ) : (
                 <button
-                  onClick={handleJoin}
+                  type="button"
+                  onClick={handlePlayerJoinClick}
                   disabled={actionLoading}
                   className="inline-flex items-center space-x-1.5 px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
                 >
@@ -645,8 +671,21 @@ const TournamentDetailsPage = () => {
             {/* Host Controls */}
             {isHost && (
               <div className="flex flex-wrap items-center gap-1.5 border-l border-slate-200 pl-2 ml-1">
+                {['REGISTRATION', 'READY_CHECK'].includes(tournament.status) && (
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteOpen(true)}
+                    className="inline-flex items-center space-x-1 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition"
+                    title="Share tournament link to invite players"
+                  >
+                    <Share2 className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>INVITE</span>
+                  </button>
+                )}
+
                 {tournament.status === 'REGISTRATION' && (
                   <button
+                    type="button"
                     onClick={handleStartReadyCheck}
                     disabled={actionLoading || players.length < 2}
                     title={players.length < 2 ? 'At least 2 players required' : 'Prompt all players for ready confirmation'}
@@ -782,6 +821,7 @@ const TournamentDetailsPage = () => {
           pendingCount={tournament.pendingJoinRequestsCount || 0}
           onActionComplete={fetchTournamentData}
           setSuccessMessage={setSuccessMessage}
+          onOpenInvite={() => setIsInviteOpen(true)}
         />
       )}
 
@@ -964,6 +1004,16 @@ const TournamentDetailsPage = () => {
         tournamentName={tournament.name}
         loading={deleteLoading}
       />
+
+      {/* Tournament Invite / Share Modal (Host only) */}
+      {isHost && (
+        <TournamentInviteModal
+          isOpen={isInviteOpen}
+          onClose={() => setIsInviteOpen(false)}
+          tournament={tournament}
+          setSuccessMessage={setSuccessMessage}
+        />
+      )}
     </div>
   );
 };

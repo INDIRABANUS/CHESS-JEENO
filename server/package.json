@@ -30,9 +30,11 @@
     "smoke:e2e": "node src/utils/smokeTestEndToEnd.js",
     "test:v2:core": "node src/utils/testV2CoreTournamentExperience.js",
     "test:join-requests": "node src/utils/testTournamentJoinRequests.js",
+    "test:invite": "node src/utils/testTournamentInviteShare.js",
     "verify:deploy": "node src/utils/verifyDeploymentReadiness.js"
   },
   "dependencies": {
+    "@echecs/swiss": "^5.0.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
