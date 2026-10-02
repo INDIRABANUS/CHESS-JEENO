@@ -35,7 +35,7 @@ const TournamentSpecsGrid = ({
         <div className="text-base font-bold text-slate-800">
           {formatTimeControl(tournament.clockLimit, tournament.increment)}
         </div>
-        <div className="text-[11px] text-slate-400 mt-0.5">
+        <div className="text-xs sm:text-[11px] text-slate-400 mt-0.5">
           {Math.floor(tournament.clockLimit / 60)} min base + {tournament.increment}s inc
         </div>
       </div>
@@ -48,7 +48,7 @@ const TournamentSpecsGrid = ({
         <div className="text-base font-bold text-slate-800">
           {FORMAT_LABELS[tournament.format] || tournament.format}
         </div>
-        <div className="text-[11px] text-slate-400 mt-0.5">
+        <div className="text-xs sm:text-[11px] text-slate-400 mt-0.5">
           {tournament.format === 'SWISS' && tournament.totalRounds
             ? `${tournament.totalRounds} scheduled rounds`
             : tournament.format === 'ROUND_ROBIN'
@@ -67,7 +67,7 @@ const TournamentSpecsGrid = ({
         <div className="text-base font-bold text-slate-800">
           {totalPlayers} / {tournament.maxPlayers ? tournament.maxPlayers : 'Open'}
         </div>
-        <div className="text-[11px] text-slate-500 mt-0.5 font-medium flex items-center space-x-1.5">
+        <div className="text-xs sm:text-[11px] text-slate-500 mt-0.5 font-medium flex items-center space-x-1.5">
           <span className={`inline-block w-2 h-2 rounded-full ${allPlayersReady ? 'bg-emerald-500' : 'bg-amber-500'}`} />
           <span>{readyPlayerCount} / {totalPlayers} READY</span>
         </div>
@@ -81,7 +81,7 @@ const TournamentSpecsGrid = ({
         <div className="text-sm font-bold text-slate-800 truncate">
           {formatDate(tournament.startTime)}
         </div>
-        <div className="text-[11px] text-slate-400 mt-0.5">
+        <div className="text-xs sm:text-[11px] text-slate-400 mt-0.5">
           {tournament.startTime ? 'Scheduled' : 'TBD'}
         </div>
       </div>

@@ -31,7 +31,7 @@ const TournamentCompleteCard = ({ tournament, currentStanding }) => {
               {tournament.winnerPlayer.lichessUsername && ` (@${tournament.winnerPlayer.lichessUsername})`}
             </p>
           ) : (
-            <p className="text-xs text-emerald-100 mt-1">
+            <p className="text-sm sm:text-xs text-emerald-100 mt-1">
               All scheduled matches have concluded. Final standings are displayed below.
             </p>
           )}

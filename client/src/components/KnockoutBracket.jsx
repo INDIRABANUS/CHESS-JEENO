@@ -30,7 +30,7 @@ const KnockoutBracket = ({ rounds = [] }) => {
                 <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                   {stageTitle}
                 </span>
-                <span className="text-[10px] text-slate-400 font-medium">
+                <span className="text-xs sm:text-[10px] text-slate-400 font-medium">
                   {r.pairings?.length || 0} match(es)
                 </span>
               </div>
@@ -97,7 +97,7 @@ const KnockoutBracket = ({ rounds = [] }) => {
                         </span>
                       </div>
                       {(wWinner || bWinner) && (
-                        <div className="text-[10px] text-emerald-700 font-semibold pt-1 border-t border-slate-200/60 flex items-center space-x-1">
+                        <div className="text-xs sm:text-[10px] text-emerald-700 font-semibold pt-1 border-t border-slate-200/60 flex items-center space-x-1">
                           <span>
                             Winner:{' '}
                             {wWinner

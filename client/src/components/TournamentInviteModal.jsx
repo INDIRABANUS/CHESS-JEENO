@@ -151,7 +151,7 @@ const TournamentInviteModal = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+            className="p-2.5 sm:p-1.5 min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
@@ -244,7 +244,7 @@ const TournamentInviteModal = ({
         )}
 
         {/* Information Callout */}
-        <div className="flex items-start space-x-2 text-[11px] text-slate-400 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100">
+        <div className="flex items-start space-x-2 text-xs sm:text-[11px] text-slate-400 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100">
           <Users className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
           <span>
             Players visiting this link can submit a join request. You will review and approve each player before they can participate.

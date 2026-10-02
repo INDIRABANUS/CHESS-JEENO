@@ -123,7 +123,7 @@ const CreateTournamentPage = () => {
       <div>
         <Link
           to="/tournaments"
-          className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition"
+          className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition min-h-[40px] py-2 sm:min-h-0 sm:py-0"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Tournaments</span>
@@ -323,7 +323,7 @@ const CreateTournamentPage = () => {
                     }
                     className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-800 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-xs sm:text-[11px] text-slate-400">
                     = {formData.clockLimit} seconds
                   </span>
                 </div>
@@ -391,7 +391,7 @@ const CreateTournamentPage = () => {
                 onChange={(e) => setFormData({ ...formData, maxPlayers: e.target.value })}
                 className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
-              <span className="text-[11px] text-slate-400">
+              <span className="text-xs sm:text-[11px] text-slate-400">
                 Minimum 2 participants required
               </span>
             </div>
@@ -410,7 +410,7 @@ const CreateTournamentPage = () => {
               onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
               className="w-full sm:w-80 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-xs sm:text-[11px] text-slate-400 mt-1">
               Leave blank to keep tournament open for unscheduled registration.
             </p>
           </div>
@@ -419,7 +419,7 @@ const CreateTournamentPage = () => {
           <div className="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
             <Link
               to="/tournaments"
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+              className="inline-flex items-center justify-center min-h-[40px] px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
             >
               Cancel
             </Link>

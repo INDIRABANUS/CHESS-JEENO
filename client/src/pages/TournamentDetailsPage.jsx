@@ -394,7 +394,7 @@ const TournamentDetailsPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <Link
           to="/tournaments"
-          className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition self-start"
+          className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition self-start min-h-[40px] py-2 sm:min-h-0 sm:py-0"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Tournaments</span>
@@ -504,7 +504,7 @@ const TournamentDetailsPage = () => {
                 <Trophy className="h-6 w-6" />
               </div>
               <div>
-                <div className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Tournament Champion</div>
+                <div className="text-xs sm:text-[11px] font-bold text-amber-800 uppercase tracking-wider">Tournament Champion</div>
                 <div className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center space-x-2">
                   <span>{tournament.winnerPlayer?.name || 'Tournament Winner'}</span>
                   {tournament.winnerPlayer?.lichessUsername && (
@@ -911,7 +911,7 @@ const TournamentDetailsPage = () => {
                     </span>
                   </button>
                   {!isLatestRoundComplete && (
-                    <span className="text-[11px] text-amber-700 font-medium mt-1 text-left sm:text-right">
+                    <span className="text-xs sm:text-[11px] text-amber-700 font-medium mt-1 text-left sm:text-right">
                       Finish and sync all games before creating the next round.
                     </span>
                   )}
@@ -938,7 +938,8 @@ const TournamentDetailsPage = () => {
             </div>
             <button
               onClick={() => setGameError(null)}
-              className="text-rose-500 hover:text-rose-700 p-0.5"
+              className="text-rose-500 hover:text-rose-700 min-h-[40px] min-w-[40px] inline-flex items-center justify-center -mr-2 -my-2"
+              aria-label="Dismiss error"
             >
               <X className="h-4 w-4" />
             </button>

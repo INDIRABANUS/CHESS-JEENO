@@ -76,7 +76,7 @@ const TournamentsPage = () => {
                 setStatusFilter('');
                 setFormatFilter('');
               }}
-              className="sm:hidden text-xs text-indigo-600 hover:text-indigo-800 underline font-medium"
+              className="sm:hidden text-xs text-indigo-600 hover:text-indigo-800 underline font-medium inline-flex items-center min-h-[40px] px-2 py-2 -my-2"
             >
               Clear Filters
             </button>
@@ -209,7 +209,7 @@ const TournamentsPage = () => {
                 </h3>
 
                 {/* Description */}
-                <p className="text-xs text-slate-500 line-clamp-2 mb-4">
+                <p className="text-sm sm:text-xs text-slate-500 line-clamp-2 mb-4">
                   {t.description || 'No description provided.'}
                 </p>
 

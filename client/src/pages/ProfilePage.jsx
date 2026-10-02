@@ -143,7 +143,8 @@ const ProfilePage = () => {
           <div className="flex-1 font-medium">{notification.message}</div>
           <button
             onClick={() => setNotification(null)}
-            className="text-xs opacity-75 hover:opacity-100 cursor-pointer"
+            className="text-xs opacity-75 hover:opacity-100 cursor-pointer min-h-[40px] min-w-[40px] inline-flex items-center justify-center -mr-2 -my-2"
+            aria-label="Dismiss notification"
           >
             ✕
           </button>
@@ -165,7 +166,7 @@ const ProfilePage = () => {
           </div>
         </div>
 
-        <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-500">
+        <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm sm:text-xs text-slate-500">
           <div className="flex items-center space-x-2">
             <ShieldCheck className="h-4 w-4 text-indigo-500" />
             <span>Account Type: <strong className="text-slate-700 capitalize">{user.authProvider}</strong></span>
@@ -184,7 +185,7 @@ const ProfilePage = () => {
             <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
               <span>Lichess Account</span>
             </h2>
-            <p className="text-xs text-slate-500 mt-1 max-w-lg">
+            <p className="text-sm sm:text-xs text-slate-500 mt-1 max-w-lg">
               Connect your personal Lichess account using OAuth 2.0 PKCE to enable seamless tournament pairing, rating verification, and game synchronization.
             </p>
           </div>
@@ -207,7 +208,7 @@ const ProfilePage = () => {
                   <span>✓ Connected as @{lichessStatus.username}</span>
                 </div>
                 {lichessStatus.connectedAt && (
-                  <p className="text-xs text-slate-400 pl-1">
+                  <p className="text-sm sm:text-xs text-slate-400 pl-1">
                     Connected on {new Date(lichessStatus.connectedAt).toLocaleDateString()}
                   </p>
                 )}
@@ -218,7 +219,7 @@ const ProfilePage = () => {
                   href={`https://lichess.org/@/${lichessStatus.username}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition shadow-2xs"
+                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition shadow-2xs min-h-[40px]"
                 >
                   <span>View on Lichess</span>
                   <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
@@ -228,7 +229,7 @@ const ProfilePage = () => {
                   onClick={handleDisconnect}
                   id="lichess-disconnect-button"
                   disabled={actionLoading}
-                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition cursor-pointer disabled:opacity-50 min-h-[40px]"
                 >
                   {actionLoading ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

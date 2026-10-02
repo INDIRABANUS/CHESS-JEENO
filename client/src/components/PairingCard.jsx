@@ -73,7 +73,7 @@ const PairingCard = ({
               {pairing.whitePlayer?.name || 'Player'}
             </div>
             {pairing.whitePlayer?.lichessUsername && (
-              <div className="text-[10px] text-slate-400 font-mono truncate">
+              <div className="text-xs sm:text-[10px] text-slate-400 font-mono truncate">
                 @{pairing.whitePlayer.lichessUsername}
               </div>
             )}
@@ -107,7 +107,7 @@ const PairingCard = ({
                 {pairing.blackPlayer?.name || 'Player'}
               </div>
               {pairing.blackPlayer?.lichessUsername && (
-                <div className="text-[10px] text-slate-400 font-mono truncate">
+                <div className="text-xs sm:text-[10px] text-slate-400 font-mono truncate">
                   @{pairing.blackPlayer.lichessUsername}
                 </div>
               )}
@@ -149,7 +149,7 @@ const PairingCard = ({
           {/* Realtime Clocks if available */}
           {pairing.clocks && (typeof pairing.clocks.white === 'number' || typeof pairing.clocks.black === 'number') && (
             <span
-              className="px-1.5 py-0.5 rounded font-mono text-[10px] text-slate-600 bg-slate-50 border border-slate-200"
+              className="px-1.5 py-0.5 rounded font-mono text-xs sm:text-[10px] text-slate-600 bg-slate-50 border border-slate-200"
               title="Remaining clock time"
             >
               ⏱ {typeof pairing.clocks.white === 'number' ? `${Math.floor(pairing.clocks.white / 60)}:${String(pairing.clocks.white % 60).padStart(2, '0')}` : '—'} / {typeof pairing.clocks.black === 'number' ? `${Math.floor(pairing.clocks.black / 60)}:${String(pairing.clocks.black % 60).padStart(2, '0')}` : '—'}
@@ -159,7 +159,7 @@ const PairingCard = ({
           {/* Realtime Last Move if available */}
           {pairing.lastMove && (
             <span
-              className="px-1.5 py-0.5 rounded font-mono text-[10px] text-slate-600 bg-slate-100 border border-slate-200"
+              className="px-1.5 py-0.5 rounded font-mono text-xs sm:text-[10px] text-slate-600 bg-slate-100 border border-slate-200"
               title={`Last move: ${pairing.lastMove}`}
             >
               Move: {pairing.lastMove}
@@ -169,7 +169,7 @@ const PairingCard = ({
           {/* Lichess Raw Status Badge */}
           {pairing.lichessStatus && (
             <span
-              className="px-1.5 py-0.5 rounded font-mono text-[10px] text-slate-500 bg-slate-100 border border-slate-200"
+              className="px-1.5 py-0.5 rounded font-mono text-xs sm:text-[10px] text-slate-500 bg-slate-100 border border-slate-200"
               title={`Lichess status: ${pairing.lichessStatus}`}
             >
               {pairing.lichessStatus}

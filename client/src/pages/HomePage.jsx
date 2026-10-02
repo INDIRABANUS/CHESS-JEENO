@@ -85,7 +85,7 @@ const HomePage = () => {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">CHESS JEENO</h3>
-                    <p className="text-[11px] text-slate-500 font-medium">Spring Masters • Round 3</p>
+                    <p className="text-xs sm:text-[11px] text-slate-500 font-medium">Spring Masters • Round 3</p>
                   </div>
                 </div>
 
@@ -97,7 +97,7 @@ const HomePage = () => {
 
               {/* Standings Snippet */}
               <div className="space-y-2">
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <div className="text-xs sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   Live Standings
                 </div>
 
@@ -132,12 +132,12 @@ const HomePage = () => {
               <div className="p-3 bg-gradient-to-r from-indigo-50/70 to-slate-50 rounded-xl border border-indigo-100/80 flex items-center justify-between text-xs">
                 <div>
                   <div className="font-semibold text-slate-900">Board 1: Player A vs Player B</div>
-                  <div className="text-[11px] text-slate-500 flex items-center space-x-1 mt-0.5">
+                  <div className="text-xs sm:text-[11px] text-slate-500 flex items-center space-x-1 mt-0.5">
                     <Clock className="h-3 w-3 text-slate-400" />
                     <span>3+2 Blitz • Active Game</span>
                   </div>
                 </div>
-                <div className="inline-flex items-center space-x-1 text-indigo-600 font-semibold text-[11px]">
+                <div className="inline-flex items-center space-x-1 text-indigo-600 font-semibold text-xs sm:text-[11px]">
                   <span>Lichess</span>
                   <ExternalLink className="h-3 w-3" />
                 </div>
@@ -315,14 +315,23 @@ const HomePage = () => {
         <p className="text-slate-500 text-xs">
           A simple tournament platform for competitive chess.
         </p>
-        <div className="flex items-center justify-center space-x-6 text-xs text-slate-600 pt-1">
-          <Link to="/tournaments" className="hover:text-indigo-600 transition font-medium">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-6 gap-y-1 text-xs text-slate-600 pt-1">
+          <Link
+            to="/tournaments"
+            className="inline-flex items-center min-h-[40px] px-2 py-2 sm:min-h-0 sm:px-0 sm:py-0 hover:text-indigo-600 transition font-medium"
+          >
             Tournaments
           </Link>
-          <Link to="/tournaments/create" className="hover:text-indigo-600 transition font-medium">
+          <Link
+            to="/tournaments/create"
+            className="inline-flex items-center min-h-[40px] px-2 py-2 sm:min-h-0 sm:px-0 sm:py-0 hover:text-indigo-600 transition font-medium"
+          >
             Create Tournament
           </Link>
-          <Link to="/profile" className="hover:text-indigo-600 transition font-medium">
+          <Link
+            to="/profile"
+            className="inline-flex items-center min-h-[40px] px-2 py-2 sm:min-h-0 sm:px-0 sm:py-0 hover:text-indigo-600 transition font-medium"
+          >
             Profile
           </Link>
         </div>

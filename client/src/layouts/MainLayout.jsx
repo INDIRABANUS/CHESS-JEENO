@@ -369,7 +369,7 @@ const MainLayout = () => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+      <footer className="bg-white border-t border-slate-200 py-4 text-center text-sm sm:text-xs text-slate-500">
         <p>CHESS JEENO &bull; Foundation Layer</p>
       </footer>
     </div>

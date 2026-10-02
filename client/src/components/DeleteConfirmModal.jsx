@@ -28,7 +28,7 @@ const DeleteConfirmModal = ({
         </div>
         <div>
           <h3 className="font-bold text-slate-900 text-base">Delete Tournament?</h3>
-          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+          <p className="text-sm sm:text-xs text-slate-500 mt-1 leading-relaxed">
             Are you sure you want to delete <span className="font-semibold">"{tournamentName}"</span>?
             This action cannot be undone.
           </p>
@@ -39,7 +39,7 @@ const DeleteConfirmModal = ({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+            className="inline-flex items-center justify-center min-h-[40px] px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
           >
             Cancel
           </button>
@@ -47,7 +47,7 @@ const DeleteConfirmModal = ({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="inline-flex items-center space-x-1 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition"
+            className="inline-flex items-center justify-center min-h-[40px] space-x-1 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition"
           >
             {loading && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
             <span>{loading ? 'Deleting...' : 'Confirm Delete'}</span>

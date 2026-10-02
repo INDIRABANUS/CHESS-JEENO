@@ -176,11 +176,11 @@ const RegisterPage = () => {
         </button>
       </form>
 
-      <div className="mt-6 pt-5 border-t border-slate-100 text-center text-sm text-slate-600">
-        Already have an account?{' '}
+      <div className="mt-6 pt-5 border-t border-slate-100 text-center text-sm text-slate-600 flex items-center justify-center flex-wrap gap-x-1.5">
+        <span>Already have an account?</span>
         <Link
           to="/login"
-          className="text-indigo-600 hover:text-indigo-700 font-semibold transition"
+          className="text-indigo-600 hover:text-indigo-700 font-semibold transition inline-flex items-center min-h-[40px] py-2 sm:min-h-0 sm:py-0"
         >
           Sign in here
         </Link>

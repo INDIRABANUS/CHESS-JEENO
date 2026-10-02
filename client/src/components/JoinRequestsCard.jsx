@@ -117,7 +117,7 @@ const JoinRequestsCard = ({
             <button
               type="button"
               onClick={onOpenInvite}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition min-h-[40px] sm:min-h-0"
             >
               <Share2 className="h-3.5 w-3.5 text-indigo-600" />
               <span>Invite Players</span>
@@ -128,7 +128,7 @@ const JoinRequestsCard = ({
             type="button"
             onClick={fetchRequests}
             disabled={loading}
-            className="text-xs text-slate-500 hover:text-indigo-600 font-medium transition px-2 py-1"
+            className="inline-flex items-center min-h-[40px] px-2 py-2 sm:min-h-0 sm:py-1 text-xs text-slate-500 hover:text-indigo-600 font-medium transition"
           >
             {loading ? 'Refreshing...' : 'Refresh List'}
           </button>
@@ -186,7 +186,7 @@ const JoinRequestsCard = ({
                           {user.name || 'Anonymous User'}
                         </span>
                         {user.lichessUsername && (
-                          <span className="text-[11px] font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 font-semibold">
+                          <span className="text-xs sm:text-[11px] font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 font-semibold">
                             @{user.lichessUsername}
                           </span>
                         )}
@@ -203,7 +203,7 @@ const JoinRequestsCard = ({
                     <button
                       onClick={() => handleReject(req._id, user.name)}
                       disabled={isProcessing || processingId !== null}
-                      className="inline-flex items-center space-x-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      className="inline-flex items-center space-x-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition disabled:opacity-50 min-h-[40px] sm:min-h-0"
                     >
                       {isProcessing ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -216,7 +216,7 @@ const JoinRequestsCard = ({
                     <button
                       onClick={() => handleApprove(req._id, user.name)}
                       disabled={isProcessing || processingId !== null}
-                      className="inline-flex items-center space-x-1 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs disabled:opacity-50"
+                      className="inline-flex items-center space-x-1 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs disabled:opacity-50 min-h-[40px] sm:min-h-0"
                     >
                       {isProcessing ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

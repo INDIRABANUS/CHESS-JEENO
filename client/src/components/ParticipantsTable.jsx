@@ -117,7 +117,7 @@ const ParticipantsTable = ({
                             )}
                           </div>
                           {p.userId?.email && (
-                            <div className="text-[11px] text-slate-400 truncate">{p.userId?.email}</div>
+                            <div className="text-xs sm:text-[11px] text-slate-400 truncate">{p.userId?.email}</div>
                           )}
                         </div>
                       </div>
