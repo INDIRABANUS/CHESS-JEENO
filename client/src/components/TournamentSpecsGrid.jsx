@@ -26,8 +26,8 @@ const TournamentSpecsGrid = ({
   const totalPlayers = playerCount ?? players.length;
 
   return (
-    <div className="p-6 sm:p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 bg-white">
-      <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+    <div className="p-4 sm:p-6 lg:p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 bg-white">
+      <div className="p-3.5 sm:p-4 bg-slate-50 rounded-lg border border-slate-100">
         <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
           <Clock className="h-4 w-4 text-indigo-600" />
           <span className="font-semibold uppercase tracking-wider">Time Control</span>
@@ -40,7 +40,7 @@ const TournamentSpecsGrid = ({
         </div>
       </div>
 
-      <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+      <div className="p-3.5 sm:p-4 bg-slate-50 rounded-lg border border-slate-100">
         <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
           <Layers className="h-4 w-4 text-indigo-600" />
           <span className="font-semibold uppercase tracking-wider">Format</span>
@@ -59,7 +59,7 @@ const TournamentSpecsGrid = ({
         </div>
       </div>
 
-      <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+      <div className="p-3.5 sm:p-4 bg-slate-50 rounded-lg border border-slate-100">
         <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
           <Users className="h-4 w-4 text-indigo-600" />
           <span className="font-semibold uppercase tracking-wider">Players</span>
@@ -73,7 +73,7 @@ const TournamentSpecsGrid = ({
         </div>
       </div>
 
-      <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+      <div className="p-3.5 sm:p-4 bg-slate-50 rounded-lg border border-slate-100">
         <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
           <Calendar className="h-4 w-4 text-indigo-600" />
           <span className="font-semibold uppercase tracking-wider">Start Time</span>

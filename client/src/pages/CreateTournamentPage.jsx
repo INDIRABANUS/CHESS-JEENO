@@ -263,7 +263,7 @@ const CreateTournamentPage = () => {
 
           {/* Time Controls Section */}
           <div className="space-y-3 pt-2 border-t border-slate-100">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
               <label className="text-sm font-semibold text-slate-700 flex items-center space-x-1.5">
                 <Clock className="h-4 w-4 text-indigo-600" />
                 <span>Time Control Presets</span>
@@ -274,13 +274,13 @@ const CreateTournamentPage = () => {
             </div>
 
             {/* Presets Grid */}
-            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {PRESET_TIME_CONTROLS.map((p) => (
                 <button
                   type="button"
                   key={p.label}
                   onClick={() => handlePresetSelect(p)}
-                  className={`py-2 px-2 rounded-lg text-xs font-semibold border transition text-center ${
+                  className={`min-h-[44px] py-2 px-2 rounded-lg text-xs font-semibold border transition text-center flex flex-col justify-center items-center ${
                     selectedPreset === p.label && !isCustomTime
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'

@@ -55,7 +55,7 @@ const MyPairingCard = ({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex flex-wrap items-center justify-between gap-2">
+      <div className="p-3.5 sm:p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center space-x-2">
           <Swords className="h-5 w-5 text-amber-400" />
           <span className="font-extrabold text-sm tracking-wide">
@@ -78,7 +78,7 @@ const MyPairingCard = ({
         </div>
       </div>
 
-      <div className="p-5">
+      <div className="p-3.5 sm:p-5">
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
@@ -137,7 +137,7 @@ const MyPairingCard = ({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center space-x-2">
               <span className="text-xs text-slate-500">Status:</span>
               <span className="font-semibold text-xs text-slate-800 uppercase px-2 py-0.5 rounded bg-slate-100">
@@ -150,7 +150,7 @@ const MyPairingCard = ({
               )}
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full sm:w-auto">
               {p.lichessGameId && (
                 <>
                   <button
@@ -158,7 +158,7 @@ const MyPairingCard = ({
                       onSyncResult && onSyncResult(myCurrentPairing.roundNumber, p._id)
                     }
                     disabled={Boolean(syncLoading[p._id])}
-                    className="inline-flex items-center space-x-1 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition"
+                    className="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition min-h-[38px] w-full sm:w-auto"
                   >
                     <RefreshCw className="h-3 w-3" />
                     <span>SYNC RESULT</span>
@@ -167,7 +167,7 @@ const MyPairingCard = ({
                     href={p.lichessGameUrl || `https://lichess.org/${p.lichessGameId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center space-x-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition"
+                    className="inline-flex items-center justify-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition min-h-[38px] w-full sm:w-auto"
                   >
                     <span>PLAY ON LICHESS</span>
                     <ExternalLink className="h-3.5 w-3.5" />

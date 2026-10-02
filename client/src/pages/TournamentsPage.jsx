@@ -64,37 +64,53 @@ const TournamentsPage = () => {
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center gap-4">
-        <div className="flex items-center space-x-2 text-slate-500 text-sm font-medium">
-          <Filter className="h-4 w-4" />
-          <span>Filters:</span>
+      <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="flex items-center justify-between sm:justify-start space-x-2 text-slate-500 text-sm font-medium shrink-0">
+          <div className="flex items-center space-x-2">
+            <Filter className="h-4 w-4 text-slate-400" />
+            <span>Filters:</span>
+          </div>
+          {(statusFilter || formatFilter) && (
+            <button
+              onClick={() => {
+                setStatusFilter('');
+                setFormatFilter('');
+              }}
+              className="sm:hidden text-xs text-indigo-600 hover:text-indigo-800 underline font-medium"
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
 
-        {/* Status Filter */}
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-        >
-          <option value="">All Statuses</option>
-          <option value="REGISTRATION">Registration Open</option>
-          <option value="DRAFT">Draft</option>
-          <option value="RUNNING">In Progress</option>
-          <option value="FINISHED">Finished</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
+        {/* Filter Dropdowns */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1">
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full sm:w-auto min-h-[40px] bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          >
+            <option value="">All Statuses</option>
+            <option value="REGISTRATION">Registration Open</option>
+            <option value="DRAFT">Draft</option>
+            <option value="RUNNING">In Progress</option>
+            <option value="FINISHED">Finished</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
 
-        {/* Format Filter */}
-        <select
-          value={formatFilter}
-          onChange={(e) => setFormatFilter(e.target.value)}
-          className="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-        >
-          <option value="">All Formats</option>
-          <option value="SWISS">Swiss System</option>
-          <option value="ROUND_ROBIN">Round Robin</option>
-          <option value="KNOCKOUT">Single Elimination</option>
-        </select>
+          {/* Format Filter */}
+          <select
+            value={formatFilter}
+            onChange={(e) => setFormatFilter(e.target.value)}
+            className="w-full sm:w-auto min-h-[40px] bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          >
+            <option value="">All Formats</option>
+            <option value="SWISS">Swiss System</option>
+            <option value="ROUND_ROBIN">Round Robin</option>
+            <option value="KNOCKOUT">Single Elimination</option>
+          </select>
+        </div>
 
         {(statusFilter || formatFilter) && (
           <button
@@ -102,7 +118,7 @@ const TournamentsPage = () => {
               setStatusFilter('');
               setFormatFilter('');
             }}
-            className="text-xs text-indigo-600 hover:text-indigo-800 underline font-medium ml-auto"
+            className="hidden sm:inline-block text-xs text-indigo-600 hover:text-indigo-800 underline font-medium ml-auto shrink-0"
           >
             Clear Filters
           </button>

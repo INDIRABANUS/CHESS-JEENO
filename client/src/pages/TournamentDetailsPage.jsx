@@ -391,10 +391,10 @@ const TournamentDetailsPage = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Top Navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <Link
           to="/tournaments"
-          className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition"
+          className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition self-start"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Tournaments</span>
@@ -402,11 +402,11 @@ const TournamentDetailsPage = () => {
 
         {/* Organizer Action Buttons */}
         {isHost && (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setIsInviteOpen(true)}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg shadow-sm transition"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg shadow-sm transition min-h-[36px]"
               title="Share tournament link to invite players"
             >
               <Share2 className="h-3.5 w-3.5 text-indigo-600" />
@@ -416,7 +416,7 @@ const TournamentDetailsPage = () => {
             <button
               type="button"
               onClick={handleOpenEdit}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm transition"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm transition min-h-[36px]"
             >
               <Edit2 className="h-3.5 w-3.5" />
               <span>Edit</span>
@@ -426,7 +426,7 @@ const TournamentDetailsPage = () => {
               <button
                 type="button"
                 onClick={() => setIsDeleting(true)}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-lg shadow-sm transition"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-lg shadow-sm transition min-h-[36px]"
               >
                 <Trash2 className="h-3.5 w-3.5 text-rose-600" />
                 <span>Delete</span>
@@ -455,7 +455,7 @@ const TournamentDetailsPage = () => {
       {/* Main Tournament Details Card */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Banner Section */}
-        <div className="p-6 sm:p-8 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-indigo-50/20">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-indigo-50/20">
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <span
               className={`text-xs font-bold px-3 py-1 rounded-full border ${
@@ -483,7 +483,7 @@ const TournamentDetailsPage = () => {
             </span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight break-words">
             {tournament.name}
           </h1>
 
@@ -530,7 +530,7 @@ const TournamentDetailsPage = () => {
         />
 
         {/* Registration CTA & Readiness Banner */}
-        <div className="p-6 sm:p-8 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <div className="flex items-center space-x-2">
               <UserCheck className="h-4 w-4 text-indigo-600" />
@@ -592,13 +592,13 @@ const TournamentDetailsPage = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-2 w-full md:w-auto">
             {/* Player Ready Toggle */}
             {isRegistered && ['REGISTRATION', 'READY_CHECK'].includes(tournament.status) && (
               <button
                 onClick={handleToggleReady}
                 disabled={actionLoading}
-                className={`inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm ${
+                className={`inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-lg text-xs font-bold transition shadow-sm w-full sm:w-auto min-h-[40px] ${
                   isCurrentUserReady
                     ? 'bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-300'
                     : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -618,7 +618,7 @@ const TournamentDetailsPage = () => {
               <button
                 onClick={handleLeave}
                 disabled={actionLoading}
-                className="inline-flex items-center space-x-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition"
+                className="inline-flex items-center justify-center space-x-1.5 px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition w-full sm:w-auto min-h-[40px]"
               >
                 <UserMinus className="h-4 w-4" />
                 <span>LEAVE</span>
@@ -630,7 +630,7 @@ const TournamentDetailsPage = () => {
               joinRequestStatus === 'PENDING' ? (
                 <button
                   disabled
-                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold border border-amber-300 cursor-default"
+                  className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold border border-amber-300 cursor-default w-full sm:w-auto min-h-[40px]"
                 >
                   <Clock className="h-4 w-4 text-amber-600 animate-pulse" />
                   <span>REQUEST PENDING</span>
@@ -638,7 +638,7 @@ const TournamentDetailsPage = () => {
               ) : joinRequestStatus === 'REJECTED' ? (
                 <button
                   disabled
-                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-rose-50 text-rose-700 rounded-lg text-xs font-semibold border border-rose-300 cursor-not-allowed"
+                  className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 bg-rose-50 text-rose-700 rounded-lg text-xs font-semibold border border-rose-300 cursor-not-allowed w-full sm:w-auto min-h-[40px]"
                 >
                   <X className="h-4 w-4 text-rose-600" />
                   <span>REQUEST REJECTED</span>
@@ -646,7 +646,7 @@ const TournamentDetailsPage = () => {
               ) : isFull ? (
                 <button
                   disabled
-                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-slate-200 text-slate-500 cursor-not-allowed rounded-lg text-xs font-semibold border border-slate-300"
+                  className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 bg-slate-200 text-slate-500 cursor-not-allowed rounded-lg text-xs font-semibold border border-slate-300 w-full sm:w-auto min-h-[40px]"
                 >
                   <Users className="h-4 w-4" />
                   <span>TOURNAMENT FULL</span>
@@ -656,7 +656,7 @@ const TournamentDetailsPage = () => {
                   type="button"
                   onClick={handlePlayerJoinClick}
                   disabled={actionLoading}
-                  className="inline-flex items-center space-x-1.5 px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
+                  className="inline-flex items-center justify-center space-x-1.5 px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm w-full sm:w-auto min-h-[40px]"
                 >
                   {actionLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -670,12 +670,12 @@ const TournamentDetailsPage = () => {
 
             {/* Host Controls */}
             {isHost && (
-              <div className="flex flex-wrap items-center gap-1.5 border-l border-slate-200 pl-2 ml-1">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 sm:border-l border-slate-200 sm:pl-2 sm:ml-1">
                 {['REGISTRATION', 'READY_CHECK'].includes(tournament.status) && (
                   <button
                     type="button"
                     onClick={() => setIsInviteOpen(true)}
-                    className="inline-flex items-center space-x-1 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition"
+                    className="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition w-full sm:w-auto min-h-[40px]"
                     title="Share tournament link to invite players"
                   >
                     <Share2 className="h-3.5 w-3.5 text-indigo-600" />
@@ -689,7 +689,7 @@ const TournamentDetailsPage = () => {
                     onClick={handleStartReadyCheck}
                     disabled={actionLoading || players.length < 2}
                     title={players.length < 2 ? 'At least 2 players required' : 'Prompt all players for ready confirmation'}
-                    className="inline-flex items-center space-x-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50"
+                    className="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50 w-full sm:w-auto min-h-[40px]"
                   >
                     <span>START READY CHECK</span>
                   </button>
@@ -707,7 +707,7 @@ const TournamentDetailsPage = () => {
                             : `${readyPlayerCount} of ${players.length} players are ready. All players must be ready.`
                           : 'Start 60-second tournament countdown'
                       }
-                      className="inline-flex items-center space-x-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50"
+                      className="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50 w-full sm:w-auto min-h-[40px]"
                     >
                       <Clock className="h-3.5 w-3.5" />
                       <span>COUNTDOWN (60s)</span>
@@ -721,7 +721,7 @@ const TournamentDetailsPage = () => {
                           ? `${readyPlayerCount} of ${players.length} players ready. All players must be ready to start.`
                           : 'Immediately start tournament and generate pairings'
                       }
-                      className="inline-flex items-center space-x-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50"
+                      className="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50 w-full sm:w-auto min-h-[40px]"
                     >
                       <Zap className="h-3.5 w-3.5" />
                       <span>START NOW</span>
@@ -734,14 +734,14 @@ const TournamentDetailsPage = () => {
                     <button
                       onClick={handleStartTournament}
                       disabled={actionLoading}
-                      className="inline-flex items-center space-x-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+                      className="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-sm w-full sm:w-auto min-h-[40px]"
                     >
                       <span>START NOW</span>
                     </button>
                     <button
                       onClick={handleCancelCountdown}
                       disabled={actionLoading}
-                      className="inline-flex items-center space-x-1 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+                      className="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition shadow-sm w-full sm:w-auto min-h-[40px]"
                     >
                       <span>CANCEL COUNTDOWN</span>
                     </button>
@@ -753,7 +753,7 @@ const TournamentDetailsPage = () => {
         </div>
 
         {/* Creator Info Footer */}
-        <div className="px-6 sm:px-8 py-3.5 bg-white border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <div className="px-4 sm:px-6 lg:px-8 py-3.5 bg-white border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs text-slate-500">
           <div>
             <span>Organized by </span>
             <span className="font-semibold text-slate-700">
@@ -835,7 +835,7 @@ const TournamentDetailsPage = () => {
 
       {/* Rounds & Pairings Section */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
               <Swords className="h-5 w-5 text-indigo-600" />
@@ -859,7 +859,7 @@ const TournamentDetailsPage = () => {
 
           {/* CREATE ROUND / CREATE NEXT ROUND Control added running and in progress logic*/}
           {['REGISTRATION', 'RUNNING', 'IN_PROGRESS'].includes(tournament.status) && (
-            <div className="flex flex-col items-end space-y-1">
+            <div className="flex flex-col sm:items-end space-y-1 w-full sm:w-auto">
               {rounds.length === 0 ? (
                 isHost && (
                   <button
@@ -870,7 +870,7 @@ const TournamentDetailsPage = () => {
                         ? 'At least 2 players are required to create a round'
                         : 'Generate Round 1 pairings'
                     }
-                    className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+                    className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm w-full sm:w-auto min-h-[40px]"
                   >
                     {createRoundLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -881,12 +881,12 @@ const TournamentDetailsPage = () => {
                   </button>
                 )
               ) : allRoundsCreated ? (
-                <span className="inline-flex items-center space-x-1 px-3 py-1.5 bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-lg">
+                <span className="inline-flex items-center justify-center space-x-1 px-3 py-1.5 bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-lg w-full sm:w-auto min-h-[36px]">
                   <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
                   <span>All {rounds.length} Rounds Created</span>
                 </span>
               ) : isHost ? (
-                <div className="flex flex-col items-end">
+                <div className="flex flex-col sm:items-end w-full sm:w-auto">
                   <button
                     onClick={handleCreateRound}
                     disabled={createRoundLoading || !isLatestRoundComplete}
@@ -895,7 +895,7 @@ const TournamentDetailsPage = () => {
                         ? 'Finish and sync all games before creating the next round.'
                         : `Create Round ${rounds.length + 1}`
                     }
-                    className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+                    className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm w-full sm:w-auto min-h-[40px]"
                   >
                     {createRoundLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -911,7 +911,7 @@ const TournamentDetailsPage = () => {
                     </span>
                   </button>
                   {!isLatestRoundComplete && (
-                    <span className="text-[11px] text-amber-700 font-medium mt-1">
+                    <span className="text-[11px] text-amber-700 font-medium mt-1 text-left sm:text-right">
                       Finish and sync all games before creating the next round.
                     </span>
                   )}
@@ -923,7 +923,7 @@ const TournamentDetailsPage = () => {
 
         {/* Round Creation Error Message */}
         {roundError && (
-          <div className="mx-6 mt-4 p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center space-x-2">
+          <div className="mx-3.5 sm:mx-6 mt-3 sm:mt-4 p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center space-x-2">
             <AlertCircle className="h-4 w-4 text-rose-500 flex-shrink-0" />
             <span>{roundError}</span>
           </div>
@@ -931,7 +931,7 @@ const TournamentDetailsPage = () => {
 
         {/* Lichess Game Error Alert */}
         {gameError && (
-          <div className="mx-6 mt-4 p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center justify-between">
+          <div className="mx-3.5 sm:mx-6 mt-3 sm:mt-4 p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <AlertCircle className="h-4 w-4 text-rose-500 flex-shrink-0" />
               <span>{gameError}</span>
@@ -952,7 +952,7 @@ const TournamentDetailsPage = () => {
 
         {/* Rounds Content */}
         {rounds.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="p-8 sm:p-12 text-center">
             <div className="p-3 bg-indigo-50 text-indigo-500 rounded-full inline-flex mb-3">
               <Swords className="h-6 w-6" />
             </div>
@@ -964,7 +964,7 @@ const TournamentDetailsPage = () => {
             </p>
           </div>
         ) : (
-          <div className="p-6 space-y-6">
+          <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6">
             {rounds.map((round) => (
               <RoundCard
                 key={round._id}

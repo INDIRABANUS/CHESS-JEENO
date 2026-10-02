@@ -12,7 +12,7 @@ const KnockoutBracket = ({ rounds = [] }) => {
   if (!rounds || rounds.length === 0) return null;
 
   return (
-    <div className="p-6 bg-slate-50/70 border-b border-slate-200">
+    <div className="p-3.5 sm:p-6 bg-slate-50/70 border-b border-slate-200">
       <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">
         <Trophy className="h-4 w-4 text-indigo-600" />
         <span>Knockout Bracket Progression</span>

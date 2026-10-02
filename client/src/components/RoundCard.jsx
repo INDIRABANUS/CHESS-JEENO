@@ -53,15 +53,15 @@ const RoundCard = ({
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/40">
       {/* Round Header */}
-      <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center space-x-3">
-          <span className="font-bold text-slate-900 text-base">
+      <div className="p-3.5 sm:p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+          <span className="font-bold text-slate-900 text-base shrink-0">
             {round.stageName
               ? `${round.stageName} (Round ${round.roundNumber})`
               : `Round ${round.roundNumber}`}
           </span>
           <span
-            className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+            className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border shrink-0 ${
               isRoundDone
                 ? 'bg-blue-50 text-blue-700 border-blue-200'
                 : 'bg-amber-50 text-amber-700 border-amber-200'
@@ -69,13 +69,16 @@ const RoundCard = ({
           >
             {isRoundDone ? 'FINISHED' : 'IN PROGRESS'}
           </span>
-          <span className="text-xs text-slate-500 font-medium">
+          <span className="text-xs text-slate-500 font-medium shrink-0">
             {completedGamesCount} / {roundPairings.length} games complete
+          </span>
+          <span className="text-xs text-slate-400 font-medium sm:hidden shrink-0">
+            • {round.pairings?.length || 0} Match(es)
           </span>
         </div>
 
-        <div className="flex items-center space-x-3">
-          <span className="text-xs text-slate-500 font-medium">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <span className="text-xs text-slate-500 font-medium hidden sm:inline shrink-0">
             {round.pairings?.length || 0} Match(es)
           </span>
 
@@ -85,7 +88,7 @@ const RoundCard = ({
               onClick={() => onCreateAllGames && onCreateAllGames(round.roundNumber)}
               disabled={isRoundBulkLoading}
               title="Create Lichess games for all eligible pairings in this round"
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+              className="inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs w-full sm:w-auto min-h-[40px]"
             >
               {isRoundBulkLoading ? (
                 <>
@@ -105,8 +108,8 @@ const RoundCard = ({
 
       {/* BYE Player Notice (if any) */}
       {round.byePlayer && (
-        <div className="mx-4 mt-3 p-2.5 bg-indigo-50 border border-indigo-100 rounded-lg flex items-center justify-between text-xs text-indigo-900">
-          <span className="font-medium">
+        <div className="mx-3.5 sm:mx-4 mt-3 p-2.5 bg-indigo-50 border border-indigo-100 rounded-lg flex items-center justify-between gap-2 text-xs text-indigo-900">
+          <span className="font-medium min-w-0 truncate">
             Player on BYE: <span className="font-bold">{round.byePlayer.name}</span>
             {round.byePlayer.lichessUsername && (
               <span className="font-mono text-indigo-600 ml-1">
@@ -114,14 +117,14 @@ const RoundCard = ({
               </span>
             )}
           </span>
-          <span className="text-[11px] bg-white text-indigo-700 font-semibold px-2 py-0.5 rounded border border-indigo-200">
+          <span className="text-[11px] bg-white text-indigo-700 font-semibold px-2 py-0.5 rounded border border-indigo-200 shrink-0">
             BYE
           </span>
         </div>
       )}
 
       {/* Pairings List */}
-      <div className="p-4">
+      <div className="p-3.5 sm:p-4">
         {round.pairings && round.pairings.length > 0 ? (
           <div className="grid grid-cols-1 gap-3">
             {round.pairings.map((pairing, pIdx) => (

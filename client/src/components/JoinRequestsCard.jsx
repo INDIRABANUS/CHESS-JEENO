@@ -92,7 +92,7 @@ const JoinRequestsCard = ({
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
       {/* Header */}
-      <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div className="p-3.5 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
             <UserCheck className="h-5 w-5" />
@@ -137,14 +137,14 @@ const JoinRequestsCard = ({
 
       {/* Error message */}
       {error && (
-        <div className="p-3 mx-4 mt-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center space-x-2 text-xs text-rose-700">
+        <div className="p-3 mx-3.5 sm:mx-5 mt-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center space-x-2 text-xs text-rose-700">
           <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Content */}
-      <div className="p-4 sm:p-5">
+      <div className="p-3.5 sm:p-5">
         {loading && requests.length === 0 ? (
           <div className="py-6 flex items-center justify-center space-x-2 text-slate-400 text-xs">
             <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
