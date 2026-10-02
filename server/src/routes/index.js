@@ -3,6 +3,7 @@ import healthRoutes from './healthRoutes.js';
 import tournamentRoutes from './tournamentRoutes.js';
 import authRoutes from './authRoutes.js';
 import lichessRoutes from './lichessRoutes.js';
+import userRoutes from './userRoutes.js';
 import { resolveCreatorId } from '../utils/devUser.js';
 import User from '../models/User.js';
 
@@ -10,6 +11,7 @@ const apiRouter = express.Router();
 
 apiRouter.use('/', healthRoutes);
 apiRouter.use('/auth', authRoutes);
+apiRouter.use('/users', userRoutes);
 apiRouter.use('/tournaments', tournamentRoutes);
 apiRouter.use('/lichess', lichessRoutes);
 
