@@ -123,7 +123,7 @@ const CreateTournamentPage = () => {
       <div>
         <Link
           to="/tournaments"
-          className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition min-h-[40px] py-2 sm:min-h-0 sm:py-0"
+          className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition min-h-[40px] py-2 sm:min-h-0 sm:py-0"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Tournaments</span>
@@ -131,17 +131,17 @@ const CreateTournamentPage = () => {
       </div>
 
       {/* Main Form Container */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 sm:p-8 border-b border-slate-100 bg-slate-50/50">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="p-6 sm:p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
           <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg">
+            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-lg">
               <Trophy className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
                 Create New Tournament
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                 Set up format, time controls, and participant limits for your tournament.
               </p>
             </div>
@@ -149,7 +149,7 @@ const CreateTournamentPage = () => {
         </div>
 
         {error && (
-          <div className="mx-6 sm:mx-8 mt-6 p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-center space-x-3 text-sm text-rose-700">
+          <div className="mx-6 sm:mx-8 mt-6 p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-lg flex items-center space-x-3 text-sm text-rose-700 dark:text-rose-300">
             <AlertCircle className="h-5 w-5 text-rose-500 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -158,7 +158,7 @@ const CreateTournamentPage = () => {
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
           {/* Tournament Name */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">
+            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">
               Tournament Name <span className="text-rose-500">*</span>
             </label>
             <input
@@ -167,27 +167,27 @@ const CreateTournamentPage = () => {
               placeholder="e.g. Saturday Night Blitz Open"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition"
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">
-              Description <span className="text-xs text-slate-400 font-normal">(Optional)</span>
+            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">
+              Description <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">(Optional)</span>
             </label>
             <textarea
               rows={3}
               placeholder="Provide tournament guidelines, prize information, or extra notes..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition"
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition"
             />
           </div>
 
           {/* Format Selection */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
               Tournament Format <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -214,16 +214,18 @@ const CreateTournamentPage = () => {
                   onClick={() => setFormData({ ...formData, format: fmt.id })}
                   className={`p-4 rounded-lg border text-left transition flex flex-col justify-between ${
                     formData.format === fmt.id
-                      ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
+                      ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
                   }`}
                 >
                   <span className={`text-sm font-bold ${
-                    formData.format === fmt.id ? 'text-indigo-700' : 'text-slate-800'
+                    formData.format === fmt.id
+                      ? 'text-indigo-700 dark:text-indigo-300'
+                      : 'text-slate-800 dark:text-slate-100'
                   }`}>
                     {fmt.title}
                   </span>
-                  <span className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
                     {fmt.desc}
                   </span>
                 </button>
@@ -232,13 +234,13 @@ const CreateTournamentPage = () => {
 
             {/* Swiss Total Rounds Field */}
             {formData.format === 'SWISS' && (
-              <div className="mt-4 p-4 rounded-lg bg-indigo-50/60 border border-indigo-100">
+              <div className="mt-4 p-4 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <label htmlFor="totalRounds" className="block text-sm font-bold text-slate-800">
+                    <label htmlFor="totalRounds" className="block text-sm font-bold text-slate-800 dark:text-slate-100">
                       Number of Rounds <span className="text-rose-500">*</span>
                     </label>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       Configure total Swiss rounds to be played (1 to 20).
                     </p>
                   </div>
@@ -250,11 +252,11 @@ const CreateTournamentPage = () => {
                       max="20"
                       value={formData.totalRounds || ''}
                       onChange={(e) => setFormData({ ...formData, totalRounds: e.target.value })}
-                      className="w-24 px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-center"
+                      className="w-24 px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-center"
                       placeholder="5"
                       required
                     />
-                    <span className="text-xs font-medium text-slate-500">Rounds</span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Rounds</span>
                   </div>
                 </div>
               </div>
@@ -262,13 +264,13 @@ const CreateTournamentPage = () => {
           </div>
 
           {/* Time Controls Section */}
-          <div className="space-y-3 pt-2 border-t border-slate-100">
+          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <label className="text-sm font-semibold text-slate-700 flex items-center space-x-1.5">
-                <Clock className="h-4 w-4 text-indigo-600" />
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center space-x-1.5">
+                <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                 <span>Time Control Presets</span>
               </label>
-              <span className="text-xs text-indigo-600 font-mono font-medium">
+              <span className="text-xs text-indigo-600 dark:text-indigo-400 font-mono font-medium">
                 Current: {Math.floor(formData.clockLimit / 60)}m + {formData.increment}s
               </span>
             </div>
@@ -283,12 +285,14 @@ const CreateTournamentPage = () => {
                   className={`min-h-[44px] py-2 px-2 rounded-lg text-xs font-semibold border transition text-center flex flex-col justify-center items-center ${
                     selectedPreset === p.label && !isCustomTime
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
                   }`}
                 >
                   <div>{p.label}</div>
                   <div className={`text-[10px] font-normal ${
-                    selectedPreset === p.label && !isCustomTime ? 'text-indigo-100' : 'text-slate-400'
+                    selectedPreset === p.label && !isCustomTime
+                      ? 'text-indigo-100'
+                      : 'text-slate-400 dark:text-slate-500'
                   }`}>
                     {p.name}
                   </div>
@@ -297,20 +301,20 @@ const CreateTournamentPage = () => {
             </div>
 
             {/* Custom Time Control Controls */}
-            <div className="mt-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="mt-3 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Custom Time Settings
                 </span>
                 {isCustomTime && (
-                  <span className="text-[11px] text-indigo-600 font-medium">
+                  <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
                     (Custom active)
                   </span>
                 )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
                     Clock Limit (Minutes)
                   </label>
                   <input
@@ -321,14 +325,14 @@ const CreateTournamentPage = () => {
                     onChange={(e) =>
                       handleCustomTimeChange(e.target.value, formData.increment)
                     }
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-800 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-sm text-slate-800 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
-                  <span className="text-xs sm:text-[11px] text-slate-400">
+                  <span className="text-xs sm:text-[11px] text-slate-400 dark:text-slate-500">
                     = {formData.clockLimit} seconds
                   </span>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
                     Increment (Seconds per move)
                   </label>
                   <input
@@ -338,7 +342,7 @@ const CreateTournamentPage = () => {
                     onChange={(e) =>
                       handleCustomTimeChange(customMinutes, e.target.value)
                     }
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-800 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-sm text-slate-800 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -346,11 +350,11 @@ const CreateTournamentPage = () => {
           </div>
 
           {/* Rated Toggle & Player Limits */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 border-t border-slate-100 dark:border-slate-800">
             {/* Rated Toggle */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1 flex items-center space-x-1.5">
-                <Shield className="h-4 w-4 text-indigo-600" />
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1 flex items-center space-x-1.5">
+                <Shield className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                 <span>Tournament Type</span>
               </label>
               <div className="flex items-center space-x-4 mt-2">
@@ -362,7 +366,7 @@ const CreateTournamentPage = () => {
                     onChange={() => setFormData({ ...formData, rated: false })}
                     className="text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span className="text-sm text-slate-700">Casual (Unrated)</span>
+                  <span className="text-sm text-slate-700 dark:text-slate-300">Casual (Unrated)</span>
                 </label>
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
@@ -372,15 +376,15 @@ const CreateTournamentPage = () => {
                     onChange={() => setFormData({ ...formData, rated: true })}
                     className="text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span className="text-sm font-medium text-amber-700">Rated</span>
+                  <span className="text-sm font-medium text-amber-700 dark:text-amber-400">Rated</span>
                 </label>
               </div>
             </div>
 
             {/* Max Players */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1 flex items-center space-x-1.5">
-                <Users className="h-4 w-4 text-indigo-600" />
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1 flex items-center space-x-1.5">
+                <Users className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                 <span>Maximum Players</span>
               </label>
               <input
@@ -389,37 +393,37 @@ const CreateTournamentPage = () => {
                 max="512"
                 value={formData.maxPlayers}
                 onChange={(e) => setFormData({ ...formData, maxPlayers: e.target.value })}
-                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
-              <span className="text-xs sm:text-[11px] text-slate-400">
+              <span className="text-xs sm:text-[11px] text-slate-400 dark:text-slate-500">
                 Minimum 2 participants required
               </span>
             </div>
           </div>
 
           {/* Start Time */}
-          <div className="pt-2 border-t border-slate-100">
-            <label className="block text-sm font-semibold text-slate-700 mb-1 flex items-center space-x-1.5">
-              <Calendar className="h-4 w-4 text-indigo-600" />
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1 flex items-center space-x-1.5">
+              <Calendar className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               <span>Scheduled Start Time</span>
-              <span className="text-xs text-slate-400 font-normal">(Optional)</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">(Optional)</span>
             </label>
             <input
               type="datetime-local"
               value={formData.startTime}
               onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-              className="w-full sm:w-80 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full sm:w-80 px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none [color-scheme:light] dark:[color-scheme:dark]"
             />
-            <p className="text-xs sm:text-[11px] text-slate-400 mt-1">
+            <p className="text-xs sm:text-[11px] text-slate-400 dark:text-slate-500 mt-1">
               Leave blank to keep tournament open for unscheduled registration.
             </p>
           </div>
 
           {/* Actions */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end space-x-3">
             <Link
               to="/tournaments"
-              className="inline-flex items-center justify-center min-h-[40px] px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+              className="inline-flex items-center justify-center min-h-[40px] px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
             >
               Cancel
             </Link>

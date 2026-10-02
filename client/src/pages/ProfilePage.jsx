@@ -271,14 +271,14 @@ const ProfilePage = () => {
           id="profile-notification"
           className={`p-4 rounded-xl border flex items-start space-x-3 text-sm transition-all ${
             notification.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-rose-50 border-rose-200 text-rose-800'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-300'
           }`}
         >
           {notification.type === 'success' ? (
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
           ) : (
-            <AlertCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+            <AlertCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
           )}
           <div className="flex-1 font-medium">{notification.message}</div>
           <button
@@ -292,7 +292,7 @@ const ProfilePage = () => {
       )}
 
       {/* Profile Header & Identity Card */}
-      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center space-x-4 min-w-0">
             {/* Avatar with fallback */}
@@ -300,7 +300,7 @@ const ProfilePage = () => {
               <img
                 src={activeUser.avatar}
                 alt={activeUser.name || 'User Avatar'}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-indigo-100 shadow-sm shrink-0"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-indigo-100 dark:border-indigo-900 shadow-sm shrink-0"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                 }}
@@ -319,20 +319,20 @@ const ProfilePage = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <h1
                   id="profile-display-name"
-                  className="text-xl sm:text-2xl font-bold text-slate-800 truncate"
+                  className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 truncate"
                 >
                   {activeUser.name}
                 </h1>
                 {lichessStatus.connected && lichessStatus.username && (
-                  <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                     <Check className="h-3 w-3" />
                     <span>@{lichessStatus.username}</span>
                   </span>
                 )}
               </div>
 
-              <p className="text-sm text-slate-500 flex items-center space-x-1.5 mt-1 break-all">
-                <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center space-x-1.5 mt-1 break-all">
+                <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
                 <span>{activeUser.email}</span>
               </p>
             </div>
@@ -342,25 +342,25 @@ const ProfilePage = () => {
           <button
             onClick={handleOpenEdit}
             id="edit-profile-btn"
-            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition cursor-pointer min-h-[44px] shrink-0"
+            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:bg-slate-300 dark:active:bg-slate-600 transition cursor-pointer min-h-[44px] shrink-0"
           >
-            <Edit3 className="h-4 w-4 text-slate-600" />
+            <Edit3 className="h-4 w-4 text-slate-600 dark:text-slate-400" />
             <span>Edit Profile</span>
           </button>
         </div>
       </div>
 
       {/* About / Bio Section */}
-      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <h2 className="text-base font-bold text-slate-800 flex items-center space-x-2">
-            <FileText className="h-4 w-4 text-indigo-500" />
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center space-x-2">
+            <FileText className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
             <span>About</span>
           </h2>
           {!activeUser.bio && (
             <button
               onClick={handleOpenEdit}
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer min-h-[44px] inline-flex items-center px-2"
+              className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer min-h-[44px] inline-flex items-center px-2"
             >
               + Add Bio
             </button>
@@ -371,12 +371,12 @@ const ProfilePage = () => {
           {activeUser.bio ? (
             <p
               id="profile-bio-text"
-              className="text-sm text-slate-700 whitespace-pre-line leading-relaxed break-words"
+              className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed break-words"
             >
               {activeUser.bio}
             </p>
           ) : (
-            <p className="text-sm text-slate-400 italic">
+            <p className="text-sm text-slate-400 dark:text-slate-500 italic">
               No bio added yet. Click &quot;Edit Profile&quot; to share your chess style, favorite openings, or background with the community.
             </p>
           )}
@@ -384,40 +384,40 @@ const ProfilePage = () => {
       </div>
 
       {/* Account Details Section */}
-      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
-        <h2 className="text-base font-bold text-slate-800 pb-3 border-b border-slate-100">
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 pb-3 border-b border-slate-100 dark:border-slate-800">
           Account Details
         </h2>
 
         <div className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
               Email Address
             </span>
-            <span className="text-slate-800 font-medium mt-1 block break-all">
+            <span className="text-slate-800 dark:text-slate-100 font-medium mt-1 block break-all">
               {activeUser.email}
             </span>
           </div>
 
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
               Account Type
             </span>
             <div className="flex items-center space-x-1.5 mt-1">
-              <ShieldCheck className="h-4 w-4 text-indigo-500" />
-              <span className="text-slate-800 font-semibold capitalize">
+              <ShieldCheck className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+              <span className="text-slate-800 dark:text-slate-100 font-semibold capitalize">
                 {activeUser.authProvider}
               </span>
             </div>
           </div>
 
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
               Member Since
             </span>
             <div className="flex items-center space-x-1.5 mt-1">
-              <Calendar className="h-4 w-4 text-slate-400" />
-              <span className="text-slate-800 font-medium">
+              <Calendar className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <span className="text-slate-800 dark:text-slate-100 font-medium">
                 {activeUser.createdAt ? new Date(activeUser.createdAt).toLocaleDateString() : 'Active'}
               </span>
             </div>
@@ -426,20 +426,20 @@ const ProfilePage = () => {
       </div>
 
       {/* Lichess Connection Section */}
-      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="text-base font-bold text-slate-800 flex items-center space-x-2">
+          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center space-x-2">
             <span>Chess Account</span>
           </h2>
-          <p className="text-sm sm:text-xs text-slate-500 mt-1 max-w-xl leading-relaxed">
+          <p className="text-sm sm:text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl leading-relaxed">
             Connect your personal Lichess account using OAuth 2.0 PKCE to enable seamless tournament pairing, rating verification, and game synchronization.
           </p>
         </div>
 
-        <div className="mt-5 p-4 sm:p-5 bg-slate-50 rounded-xl border border-slate-200">
+        <div className="mt-5 p-4 sm:p-5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
           {fetchingStatus ? (
-            <div className="flex items-center space-x-2 text-slate-500 text-sm py-2">
-              <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+            <div className="flex items-center space-x-2 text-slate-500 dark:text-slate-400 text-sm py-2">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-600 dark:text-indigo-400" />
               <span>Checking Lichess connection status...</span>
             </div>
           ) : lichessStatus.connected ? (
@@ -447,13 +447,13 @@ const ProfilePage = () => {
               <div className="space-y-1">
                 <div
                   id="lichess-connected-badge"
-                  className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold"
+                  className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-sm font-semibold"
                 >
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span className="truncate">✓ Connected as @{lichessStatus.username}</span>
                 </div>
                 {lichessStatus.connectedAt && (
-                  <p className="text-xs text-slate-400 pl-1">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 pl-1">
                     Connected on {new Date(lichessStatus.connectedAt).toLocaleDateString()}
                   </p>
                 )}
@@ -464,17 +464,17 @@ const ProfilePage = () => {
                   href={`https://lichess.org/@/${lichessStatus.username}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition shadow-2xs min-h-[44px]"
+                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition shadow-2xs min-h-[44px]"
                 >
                   <span>View on Lichess</span>
-                  <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+                  <ExternalLink className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
                 </a>
 
                 <button
                   onClick={handleDisconnect}
                   id="lichess-disconnect-button"
                   disabled={actionLoading}
-                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition cursor-pointer disabled:opacity-50 min-h-[44px]"
+                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition cursor-pointer disabled:opacity-50 min-h-[44px]"
                 >
                   {actionLoading ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -488,8 +488,8 @@ const ProfilePage = () => {
           ) : (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-slate-700">No Lichess account connected</p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">No Lichess account connected</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Authorize CHESS JEENO to connect with your Lichess profile.
                 </p>
               </div>
@@ -523,22 +523,22 @@ const ProfilePage = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="edit-profile-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs animate-in fade-in duration-150"
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-800 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-              <h2 id="edit-profile-title" className="text-lg font-bold text-slate-800 flex items-center space-x-2">
-                <Edit3 className="h-5 w-5 text-indigo-600" />
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+              <h2 id="edit-profile-title" className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center space-x-2">
+                <Edit3 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                 <span>Edit Profile</span>
               </h2>
               <button
                 onClick={handleCloseEdit}
                 disabled={saving}
-                className="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 transition cursor-pointer min-h-[44px] min-w-[44px] inline-flex items-center justify-center -mr-2"
+                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg p-1.5 transition cursor-pointer min-h-[44px] min-w-[44px] inline-flex items-center justify-center -mr-2"
                 aria-label="Close modal"
               >
                 <X className="h-5 w-5" />
@@ -550,8 +550,8 @@ const ProfilePage = () => {
               <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
                 {/* General form error alert */}
                 {formError && (
-                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start space-x-2">
-                    <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-300 text-sm flex items-start space-x-2">
+                    <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                     <span>{formError}</span>
                   </div>
                 )}
@@ -560,7 +560,7 @@ const ProfilePage = () => {
                 <div>
                   <label
                     htmlFor="profile-name-input"
-                    className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
                   >
                     Display Name <span className="text-rose-500">*</span>
                   </label>
@@ -577,16 +577,16 @@ const ProfilePage = () => {
                       }
                     }}
                     placeholder="Your player name"
-                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 min-h-[44px] transition ${
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 min-h-[44px] transition ${
                       fieldErrors.name
-                        ? 'border-rose-300 focus:ring-rose-500 bg-rose-50/30'
-                        : 'border-slate-300 focus:ring-indigo-500 bg-white'
+                        ? 'border-rose-300 dark:border-rose-700 focus:ring-rose-500 bg-rose-50/30 dark:bg-rose-950/30'
+                        : 'border-slate-300 dark:border-slate-700 focus:ring-indigo-500 bg-white dark:bg-slate-800'
                     }`}
                   />
                   {fieldErrors.name ? (
-                    <p className="text-xs text-rose-600 mt-1 font-medium">{fieldErrors.name}</p>
+                    <p className="text-xs text-rose-600 dark:text-rose-400 mt-1 font-medium">{fieldErrors.name}</p>
                   ) : (
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                       {formName.length}/50 characters &bull; visible to other tournament players
                     </p>
                   )}
@@ -597,13 +597,13 @@ const ProfilePage = () => {
                   <div className="flex items-center justify-between mb-1.5">
                     <label
                       htmlFor="profile-bio-input"
-                      className="block text-xs font-semibold uppercase tracking-wider text-slate-700"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300"
                     >
                       Personal Bio
                     </label>
                     <span
                       className={`text-xs ${
-                        formBio.length > 500 ? 'text-rose-600 font-bold' : 'text-slate-400'
+                        formBio.length > 500 ? 'text-rose-600 font-bold' : 'text-slate-400 dark:text-slate-500'
                       }`}
                     >
                       {formBio.length}/500
@@ -621,14 +621,14 @@ const ProfilePage = () => {
                       }
                     }}
                     placeholder="Tell players about your favorite chess openings, blitz style, or background..."
-                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 resize-none transition ${
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 resize-none transition ${
                       fieldErrors.bio
-                        ? 'border-rose-300 focus:ring-rose-500 bg-rose-50/30'
-                        : 'border-slate-300 focus:ring-indigo-500 bg-white'
+                        ? 'border-rose-300 dark:border-rose-700 focus:ring-rose-500 bg-rose-50/30 dark:bg-rose-950/30'
+                        : 'border-slate-300 dark:border-slate-700 focus:ring-indigo-500 bg-white dark:bg-slate-800'
                     }`}
                   />
                   {fieldErrors.bio && (
-                    <p className="text-xs text-rose-600 mt-1 font-medium">{fieldErrors.bio}</p>
+                    <p className="text-xs text-rose-600 dark:text-rose-400 mt-1 font-medium">{fieldErrors.bio}</p>
                   )}
                 </div>
 
@@ -636,13 +636,13 @@ const ProfilePage = () => {
                 <div>
                   <label
                     htmlFor="profile-avatar-input"
-                    className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
                   >
                     Avatar Image URL
                   </label>
                   <div className="flex items-center space-x-3">
                     {/* Live Preview Thumbnail */}
-                    <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                    <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
                       {formAvatar.trim() ? (
                         <img
                           src={formAvatar.trim()}
@@ -653,7 +653,7 @@ const ProfilePage = () => {
                           }}
                         />
                       ) : (
-                        <ImageIcon className="h-5 w-5 text-slate-400" />
+                        <ImageIcon className="h-5 w-5 text-slate-400 dark:text-slate-500" />
                       )}
                     </div>
 
@@ -669,18 +669,18 @@ const ProfilePage = () => {
                           }
                         }}
                         placeholder="https://example.com/my-photo.jpg"
-                        className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 min-h-[44px] transition ${
+                        className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 min-h-[44px] transition ${
                           fieldErrors.avatar
-                            ? 'border-rose-300 focus:ring-rose-500 bg-rose-50/30'
-                            : 'border-slate-300 focus:ring-indigo-500 bg-white'
+                            ? 'border-rose-300 dark:border-rose-700 focus:ring-rose-500 bg-rose-50/30 dark:bg-rose-950/30'
+                            : 'border-slate-300 dark:border-slate-700 focus:ring-indigo-500 bg-white dark:bg-slate-800'
                         }`}
                       />
                     </div>
                   </div>
                   {fieldErrors.avatar ? (
-                    <p className="text-xs text-rose-600 mt-1 font-medium">{fieldErrors.avatar}</p>
+                    <p className="text-xs text-rose-600 dark:text-rose-400 mt-1 font-medium">{fieldErrors.avatar}</p>
                   ) : (
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                       Direct HTTP/HTTPS link to an image (PNG, JPG, WebP). Leave blank to use initials.
                     </p>
                   )}
@@ -688,12 +688,12 @@ const ProfilePage = () => {
               </div>
 
               {/* Modal Footer Controls */}
-              <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/50 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
+              <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={handleCloseEdit}
                   disabled={saving}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer min-h-[44px] disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 transition cursor-pointer min-h-[44px] disabled:opacity-50"
                 >
                   Cancel
                 </button>

@@ -49,8 +49,8 @@ const TournamentsPage = () => {
       {/* Header & Action */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Chess Tournaments</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Chess Tournaments</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Browse and manage all tournaments hosted on CHESS JEENO
           </p>
         </div>
@@ -64,10 +64,10 @@ const TournamentsPage = () => {
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-        <div className="flex items-center justify-between sm:justify-start space-x-2 text-slate-500 text-sm font-medium shrink-0">
+      <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="flex items-center justify-between sm:justify-start space-x-2 text-slate-500 dark:text-slate-400 text-sm font-medium shrink-0">
           <div className="flex items-center space-x-2">
-            <Filter className="h-4 w-4 text-slate-400" />
+            <Filter className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             <span>Filters:</span>
           </div>
           {(statusFilter || formatFilter) && (
@@ -76,7 +76,7 @@ const TournamentsPage = () => {
                 setStatusFilter('');
                 setFormatFilter('');
               }}
-              className="sm:hidden text-xs text-indigo-600 hover:text-indigo-800 underline font-medium inline-flex items-center min-h-[40px] px-2 py-2 -my-2"
+              className="sm:hidden text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 underline font-medium inline-flex items-center min-h-[40px] px-2 py-2 -my-2"
             >
               Clear Filters
             </button>
@@ -89,7 +89,7 @@ const TournamentsPage = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full sm:w-auto min-h-[40px] bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full sm:w-auto min-h-[40px] bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">All Statuses</option>
             <option value="REGISTRATION">Registration Open</option>
@@ -103,7 +103,7 @@ const TournamentsPage = () => {
           <select
             value={formatFilter}
             onChange={(e) => setFormatFilter(e.target.value)}
-            className="w-full sm:w-auto min-h-[40px] bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full sm:w-auto min-h-[40px] bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">All Formats</option>
             <option value="SWISS">Swiss System</option>
@@ -118,7 +118,7 @@ const TournamentsPage = () => {
               setStatusFilter('');
               setFormatFilter('');
             }}
-            className="hidden sm:inline-block text-xs text-indigo-600 hover:text-indigo-800 underline font-medium ml-auto shrink-0"
+            className="hidden sm:inline-block text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 underline font-medium ml-auto shrink-0"
           >
             Clear Filters
           </button>
@@ -127,21 +127,21 @@ const TournamentsPage = () => {
 
       {/* Loading State */}
       {loading && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-          <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mx-auto mb-3" />
-          <p className="text-slate-600 text-sm">Loading tournaments...</p>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center">
+          <Loader2 className="h-8 w-8 text-indigo-600 dark:text-indigo-400 animate-spin mx-auto mb-3" />
+          <p className="text-slate-600 dark:text-slate-300 text-sm">Loading tournaments...</p>
         </div>
       )}
 
       {/* Error State */}
       {!loading && error && (
-        <div className="bg-white rounded-xl shadow-sm border border-rose-200 p-8 text-center">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-rose-200 dark:border-rose-900/50 p-8 text-center">
           <AlertCircle className="h-8 w-8 text-rose-500 mx-auto mb-3" />
-          <h3 className="text-slate-800 font-semibold mb-1">Failed to Load Tournaments</h3>
-          <p className="text-sm text-slate-500 mb-4">{error}</p>
+          <h3 className="text-slate-800 dark:text-slate-100 font-semibold mb-1">Failed to Load Tournaments</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{error}</p>
           <button
             onClick={fetchTournamentList}
-            className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-sm font-medium transition"
+            className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-sm font-medium transition"
           >
             Try Again
           </button>
@@ -150,12 +150,12 @@ const TournamentsPage = () => {
 
       {/* Empty State */}
       {!loading && !error && tournaments.length === 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full inline-flex mb-3">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center">
+          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-full inline-flex mb-3">
             <Trophy className="h-8 w-8 text-indigo-500" />
           </div>
-          <h3 className="text-lg font-semibold text-slate-800">No Tournaments Found</h3>
-          <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto mb-6">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">No Tournaments Found</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto mb-6">
             {statusFilter || formatFilter
               ? 'No tournaments match the selected filters. Try changing or clearing filters.'
               : 'There are no tournaments created yet. Be the first to organize a chess tournament!'}
@@ -177,26 +177,26 @@ const TournamentsPage = () => {
             <Link
               key={t._id}
               to={`/tournaments/${t._id}`}
-              className="bg-white rounded-xl shadow-sm border border-slate-200 hover:border-indigo-300 hover:shadow-md transition p-6 flex flex-col justify-between group"
+              className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition p-6 flex flex-col justify-between group"
             >
               <div>
                 {/* Status and Rated Badges */}
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <span
                     className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
-                      STATUS_BADGES[t.status] || 'bg-slate-100 text-slate-700'
+                      STATUS_BADGES[t.status] || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                     }`}
                   >
                     {t.status}
                   </span>
                   <div className="flex items-center space-x-1.5">
                     {t.rated ? (
-                      <span className="inline-flex items-center space-x-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                      <span className="inline-flex items-center space-x-1 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded">
                         <Shield className="h-3 w-3" />
                         <span>Rated</span>
                       </span>
                     ) : (
-                      <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded">
                         Casual
                       </span>
                     )}
@@ -204,50 +204,50 @@ const TournamentsPage = () => {
                 </div>
 
                 {/* Tournament Name */}
-                <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition line-clamp-1 mb-1">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition line-clamp-1 mb-1">
                   {t.name}
                 </h3>
 
                 {/* Description */}
-                <p className="text-sm sm:text-xs text-slate-500 line-clamp-2 mb-4">
+                <p className="text-sm sm:text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
                   {t.description || 'No description provided.'}
                 </p>
 
                 {/* Details List */}
-                <div className="space-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
+                <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3 text-xs text-slate-600 dark:text-slate-300">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Format</span>
-                    <span className="font-medium text-slate-700">
+                    <span className="text-slate-400 dark:text-slate-500">Format</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-200">
                       {FORMAT_LABELS[t.format] || t.format}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400 flex items-center space-x-1">
-                      <Clock className="h-3.5 w-3.5 inline text-slate-400" />
+                    <span className="text-slate-400 dark:text-slate-500 flex items-center space-x-1">
+                      <Clock className="h-3.5 w-3.5 inline text-slate-400 dark:text-slate-500" />
                       <span>Time Control</span>
                     </span>
-                    <span className="font-semibold text-slate-700">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">
                       {formatTimeControl(t.clockLimit, t.increment)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400 flex items-center space-x-1">
-                      <Users className="h-3.5 w-3.5 inline text-slate-400" />
+                    <span className="text-slate-400 dark:text-slate-500 flex items-center space-x-1">
+                      <Users className="h-3.5 w-3.5 inline text-slate-400 dark:text-slate-500" />
                       <span>Capacity</span>
                     </span>
-                    <span className="font-medium text-slate-700">
+                    <span className="font-medium text-slate-700 dark:text-slate-200">
                       {t.registeredPlayers ?? 0} / {t.maxPlayers ? `${t.maxPlayers} Players` : 'Open'}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400 flex items-center space-x-1">
-                      <Calendar className="h-3.5 w-3.5 inline text-slate-400" />
+                    <span className="text-slate-400 dark:text-slate-500 flex items-center space-x-1">
+                      <Calendar className="h-3.5 w-3.5 inline text-slate-400 dark:text-slate-500" />
                       <span>Starts</span>
                     </span>
-                    <span className="font-medium text-slate-700 truncate max-w-[150px]">
+                    <span className="font-medium text-slate-700 dark:text-slate-200 truncate max-w-[150px]">
                       {formatDate(t.startTime)}
                     </span>
                   </div>
@@ -255,9 +255,9 @@ const TournamentsPage = () => {
               </div>
 
               {/* Creator info */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
                 <span>By {t.createdBy?.name || 'CHESS JEENO Host'}</span>
-                <span className="text-indigo-600 font-semibold group-hover:underline">
+                <span className="text-indigo-600 dark:text-indigo-400 font-semibold group-hover:underline">
                   View Details &rarr;
                 </span>
               </div>

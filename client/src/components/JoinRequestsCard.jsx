@@ -38,7 +38,6 @@ const JoinRequestsCard = ({
       const res = await getTournamentJoinRequests(tournamentId, 'PENDING');
       setRequests(res.data || []);
     } catch (err) {
-      // If forbidden or error, set error state
       setError(err.response?.data?.message || err.message || 'Failed to load join requests');
     } finally {
       setLoading(false);
@@ -90,23 +89,23 @@ const JoinRequestsCard = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-200 dark:border-slate-800 overflow-hidden mb-6 transition-colors">
       {/* Header */}
-      <div className="p-3.5 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div className="p-3.5 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center space-x-2">
-          <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+          <div className="p-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-lg">
             <UserCheck className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center space-x-2">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center space-x-2">
               <span>Pending Join Requests</span>
               {requests.length > 0 && (
-                <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold border border-amber-200">
+                <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-700">
                   {requests.length} PENDING
                 </span>
               )}
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Review and approve players requesting entry into this tournament
             </p>
           </div>
@@ -117,9 +116,9 @@ const JoinRequestsCard = ({
             <button
               type="button"
               onClick={onOpenInvite}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition min-h-[40px] sm:min-h-0"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-semibold transition min-h-[40px] sm:min-h-0 cursor-pointer"
             >
-              <Share2 className="h-3.5 w-3.5 text-indigo-600" />
+              <Share2 className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>Invite Players</span>
             </button>
           )}
@@ -128,7 +127,7 @@ const JoinRequestsCard = ({
             type="button"
             onClick={fetchRequests}
             disabled={loading}
-            className="inline-flex items-center min-h-[40px] px-2 py-2 sm:min-h-0 sm:py-1 text-xs text-slate-500 hover:text-indigo-600 font-medium transition"
+            className="inline-flex items-center min-h-[40px] px-2 py-2 sm:min-h-0 sm:py-1 text-xs text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition cursor-pointer"
           >
             {loading ? 'Refreshing...' : 'Refresh List'}
           </button>
@@ -137,8 +136,8 @@ const JoinRequestsCard = ({
 
       {/* Error message */}
       {error && (
-        <div className="p-3 mx-3.5 sm:mx-5 mt-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center space-x-2 text-xs text-rose-700">
-          <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+        <div className="p-3 mx-3.5 sm:mx-5 mt-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg flex items-center space-x-2 text-xs text-rose-700 dark:text-rose-300">
+          <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
           <span>{error}</span>
         </div>
       )}
@@ -146,18 +145,18 @@ const JoinRequestsCard = ({
       {/* Content */}
       <div className="p-3.5 sm:p-5">
         {loading && requests.length === 0 ? (
-          <div className="py-6 flex items-center justify-center space-x-2 text-slate-400 text-xs">
+          <div className="py-6 flex items-center justify-center space-x-2 text-slate-400 dark:text-slate-500 text-xs">
             <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
             <span>Checking join requests...</span>
           </div>
         ) : requests.length === 0 ? (
           <div className="py-4 text-center">
-            <p className="text-xs font-medium text-slate-500">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               No pending join requests at this time.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {requests.map((req) => {
               const user = req.user || {};
               const isProcessing = processingId === req._id;
@@ -169,7 +168,7 @@ const JoinRequestsCard = ({
                 >
                   {/* User info */}
                   <div className="flex items-center space-x-3 min-w-0">
-                    <div className="h-9 w-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-700 shrink-0">
+                    <div className="h-9 w-9 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-sm font-bold text-slate-700 dark:text-slate-200 shrink-0">
                       {user.avatar ? (
                         <img
                           src={user.avatar}
@@ -182,16 +181,16 @@ const JoinRequestsCard = ({
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center space-x-2 flex-wrap">
-                        <span className="text-sm font-semibold text-slate-900 truncate">
+                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                           {user.name || 'Anonymous User'}
                         </span>
                         {user.lichessUsername && (
-                          <span className="text-xs sm:text-[11px] font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 font-semibold">
+                          <span className="text-xs sm:text-[11px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-800 font-semibold">
                             @{user.lichessUsername}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center space-x-2 text-xs text-slate-400 mt-0.5">
+                      <div className="flex items-center space-x-2 text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                         <Clock className="h-3 w-3" />
                         <span>Requested {formatDate(req.requestedAt)}</span>
                       </div>
@@ -203,7 +202,7 @@ const JoinRequestsCard = ({
                     <button
                       onClick={() => handleReject(req._id, user.name)}
                       disabled={isProcessing || processingId !== null}
-                      className="inline-flex items-center space-x-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition disabled:opacity-50 min-h-[40px] sm:min-h-0"
+                      className="inline-flex items-center space-x-1 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-lg text-xs font-semibold transition disabled:opacity-50 min-h-[40px] sm:min-h-0 cursor-pointer"
                     >
                       {isProcessing ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -216,7 +215,7 @@ const JoinRequestsCard = ({
                     <button
                       onClick={() => handleApprove(req._id, user.name)}
                       disabled={isProcessing || processingId !== null}
-                      className="inline-flex items-center space-x-1 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs disabled:opacity-50 min-h-[40px] sm:min-h-0"
+                      className="inline-flex items-center space-x-1 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs disabled:opacity-50 min-h-[40px] sm:min-h-0 cursor-pointer"
                     >
                       {isProcessing ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

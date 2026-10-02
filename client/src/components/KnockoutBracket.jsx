@@ -12,9 +12,9 @@ const KnockoutBracket = ({ rounds = [] }) => {
   if (!rounds || rounds.length === 0) return null;
 
   return (
-    <div className="p-3.5 sm:p-6 bg-slate-50/70 border-b border-slate-200">
-      <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">
-        <Trophy className="h-4 w-4 text-indigo-600" />
+    <div className="p-3.5 sm:p-6 bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 transition-colors">
+      <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4">
+        <Trophy className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
         <span>Knockout Bracket Progression</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-2">
@@ -24,13 +24,13 @@ const KnockoutBracket = ({ rounds = [] }) => {
           return (
             <div
               key={r._id}
-              className="bg-white rounded-lg border border-slate-200 shadow-xs p-3 flex flex-col justify-between"
+              className="bg-white dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xs p-3 flex flex-col justify-between"
             >
-              <div className="border-b border-slate-100 pb-2 mb-2 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <div className="border-b border-slate-100 dark:border-slate-700 pb-2 mb-2 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">
                   {stageTitle}
                 </span>
-                <span className="text-xs sm:text-[10px] text-slate-400 font-medium">
+                <span className="text-xs sm:text-[10px] text-slate-400 dark:text-slate-400 font-medium">
                   {r.pairings?.length || 0} match(es)
                 </span>
               </div>
@@ -46,14 +46,14 @@ const KnockoutBracket = ({ rounds = [] }) => {
                   return (
                     <div
                       key={p._id || mIdx}
-                      className="bg-slate-50/80 rounded border border-slate-200 p-2 text-xs space-y-1"
+                      className="bg-slate-50/80 dark:bg-slate-900/70 rounded border border-slate-200 dark:border-slate-700 p-2 text-xs space-y-1"
                     >
                       {/* White player slot */}
                       <div
                         className={`flex items-center justify-between px-1 py-0.5 rounded ${
                           wWinner
-                            ? 'bg-emerald-50 text-emerald-900 font-bold'
-                            : 'text-slate-700'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 font-bold'
+                            : 'text-slate-700 dark:text-slate-300'
                         }`}
                       >
                         <span className="truncate max-w-[130px]">
@@ -75,11 +75,11 @@ const KnockoutBracket = ({ rounds = [] }) => {
                       <div
                         className={`flex items-center justify-between px-1 py-0.5 rounded ${
                           bWinner
-                            ? 'bg-emerald-50 text-emerald-900 font-bold'
-                            : 'text-slate-700'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 font-bold'
+                            : 'text-slate-700 dark:text-slate-300'
                         }`}
                       >
-                        <span className="truncate max-w-[130px] italic text-slate-500">
+                        <span className="truncate max-w-[130px] italic text-slate-500 dark:text-slate-400">
                           {p.status === 'BYE' || !p.blackPlayer
                             ? 'BYE (Advances)'
                             : p.blackPlayer?.name || 'Player'}
@@ -97,7 +97,7 @@ const KnockoutBracket = ({ rounds = [] }) => {
                         </span>
                       </div>
                       {(wWinner || bWinner) && (
-                        <div className="text-xs sm:text-[10px] text-emerald-700 font-semibold pt-1 border-t border-slate-200/60 flex items-center space-x-1">
+                        <div className="text-xs sm:text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold pt-1 border-t border-slate-200/60 dark:border-slate-700 flex items-center space-x-1">
                           <span>
                             Winner:{' '}
                             {wWinner

@@ -38,23 +38,23 @@ const MyPairingCard = ({
       resultLabel = isWhite ? 'YOU WON' : 'GAME LOST';
       pointDelta = isWhite ? '+1 POINT' : '+0 POINTS';
       bannerStyle = isWhite
-        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-        : 'bg-rose-50 border-rose-200 text-rose-800';
+        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+        : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200';
     } else if (p.result === '0-1') {
       resultLabel = !isWhite ? 'YOU WON' : 'GAME LOST';
       pointDelta = !isWhite ? '+1 POINT' : '+0 POINTS';
       bannerStyle = !isWhite
-        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-        : 'bg-rose-50 border-rose-200 text-rose-800';
+        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+        : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200';
     } else if (p.result === '1/2-1/2') {
       resultLabel = 'DRAW';
       pointDelta = '+0.5 POINT';
-      bannerStyle = 'bg-blue-50 border-blue-200 text-blue-800';
+      bannerStyle = 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200';
     }
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
       <div className="p-3.5 sm:p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center space-x-2">
           <Swords className="h-5 w-5 text-amber-400" />
@@ -80,35 +80,35 @@ const MyPairingCard = ({
 
       <div className="p-3.5 sm:p-5">
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
-              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
                 Opponent
               </div>
-              <div className="text-base font-bold text-slate-900 flex items-center space-x-2">
+              <div className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center space-x-2">
                 <span>{opponent?.name || 'Opponent'}</span>
                 {opponent?.lichessUsername && (
-                  <span className="text-xs font-mono text-indigo-600 font-semibold">
+                  <span className="text-xs font-mono text-indigo-600 dark:text-indigo-400 font-semibold">
                     (@{opponent.lichessUsername})
                   </span>
                 )}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 You are playing as{' '}
-                <span className="font-semibold">{isWhite ? 'White ♔' : 'Black ♚'}</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{isWhite ? 'White ♔' : 'Black ♚'}</span>
               </div>
             </div>
 
             {isFinished && resultLabel && (
               <div className={`p-3 rounded-lg border flex items-center space-x-3 ${bannerStyle}`}>
-                <Trophy className="h-5 w-5 flex-shrink-0" />
+                <Trophy className="h-5 w-5 shrink-0" />
                 <div>
                   <div className="text-xs sm:text-[10px] font-bold uppercase tracking-wider">
                     GAME COMPLETE
                   </div>
                   <div className="text-sm font-extrabold flex items-center space-x-2">
                     <span>{resultLabel}</span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-white/80 font-mono shadow-2xs">
+                    <span className="text-xs px-2 py-0.5 rounded bg-white/80 dark:bg-slate-900/80 font-mono shadow-2xs">
                       {pointDelta}
                     </span>
                   </div>
@@ -117,19 +117,19 @@ const MyPairingCard = ({
             )}
 
             {isAborted && (
-              <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 flex items-center justify-between gap-3">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-lg text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-amber-800">
+                  <div className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
                     GAME ABORTED
                   </div>
-                  <div className="text-xs text-amber-700">
+                  <div className="text-xs text-amber-700 dark:text-amber-400">
                     No tournament result was recorded. Request a rematch below.
                   </div>
                 </div>
                 <button
                   onClick={() => onRematch && onRematch(myCurrentPairing.roundNumber, p._id)}
                   disabled={Boolean(rematchLoading[p._id])}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm transition disabled:opacity-50"
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition disabled:opacity-50 min-h-[40px] cursor-pointer"
                 >
                   {Boolean(rematchLoading[p._id]) ? 'REMATCHING...' : 'REMATCH'}
                 </button>
@@ -139,12 +139,12 @@ const MyPairingCard = ({
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center space-x-2">
-              <span className="text-xs text-slate-500">Status:</span>
-              <span className="font-semibold text-xs text-slate-800 uppercase px-2 py-0.5 rounded bg-slate-100">
+              <span className="text-xs text-slate-500 dark:text-slate-400">Status:</span>
+              <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
                 {p.status}
               </span>
               {p.result && p.result !== 'PENDING' && (
-                <span className="font-bold text-xs text-indigo-700 font-mono px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200">
+                <span className="font-bold text-xs text-indigo-700 dark:text-indigo-300 font-mono px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800">
                   {p.result}
                 </span>
               )}
@@ -158,7 +158,7 @@ const MyPairingCard = ({
                       onSyncResult && onSyncResult(myCurrentPairing.roundNumber, p._id)
                     }
                     disabled={Boolean(syncLoading[p._id])}
-                    className="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition min-h-[40px] w-full sm:w-auto"
+                    className="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition min-h-[40px] w-full sm:w-auto cursor-pointer"
                   >
                     <RefreshCw className="h-3 w-3" />
                     <span>SYNC RESULT</span>

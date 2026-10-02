@@ -26,29 +26,29 @@ const TournamentSpecsGrid = ({
   const totalPlayers = playerCount ?? players.length;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 bg-white">
-      <div className="p-3.5 sm:p-4 bg-slate-50 rounded-lg border border-slate-100">
-        <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
-          <Clock className="h-4 w-4 text-indigo-600" />
+    <div className="p-4 sm:p-6 lg:p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 bg-white dark:bg-slate-900">
+      <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center space-x-2 text-slate-500 dark:text-slate-400 text-xs mb-1">
+          <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           <span className="font-semibold uppercase tracking-wider">Time Control</span>
         </div>
-        <div className="text-base font-bold text-slate-800">
+        <div className="text-base font-bold text-slate-800 dark:text-slate-100">
           {formatTimeControl(tournament.clockLimit, tournament.increment)}
         </div>
-        <div className="text-xs sm:text-[11px] text-slate-400 mt-0.5">
+        <div className="text-xs sm:text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
           {Math.floor(tournament.clockLimit / 60)} min base + {tournament.increment}s inc
         </div>
       </div>
 
-      <div className="p-3.5 sm:p-4 bg-slate-50 rounded-lg border border-slate-100">
-        <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
-          <Layers className="h-4 w-4 text-indigo-600" />
+      <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center space-x-2 text-slate-500 dark:text-slate-400 text-xs mb-1">
+          <Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           <span className="font-semibold uppercase tracking-wider">Format</span>
         </div>
-        <div className="text-base font-bold text-slate-800">
+        <div className="text-base font-bold text-slate-800 dark:text-slate-100">
           {FORMAT_LABELS[tournament.format] || tournament.format}
         </div>
-        <div className="text-xs sm:text-[11px] text-slate-400 mt-0.5">
+        <div className="text-xs sm:text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
           {tournament.format === 'SWISS' && tournament.totalRounds
             ? `${tournament.totalRounds} scheduled rounds`
             : tournament.format === 'ROUND_ROBIN'
@@ -59,29 +59,29 @@ const TournamentSpecsGrid = ({
         </div>
       </div>
 
-      <div className="p-3.5 sm:p-4 bg-slate-50 rounded-lg border border-slate-100">
-        <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
-          <Users className="h-4 w-4 text-indigo-600" />
+      <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center space-x-2 text-slate-500 dark:text-slate-400 text-xs mb-1">
+          <Users className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           <span className="font-semibold uppercase tracking-wider">Players</span>
         </div>
-        <div className="text-base font-bold text-slate-800">
+        <div className="text-base font-bold text-slate-800 dark:text-slate-100">
           {totalPlayers} / {tournament.maxPlayers ? tournament.maxPlayers : 'Open'}
         </div>
-        <div className="text-xs sm:text-[11px] text-slate-500 mt-0.5 font-medium flex items-center space-x-1.5">
+        <div className="text-xs sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium flex items-center space-x-1.5">
           <span className={`inline-block w-2 h-2 rounded-full ${allPlayersReady ? 'bg-emerald-500' : 'bg-amber-500'}`} />
           <span>{readyPlayerCount} / {totalPlayers} READY</span>
         </div>
       </div>
 
-      <div className="p-3.5 sm:p-4 bg-slate-50 rounded-lg border border-slate-100">
-        <div className="flex items-center space-x-2 text-slate-500 text-xs mb-1">
-          <Calendar className="h-4 w-4 text-indigo-600" />
+      <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center space-x-2 text-slate-500 dark:text-slate-400 text-xs mb-1">
+          <Calendar className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           <span className="font-semibold uppercase tracking-wider">Start Time</span>
         </div>
-        <div className="text-sm font-bold text-slate-800 truncate">
+        <div className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
           {formatDate(tournament.startTime)}
         </div>
-        <div className="text-xs sm:text-[11px] text-slate-400 mt-0.5">
+        <div className="text-xs sm:text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
           {tournament.startTime ? 'Scheduled' : 'TBD'}
         </div>
       </div>
