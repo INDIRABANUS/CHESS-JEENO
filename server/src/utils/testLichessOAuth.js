@@ -6,13 +6,35 @@ import * as lichessOAuthService from '../services/lichessOAuthService.js';
 import { generateToken } from '../services/authService.js';
 import { LICHESS_OAUTH_CONFIG } from '../config/lichessOAuth.js';
 
+import http from 'http';
+import express from 'express';
+import apiRouter from '../routes/index.js';
+import { errorHandler, notFoundHandler } from '../middleware/errorHandler.js';
+
 dotenv.config();
 
-const API_BASE = 'http://localhost:5000/api';
+let API_BASE = 'http://localhost:5000/api';
 
 const runOAuthTests = async () => {
   console.log('🧪 Starting Lichess OAuth 2.0 PKCE Automated Test Suite...\n');
   await connectDB();
+
+  let testServer = null;
+  try {
+    const healthCheck = await fetch('http://localhost:5000/api/health', { signal: AbortSignal.timeout(800) });
+    if (!healthCheck.ok) throw new Error('Not running');
+  } catch {
+    const testApp = express();
+    testApp.use(express.json());
+    testApp.use('/api', apiRouter);
+    testApp.use(notFoundHandler);
+    testApp.use(errorHandler);
+    testServer = http.createServer(testApp);
+    await new Promise((resolve) => testServer.listen(0, resolve));
+    const port = testServer.address().port;
+    API_BASE = `http://localhost:${port}/api`;
+    console.log(`📡 In-process test server started on ${API_BASE}`);
+  }
 
   const timestamp = Date.now();
   const testPrefix = `oauth_test_${timestamp}`;
@@ -417,6 +439,9 @@ const runOAuthTests = async () => {
     console.log('🧹 Cleaning up test users...');
     if (createdUserIds.length > 0) {
       await User.deleteMany({ _id: { $in: createdUserIds } });
+    }
+    if (testServer) {
+      await new Promise((resolve) => testServer.close(resolve));
     }
     await mongoose.disconnect();
     console.log('✨ Cleanup complete.');

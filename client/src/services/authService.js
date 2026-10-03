@@ -54,10 +54,32 @@ export const getToken = () => {
   return localStorage.getItem('token');
 };
 
+/**
+ * Exchanges a single-use OAuth handoff ticket for an authenticated CHESS JEENO session.
+ * Stores JWT in localStorage upon success.
+ */
+export const exchangeGoogleTicket = async (ticket) => {
+  const response = await api.post('/auth/google/exchange', { ticket });
+  if (response.data?.data?.token) {
+    localStorage.setItem('token', response.data.data.token);
+  }
+  return response.data?.data;
+};
+
+/**
+ * Returns the backend URL to initiate Google OAuth 2.0 OpenID Connect authorization.
+ */
+export const getGoogleAuthUrl = () => {
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  return `${baseUrl.replace(/\/+$/, '')}/auth/google`;
+};
+
 export default {
   register,
   login,
   getCurrentUser,
   logout,
   getToken,
+  exchangeGoogleTicket,
+  getGoogleAuthUrl,
 };

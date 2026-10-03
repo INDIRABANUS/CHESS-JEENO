@@ -45,6 +45,12 @@ export const AuthProvider = ({ children }) => {
     return data.user;
   };
 
+  const loginWithGoogleTicket = async (ticket) => {
+    const data = await authService.exchangeGoogleTicket(ticket);
+    setUser(data.user);
+    return data.user;
+  };
+
   const logout = () => {
     authService.logout();
     setUser(null);
@@ -60,6 +66,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: Boolean(user),
     login,
     register,
+    loginWithGoogleTicket,
     logout,
     updateUser,
   };

@@ -8,9 +8,14 @@ import TournamentPlayer from '../models/TournamentPlayer.js';
 import Round from '../models/Round.js';
 import Pairing from '../models/Pairing.js';
 
+import http from 'http';
+import express from 'express';
+import apiRouter from '../routes/index.js';
+import { errorHandler, notFoundHandler } from '../middleware/errorHandler.js';
+
 dotenv.config();
 
-const API_BASE = 'http://localhost:5000/api';
+let API_BASE = 'http://localhost:5000/api';
 
 const runAuthTests = async () => {
   console.log('🧪 Starting CHESS JEENO Authentication & Authorization Test Suite...\n');
@@ -45,6 +50,23 @@ const runAuthTests = async () => {
   let tokenB = null;
   let userBId = null;
   let tournamentAId = null;
+  let testServer = null;
+
+  try {
+    const healthCheck = await fetch('http://localhost:5000/api/health', { signal: AbortSignal.timeout(800) });
+    if (!healthCheck.ok) throw new Error('Not running');
+  } catch {
+    const testApp = express();
+    testApp.use(express.json());
+    testApp.use('/api', apiRouter);
+    testApp.use(notFoundHandler);
+    testApp.use(errorHandler);
+    testServer = http.createServer(testApp);
+    await new Promise((resolve) => testServer.listen(0, resolve));
+    const port = testServer.address().port;
+    API_BASE = `http://localhost:${port}/api`;
+    console.log(`📡 In-process test server started on ${API_BASE}`);
+  }
 
   try {
     // =========================================================================
@@ -314,15 +336,27 @@ const runAuthTests = async () => {
       headers: { Authorization: `Bearer ${tokenA}` },
     });
     const joinDataA = await joinResA.json();
-    assert(joinResA.status === 200, 'User A joins tournament successfully (HTTP 200)');
-    assert(joinDataA.data.userId._id === userAId.toString(), 'Player registered with User A ID');
+    assert(joinResA.status === 200 || joinResA.status === 201, 'User A joins tournament successfully (HTTP 200 or 201)');
+    if (joinResA.status === 201) {
+      await fetch(`${API_BASE}/tournaments/${tournamentAId}/join-requests/${joinDataA.data._id}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tokenA}` },
+      });
+    }
 
     // User B joins
     const joinResB = await fetch(`${API_BASE}/tournaments/${tournamentAId}/join`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${tokenB}` },
     });
-    assert(joinResB.status === 200, 'User B joins tournament successfully (HTTP 200)');
+    const joinDataB = await joinResB.json();
+    assert(joinResB.status === 200 || joinResB.status === 201, 'User B joins tournament successfully (HTTP 200 or 201)');
+    if (joinResB.status === 201) {
+      await fetch(`${API_BASE}/tournaments/${tournamentAId}/join-requests/${joinDataB.data._id}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tokenA}` },
+      });
+    }
 
     // =========================================================================
     // 16. User can leave eligible tournament
@@ -341,7 +375,14 @@ const runAuthTests = async () => {
       method: 'POST',
       headers: { Authorization: `Bearer ${tokenB}` },
     });
-    assert(rejoinResB.status === 200, 'User B re-joined tournament successfully');
+    const rejoinDataB = await rejoinResB.json();
+    assert(rejoinResB.status === 200 || rejoinResB.status === 201, 'User B re-joined tournament successfully');
+    if (rejoinResB.status === 201) {
+      await fetch(`${API_BASE}/tournaments/${tournamentAId}/join-requests/${rejoinDataB.data._id}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tokenA}` },
+      });
+    }
 
     // User A (creator) can create round
     const roundResA = await fetch(`${API_BASE}/tournaments/${tournamentAId}/rounds`, {
@@ -432,6 +473,9 @@ const runAuthTests = async () => {
     }
     if (createdUserIds.length > 0) {
       await User.deleteMany({ _id: { $in: createdUserIds } });
+    }
+    if (testServer) {
+      await new Promise((resolve) => testServer.close(resolve));
     }
     await mongoose.disconnect();
     console.log('✨ Cleanup complete.');

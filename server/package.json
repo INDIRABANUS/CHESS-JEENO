@@ -15,6 +15,7 @@
     "test:auth": "node src/utils/testAuth.js",
     "test:profile": "node src/utils/testProfileApi.js",
     "test:lichess:oauth": "node src/utils/testLichessOAuth.js",
+    "test:google:oauth": "node src/utils/testGoogleOAuth.js",
     "test:oauth:game": "node src/utils/testOAuthGameCreation.js",
     "test:play:flow": "node src/utils/testPlayOnLichessFlow.js",
     "test:tournaments": "node src/utils/testTournamentApi.js",

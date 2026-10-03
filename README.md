@@ -109,6 +109,9 @@ Key Variables:
 | `JWT_SECRET` | Secret for signing JWT authentication tokens | `replace_with_strong_secret` |
 | `LICHESS_OAUTH_CLIENT_ID` | Lichess OAuth application client ID | `chess-jeeno` |
 | `LICHESS_OAUTH_REDIRECT_URI`| Backend OAuth callback URL | `http://localhost:5000/api/lichess/callback` |
+| `GOOGLE_CLIENT_ID` | Google OAuth 2.0 Web Client ID | `your_id.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 Client Secret (backend only) | `your_google_client_secret` |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Google OAuth backend callback URL | `http://localhost:5000/api/auth/google/callback` |
 
 ### Frontend (`client/.env`)
 
@@ -238,6 +241,9 @@ Deploy the `server/` directory as a Node.js Web Service.
 | `CLIENT_URL` | Deployed frontend origin (for CORS) | `https://chess-jeeno.vercel.app` |
 | `LICHESS_OAUTH_CLIENT_ID` | Lichess OAuth Client ID | `chess-jeeno` |
 | `LICHESS_OAUTH_REDIRECT_URI` | Backend OAuth callback endpoint | `https://your-backend.onrender.com/api/lichess/callback` |
+| `GOOGLE_CLIENT_ID` | Google Cloud OAuth 2.0 Web Client ID | `your_id.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | Google Cloud OAuth 2.0 Client Secret | `your_production_google_client_secret` |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Backend Google OAuth callback endpoint | `https://chess-jeeno.onrender.com/api/auth/google/callback` |
 
 > **Note on Realtime**: Socket.IO runs on the exact same HTTP server instance and port as Express. The current architecture manages active Lichess streams in-memory within a single backend service instance.
 
@@ -280,16 +286,45 @@ Deploy the `client/` directory to Vercel.
 
 ---
 
-### Step 5: Deployment Order & Verification Checklist
+### Step 5: Google Cloud OAuth 2.0 OpenID Connect Setup
+
+1. Open the [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+2. Create a new Google Cloud project (e.g. `chess-jeeno`) or select an existing project.
+3. Configure the **OAuth Consent Screen**:
+   - User Type: **External**
+   - App Name: `CHESS JEENO`
+   - User support email & developer contact email: your email address
+   - Scopes: Add non-sensitive identity scopes: `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile`
+   - Publish status: In testing (add test Google users) or publish app for public access
+4. Create **OAuth 2.0 Client Credentials**:
+   - Navigate to **APIs & Services > Credentials > Create Credentials > OAuth client ID**
+   - Application type: **Web application**
+   - Name: `CHESS JEENO Web Client`
+   - **Authorized JavaScript origins**:
+     - `http://localhost:5173` (development)
+     - `https://chess-jeeno.vercel.app` (production)
+   - **Authorized redirect URIs** (must match exactly with scheme, host, and path):
+     - `http://localhost:5000/api/auth/google/callback` (development)
+     - `https://chess-jeeno.onrender.com/api/auth/google/callback` (production)
+5. Save and copy:
+   - **Client ID** → configure `GOOGLE_CLIENT_ID` in backend `.env`
+   - **Client Secret** → configure `GOOGLE_CLIENT_SECRET` in backend `.env`
+6. **Security Mandate**: Never configure `GOOGLE_CLIENT_SECRET` in the frontend (Vercel) environment variables. The client secret must remain strictly backend-only.
+
+---
+
+### Step 6: Deployment Order & Verification Checklist
 
 1. **MongoDB Atlas**: Create cluster, user, and allow network access (`0.0.0.0/0`).
 2. **Backend**: Deploy to Render/Railway with MongoDB Atlas URI and placeholder `CLIENT_URL`.
 3. **Frontend**: Deploy to Vercel with `VITE_API_URL` pointing to the deployed backend URL + `/api`.
 4. **Update CORS**: Set `CLIENT_URL` in the backend service to the exact live Vercel domain.
-5. **Update Lichess OAuth**: Register the production callback URL (`https://your-backend.onrender.com/api/lichess/callback`) in Lichess OAuth App settings.
+5. **Update OAuth Providers**:
+   - Register production callback URL (`https://your-backend.onrender.com/api/lichess/callback`) in Lichess OAuth App.
+   - Register production callback URL (`https://chess-jeeno.onrender.com/api/auth/google/callback`) in Google Cloud Console.
 6. **Production Smoke Test**:
    - Access `GET /api/health` on the deployed backend.
-   - Register a new account on the Vercel frontend.
+   - Register/Sign in using **Continue with Google** or email/password on Vercel frontend.
    - Connect a Lichess account via OAuth on `/profile`.
    - Create a Swiss, Round Robin, or Knockout tournament.
    - Verify realtime game updates and standings.

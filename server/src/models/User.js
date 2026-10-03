@@ -37,7 +37,11 @@ const userSchema = new mongoose.Schema(
     },
     googleId: {
       type: String,
-      sparse: true,
+      trim: true,
+      index: {
+        unique: true,
+        partialFilterExpression: { googleId: { $type: 'string' } },
+      },
       default: null,
     },
     lichessUsername: {
