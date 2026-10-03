@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as authService from '../services/authService';
 
 const AuthContext = createContext(null);
@@ -50,9 +50,9 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const updateUser = (updatedUser) => {
+  const updateUser = useCallback((updatedUser) => {
     setUser((prev) => (prev ? { ...prev, ...updatedUser } : updatedUser));
-  };
+  }, []);
 
   const value = {
     user,
