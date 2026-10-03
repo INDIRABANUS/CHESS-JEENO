@@ -485,8 +485,8 @@ const runRealtimeTestSuite = async () => {
       btime: 280000,
     });
 
-    // Wait a brief moment for async database synchronization and broadcast
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Wait for async database synchronization and broadcast (network latency to cloud Atlas)
+    await new Promise((resolve) => setTimeout(resolve, 1200));
 
     const updatedPairing = await Pairing.findById(pairing1._id);
     assert(updatedPairing.status === 'FINISHED', '18. Pairing status updated to FINISHED via canonical sync logic');
@@ -509,7 +509,7 @@ const runRealtimeTestSuite = async () => {
         winner: 'white',
       });
     }
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     const standingsAfter = await standingsService.getTournamentStandings(tourneyPublic._id);
     const aliceScoreAfter = standingsAfter.standings.find(

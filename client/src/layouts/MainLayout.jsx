@@ -112,6 +112,21 @@ const MainLayout = () => {
                 Home
               </NavLink>
 
+              {isAuthenticated && (
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) =>
+                    `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`
+                  }
+                >
+                  Dashboard
+                </NavLink>
+              )}
+
               <NavLink
                 to="/tournaments"
                 end
@@ -308,6 +323,22 @@ const MainLayout = () => {
             >
               <span>Home</span>
             </NavLink>
+
+            {isAuthenticated && (
+              <NavLink
+                to="/dashboard"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`
+                }
+              >
+                <span>Dashboard</span>
+              </NavLink>
+            )}
 
             <NavLink
               to="/tournaments"

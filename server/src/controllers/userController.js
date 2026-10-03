@@ -1,4 +1,5 @@
 import * as userService from '../services/userService.js';
+import * as dashboardService from '../services/dashboardService.js';
 
 /**
  * Get current authenticated user profile.
@@ -47,7 +48,29 @@ export const updateMe = async (req, res, next) => {
   }
 };
 
+/**
+ * Get current authenticated user's comprehensive dashboard data:
+ * - Active tournament, current round, user score & rank, next match pairing
+ * - My Tournaments breakdown (active, upcoming, completed)
+ * - Recent match results across tournaments
+ * @route GET /api/users/dashboard
+ */
+export const getDashboard = async (req, res, next) => {
+  try {
+    const dashboardData = await dashboardService.getUserDashboardData(req.user._id);
+
+    res.status(200).json({
+      success: true,
+      data: dashboardData,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMe,
   updateMe,
+  getDashboard,
 };
+

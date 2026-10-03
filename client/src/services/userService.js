@@ -24,7 +24,19 @@ export const updateProfile = async (data) => {
   return response.data?.data?.user;
 };
 
+/**
+ * Fetch current authenticated user's dashboard data from /api/users/dashboard.
+ *
+ * @returns {Promise<Object>}
+ */
+export const getDashboard = async () => {
+  const response = await api.get('/users/dashboard');
+  return response.data?.data;
+};
+
 export default {
   getProfile,
   updateProfile,
+  getDashboard,
 };
+

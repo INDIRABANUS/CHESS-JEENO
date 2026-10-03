@@ -36,6 +36,7 @@
     "test:my-tournaments": "node src/utils/testMyTournamentsAndSorting.js",
     "test:history": "node src/utils/testTournamentHistoryAndCompletion.js",
     "test:invite": "node src/utils/testTournamentInviteShare.js",
+    "test:dashboard": "node src/utils/testPlayerDashboard.js",
     "verify:deploy": "node src/utils/verifyDeploymentReadiness.js"
   },
   "dependencies": {

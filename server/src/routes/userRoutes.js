@@ -1,5 +1,5 @@
 import express from 'express';
-import { getMe, updateMe } from '../controllers/userController.js';
+import { getMe, updateMe, getDashboard } from '../controllers/userController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -18,4 +18,12 @@ router.get('/me', requireAuth, getMe);
  */
 router.patch('/me', requireAuth, updateMe);
 
+/**
+ * @route   GET /api/users/dashboard
+ * @desc    Get current authenticated user's player dashboard
+ * @access  Private (Bearer JWT)
+ */
+router.get('/dashboard', requireAuth, getDashboard);
+
 export default router;
+
