@@ -11,23 +11,39 @@ import {
   Loader2,
   CheckCircle,
   Shield,
+  ArrowUpDown,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { getTournaments } from '../services/tournamentService';
 import { formatTimeControl, formatDate } from '../utils/formatters';
 import { FORMAT_LABELS, STATUS_BADGES } from '../utils/constants';
 
 const TournamentsPage = () => {
+  const { isAuthenticated } = useAuth();
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [view, setView] = useState('all');
+  const [sortBy, setSortBy] = useState('relevance');
   const [statusFilter, setStatusFilter] = useState('');
   const [formatFilter, setFormatFilter] = useState('');
+
+  // If user logs out while on 'my' view, safely fallback to 'all'
+  useEffect(() => {
+    if (!isAuthenticated && view === 'my') {
+      setView('all');
+    }
+  }, [isAuthenticated, view]);
 
   const fetchTournamentList = async () => {
     setLoading(true);
     setError(null);
     try {
-      const filters = {};
+      const activeView = isAuthenticated ? view : 'all';
+      const filters = {
+        view: activeView,
+        sort: sortBy,
+      };
       if (statusFilter) filters.status = statusFilter;
       if (formatFilter) filters.format = formatFilter;
 
@@ -42,7 +58,7 @@ const TournamentsPage = () => {
 
   useEffect(() => {
     fetchTournamentList();
-  }, [statusFilter, formatFilter]);
+  }, [view, sortBy, statusFilter, formatFilter, isAuthenticated]);
 
   return (
     <div className="space-y-6">
@@ -63,27 +79,56 @@ const TournamentsPage = () => {
         </Link>
       </div>
 
-      {/* Filters Bar */}
+      {/* View Selector (ALL / MY TOURNAMENTS) */}
+      <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <button
+          type="button"
+          onClick={() => setView('all')}
+          className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${
+            view === 'all'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          ALL
+        </button>
+        {isAuthenticated && (
+          <button
+            type="button"
+            onClick={() => setView('my')}
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${
+              view === 'my'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            MY TOURNAMENTS
+          </button>
+        )}
+      </div>
+
+      {/* Filters and Sort Bar */}
       <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <div className="flex items-center justify-between sm:justify-start space-x-2 text-slate-500 dark:text-slate-400 text-sm font-medium shrink-0">
           <div className="flex items-center space-x-2">
             <Filter className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             <span>Filters:</span>
           </div>
-          {(statusFilter || formatFilter) && (
+          {(statusFilter || formatFilter || sortBy !== 'relevance') && (
             <button
               onClick={() => {
                 setStatusFilter('');
                 setFormatFilter('');
+                setSortBy('relevance');
               }}
               className="sm:hidden text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 underline font-medium inline-flex items-center min-h-[40px] px-2 py-2 -my-2"
             >
-              Clear Filters
+              Reset
             </button>
           )}
         </div>
 
-        {/* Filter Dropdowns */}
+        {/* Filter and Sort Dropdowns */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1">
           {/* Status Filter */}
           <select
@@ -110,17 +155,33 @@ const TournamentsPage = () => {
             <option value="ROUND_ROBIN">Round Robin</option>
             <option value="KNOCKOUT">Single Elimination</option>
           </select>
+
+          {/* Sort Selector */}
+          <div className="flex items-center space-x-2 w-full sm:w-auto sm:ml-auto">
+            <ArrowUpDown className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 hidden sm:inline" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full sm:w-auto min-h-[40px] bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            >
+              <option value="relevance">Most Relevant</option>
+              <option value="startingSoon">Starting Soon</option>
+              <option value="newest">Newest</option>
+              <option value="recentlyCompleted">Recently Completed</option>
+            </select>
+          </div>
         </div>
 
-        {(statusFilter || formatFilter) && (
+        {(statusFilter || formatFilter || sortBy !== 'relevance') && (
           <button
             onClick={() => {
               setStatusFilter('');
               setFormatFilter('');
+              setSortBy('relevance');
             }}
             className="hidden sm:inline-block text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 underline font-medium ml-auto shrink-0"
           >
-            Clear Filters
+            Reset
           </button>
         )}
       </div>
@@ -154,19 +215,46 @@ const TournamentsPage = () => {
           <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-full inline-flex mb-3">
             <Trophy className="h-8 w-8 text-indigo-500" />
           </div>
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">No Tournaments Found</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto mb-6">
-            {statusFilter || formatFilter
-              ? 'No tournaments match the selected filters. Try changing or clearing filters.'
-              : 'There are no tournaments created yet. Be the first to organize a chess tournament!'}
-          </p>
-          <Link
-            to="/tournaments/create"
-            className="inline-flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create First Tournament</span>
-          </Link>
+          {view === 'my' ? (
+            <>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">No Tournaments Yet</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto mb-6">
+                You haven't joined or created any tournaments yet.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setView('all')}
+                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
+                >
+                  <span>Browse Tournaments</span>
+                </button>
+                <Link
+                  to="/tournaments/create"
+                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Create Tournament</span>
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">No Tournaments Found</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto mb-6">
+                {statusFilter || formatFilter
+                  ? 'No tournaments match the selected filters. Try changing or clearing filters.'
+                  : 'There are no tournaments created yet. Be the first to organize a chess tournament!'}
+              </p>
+              <Link
+                to="/tournaments/create"
+                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Create First Tournament</span>
+              </Link>
+            </>
+          )}
         </div>
       )}
 
@@ -180,7 +268,7 @@ const TournamentsPage = () => {
               className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition p-6 flex flex-col justify-between group"
             >
               <div>
-                {/* Status and Rated Badges */}
+                {/* Status, Role, and Rated Badges */}
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <span
                     className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
@@ -190,6 +278,17 @@ const TournamentsPage = () => {
                     {t.status}
                   </span>
                   <div className="flex items-center space-x-1.5">
+                    {view === 'my' && t.myRole && (
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                          t.myRole === 'HOST'
+                            ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                            : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                        }`}
+                      >
+                        {t.myRole}
+                      </span>
+                    )}
                     {t.rated ? (
                       <span className="inline-flex items-center space-x-1 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded">
                         <Shield className="h-3 w-3" />

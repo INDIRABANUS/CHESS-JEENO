@@ -143,11 +143,226 @@ export const createTournament = async (payload, creatorId) => {
   return await tournament.populate('createdBy', 'name email avatar lichessUsername');
 };
 
+const ACTIVE_STATUSES = new Set(['RUNNING', 'IN_PROGRESS', 'READY_CHECK', 'COUNTDOWN']);
+const UPCOMING_STATUSES = new Set(['REGISTRATION', 'DRAFT']);
+const COMPLETED_STATUSES = new Set(['FINISHED', 'COMPLETED']);
+
+const getMyCategoryRank = (status) => {
+  if (ACTIVE_STATUSES.has(status)) return 1;
+  if (UPCOMING_STATUSES.has(status)) return 2;
+  if (COMPLETED_STATUSES.has(status)) return 3;
+  return 4; // Older / Cancelled
+};
+
+const getAllRelevanceRank = (status) => {
+  if (ACTIVE_STATUSES.has(status)) return 1;
+  if (UPCOMING_STATUSES.has(status)) return 2;
+  if (COMPLETED_STATUSES.has(status)) return 3;
+  return 4; // Cancelled / Other
+};
+
+const getTimeValue = (val) => {
+  if (!val) return null;
+  const t = new Date(val).getTime();
+  return isNaN(t) ? null : t;
+};
+
 /**
- * Retrieves a list of tournaments with optional status and format filters.
- * Dynamically computes registered player count from TournamentPlayer collection.
+ * Server-side deterministic tournament sorting helper.
  */
-export const getTournaments = async ({ status, format } = {}) => {
+const sortTournaments = (tournaments, sortMode, viewMode) => {
+  const list = [...tournaments];
+
+  if (sortMode === 'newest') {
+    return list.sort((a, b) => {
+      const timeA = getTimeValue(a.createdAt) || 0;
+      const timeB = getTimeValue(b.createdAt) || 0;
+      if (timeB !== timeA) return timeB - timeA;
+      return String(b._id).localeCompare(String(a._id));
+    });
+  }
+
+  if (sortMode === 'recentlyCompleted') {
+    return list.sort((a, b) => {
+      const isACompleted = COMPLETED_STATUSES.has(a.status);
+      const isBCompleted = COMPLETED_STATUSES.has(b.status);
+
+      // Completed tournaments come before unfinished tournaments
+      if (isACompleted && !isBCompleted) return -1;
+      if (!isACompleted && isBCompleted) return 1;
+
+      if (isACompleted && isBCompleted) {
+        const timeA = getTimeValue(a.updatedAt) || getTimeValue(a.createdAt) || 0;
+        const timeB = getTimeValue(b.updatedAt) || getTimeValue(b.createdAt) || 0;
+        if (timeB !== timeA) return timeB - timeA;
+      }
+
+      // Secondary sort: newest createdAt first, then _id
+      const dateA = getTimeValue(a.createdAt) || 0;
+      const dateB = getTimeValue(b.createdAt) || 0;
+      if (dateB !== dateA) return dateB - dateA;
+
+      return String(b._id).localeCompare(String(a._id));
+    });
+  }
+
+  if (sortMode === 'startingSoon') {
+    return list.sort((a, b) => {
+      const timeA = getTimeValue(a.startTime);
+      const timeB = getTimeValue(b.startTime);
+
+      const hasA = timeA !== null;
+      const hasB = timeB !== null;
+
+      // Tournaments without startTime should come after scheduled tournaments
+      if (hasA && !hasB) return -1;
+      if (!hasA && hasB) return 1;
+
+      if (hasA && hasB) {
+        const now = Date.now();
+        const isUpcomingA = timeA >= now;
+        const isUpcomingB = timeB >= now;
+
+        // Upcoming startTimes come before past startTimes
+        if (isUpcomingA && !isUpcomingB) return -1;
+        if (!isUpcomingA && isUpcomingB) return 1;
+
+        if (isUpcomingA && isUpcomingB) {
+          // Nearest upcoming first (ascending)
+          if (timeA !== timeB) return timeA - timeB;
+        } else {
+          // Both in past: more recent past first (descending)
+          if (timeB !== timeA) return timeB - timeA;
+        }
+      }
+
+      // Deterministic secondary sort: newest createdAt first, then _id
+      const dateA = getTimeValue(a.createdAt) || 0;
+      const dateB = getTimeValue(b.createdAt) || 0;
+      if (dateB !== dateA) return dateB - dateA;
+
+      return String(b._id).localeCompare(String(a._id));
+    });
+  }
+
+  // sortMode === 'relevance' (default)
+  if (viewMode === 'my') {
+    return list.sort((a, b) => {
+      const rankA = getMyCategoryRank(a.status);
+      const rankB = getMyCategoryRank(b.status);
+
+      if (rankA !== rankB) return rankA - rankB;
+
+      // Category 1: Active / current tournaments
+      if (rankA === 1) {
+        const timeA = getTimeValue(a.startTime);
+        const timeB = getTimeValue(b.startTime);
+        if (timeA && timeB && timeA !== timeB) return timeA - timeB;
+        if (timeA && !timeB) return -1;
+        if (!timeA && timeB) return 1;
+        const dateA = getTimeValue(a.createdAt) || 0;
+        const dateB = getTimeValue(b.createdAt) || 0;
+        if (dateB !== dateA) return dateB - dateA;
+        return String(b._id).localeCompare(String(a._id));
+      }
+
+      // Category 2: Upcoming tournaments
+      if (rankA === 2) {
+        const timeA = getTimeValue(a.startTime);
+        const timeB = getTimeValue(b.startTime);
+        const hasA = timeA !== null;
+        const hasB = timeB !== null;
+
+        if (hasA && !hasB) return -1;
+        if (!hasA && hasB) return 1;
+        if (hasA && hasB && timeA !== timeB) return timeA - timeB;
+
+        const dateA = getTimeValue(a.createdAt) || 0;
+        const dateB = getTimeValue(b.createdAt) || 0;
+        if (dateB !== dateA) return dateB - dateA;
+        return String(b._id).localeCompare(String(a._id));
+      }
+
+      // Category 3: Recently completed tournaments
+      if (rankA === 3) {
+        const timeA = getTimeValue(a.updatedAt) || getTimeValue(a.createdAt) || 0;
+        const timeB = getTimeValue(b.updatedAt) || getTimeValue(b.createdAt) || 0;
+        if (timeB !== timeA) return timeB - timeA;
+
+        const dateA = getTimeValue(a.createdAt) || 0;
+        const dateB = getTimeValue(b.createdAt) || 0;
+        if (dateB !== dateA) return dateB - dateA;
+        return String(b._id).localeCompare(String(a._id));
+      }
+
+      // Category 4: Older / Cancelled tournaments
+      const dateA = getTimeValue(a.createdAt) || 0;
+      const dateB = getTimeValue(b.createdAt) || 0;
+      if (dateB !== dateA) return dateB - dateA;
+      return String(b._id).localeCompare(String(a._id));
+    });
+  }
+
+  // viewMode === 'all' with sortMode === 'relevance' (sensible upcoming-first ordering)
+  return list.sort((a, b) => {
+    const rankA = getAllRelevanceRank(a.status);
+    const rankB = getAllRelevanceRank(b.status);
+
+    if (rankA !== rankB) return rankA - rankB;
+
+    // Active (1) and Upcoming (2):
+    if (rankA === 1 || rankA === 2) {
+      const timeA = getTimeValue(a.startTime);
+      const timeB = getTimeValue(b.startTime);
+      const hasA = timeA !== null;
+      const hasB = timeB !== null;
+
+      if (hasA && !hasB) return -1;
+      if (!hasA && hasB) return 1;
+      if (hasA && hasB) {
+        const now = Date.now();
+        const isUpcomingA = timeA >= now;
+        const isUpcomingB = timeB >= now;
+        if (isUpcomingA && !isUpcomingB) return -1;
+        if (!isUpcomingA && isUpcomingB) return 1;
+        if (timeA !== timeB) return isUpcomingA ? timeA - timeB : timeB - timeA;
+      }
+      const dateA = getTimeValue(a.createdAt) || 0;
+      const dateB = getTimeValue(b.createdAt) || 0;
+      if (dateB !== dateA) return dateB - dateA;
+      return String(b._id).localeCompare(String(a._id));
+    }
+
+    // Completed (3):
+    if (rankA === 3) {
+      const timeA = getTimeValue(a.updatedAt) || getTimeValue(a.createdAt) || 0;
+      const timeB = getTimeValue(b.updatedAt) || getTimeValue(b.createdAt) || 0;
+      if (timeB !== timeA) return timeB - timeA;
+      const dateA = getTimeValue(a.createdAt) || 0;
+      const dateB = getTimeValue(b.createdAt) || 0;
+      if (dateB !== dateA) return dateB - dateA;
+      return String(b._id).localeCompare(String(a._id));
+    }
+
+    // Cancelled / Other (4):
+    const dateA = getTimeValue(a.createdAt) || 0;
+    const dateB = getTimeValue(b.createdAt) || 0;
+    if (dateB !== dateA) return dateB - dateA;
+    return String(b._id).localeCompare(String(a._id));
+  });
+};
+
+/**
+ * Retrieves a list of tournaments with optional status, format, view, and sort filters.
+ * Dynamically computes registered player count, ready player count, and myRole metadata.
+ */
+export const getTournaments = async ({
+  status,
+  format,
+  view = 'all',
+  sort = 'relevance',
+  currentUserId = null,
+} = {}) => {
   const query = {};
 
   if (status) {
@@ -158,29 +373,81 @@ export const getTournaments = async ({ status, format } = {}) => {
     query.format = format;
   }
 
+  let participantTournamentIds = [];
+  if (view === 'my') {
+    if (!currentUserId) {
+      return [];
+    }
+
+    participantTournamentIds = await TournamentPlayer.find({
+      userId: currentUserId,
+      isApproved: { $ne: false },
+    }).distinct('tournamentId');
+
+    query.$or = [
+      { createdBy: currentUserId },
+      { _id: { $in: participantTournamentIds } },
+    ];
+  }
+
   const tournaments = await Tournament.find(query)
-    .sort({ startTime: 1, createdAt: -1 })
     .populate('createdBy', 'name email avatar lichessUsername');
 
   const tournamentIds = tournaments.map((t) => t._id);
+
+  // Bulk query for registered player counts
   const playerCounts = await TournamentPlayer.aggregate([
     { $match: { tournamentId: { $in: tournamentIds } } },
     { $group: { _id: '$tournamentId', count: { $sum: 1 } } },
   ]);
   const countMap = new Map(playerCounts.map((c) => [c._id.toString(), c.count]));
 
+  // Bulk query for ready player counts
   const readyCounts = await TournamentPlayer.aggregate([
     { $match: { tournamentId: { $in: tournamentIds }, isReady: true } },
     { $group: { _id: '$tournamentId', count: { $sum: 1 } } },
   ]);
   const readyMap = new Map(readyCounts.map((c) => [c._id.toString(), c.count]));
 
-  return tournaments.map((t) => {
+  // Bulk query for current user participation across these tournaments
+  let userParticipationSet = new Set();
+  if (currentUserId && tournamentIds.length > 0) {
+    if (view === 'my') {
+      userParticipationSet = new Set(participantTournamentIds.map((id) => id.toString()));
+    } else {
+      const userPlayers = await TournamentPlayer.find({
+        tournamentId: { $in: tournamentIds },
+        userId: currentUserId,
+        isApproved: { $ne: false },
+      }).select('tournamentId');
+      userParticipationSet = new Set(userPlayers.map((p) => p.tournamentId.toString()));
+    }
+  }
+
+  const result = tournaments.map((t) => {
     const obj = t.toObject();
     obj.registeredPlayers = countMap.get(t._id.toString()) || 0;
     obj.readyPlayers = readyMap.get(t._id.toString()) || 0;
+
+    const isHost = Boolean(
+      currentUserId &&
+      t.createdBy &&
+      (String(t.createdBy._id || t.createdBy) === String(currentUserId))
+    );
+    const isParticipant = userParticipationSet.has(t._id.toString());
+
+    if (isHost) {
+      obj.myRole = 'HOST';
+    } else if (isParticipant) {
+      obj.myRole = 'PARTICIPANT';
+    } else {
+      obj.myRole = null;
+    }
+
     return obj;
   });
+
+  return sortTournaments(result, sort, view);
 };
 
 /**

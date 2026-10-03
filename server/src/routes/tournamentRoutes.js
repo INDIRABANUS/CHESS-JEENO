@@ -20,7 +20,7 @@ const router = express.Router();
 
 router.route('/')
   .post(requireAuth, createTournament)
-  .get(getTournaments);
+  .get(optionalAuth, getTournaments);
 
 // Standings endpoint (public)
 router.route('/:id/standings')

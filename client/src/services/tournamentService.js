@@ -1,10 +1,12 @@
 import api from './api';
 
 /**
- * Fetch all tournaments with optional status and format filters.
+ * Fetch tournaments with optional filters, view, and sorting.
  * @param {Object} [filters]
  * @param {string} [filters.status]
  * @param {string} [filters.format]
+ * @param {string} [filters.view] - 'all' | 'my'
+ * @param {string} [filters.sort] - 'relevance' | 'startingSoon' | 'newest' | 'recentlyCompleted'
  */
 export const getTournaments = async (filters = {}) => {
   const response = await api.get('/tournaments', { params: filters });

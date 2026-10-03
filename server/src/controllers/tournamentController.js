@@ -24,8 +24,29 @@ export const createTournament = async (req, res, next) => {
  */
 export const getTournaments = async (req, res, next) => {
   try {
-    const { status, format } = req.query;
-    const tournaments = await tournamentService.getTournaments({ status, format });
+    const { status, format, view, sort } = req.query;
+
+    const ALLOWED_VIEWS = ['all', 'my'];
+    const ALLOWED_SORTS = ['relevance', 'startingSoon', 'newest', 'recentlyCompleted'];
+
+    const normalizedView = ALLOWED_VIEWS.includes(view) ? view : 'all';
+    const normalizedSort = ALLOWED_SORTS.includes(sort) ? sort : 'relevance';
+
+    if (normalizedView === 'my' && !req.user) {
+      const error = new Error('Authentication required for My Tournaments');
+      error.statusCode = 401;
+      return next(error);
+    }
+
+    const currentUserId = req.user ? req.user._id : null;
+
+    const tournaments = await tournamentService.getTournaments({
+      status,
+      format,
+      view: normalizedView,
+      sort: normalizedSort,
+      currentUserId,
+    });
 
     res.status(200).json({
       success: true,
