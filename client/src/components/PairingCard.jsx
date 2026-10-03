@@ -32,6 +32,7 @@ const PairingCard = ({
   pairingGameLoading,
   syncLoading,
   rematchLoading,
+  isTournamentComplete = false,
   onCreateGame,
   onSyncResult,
   onRematch,
@@ -190,13 +191,33 @@ const PairingCard = ({
           </span>
         </div>
 
-        {/* Lichess Action Buttons */}
+        {/* Lichess Action / Review Buttons */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full sm:w-auto">
           {isBye ? (
             <div className="inline-flex items-center justify-center space-x-1 px-2.5 py-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-semibold w-full sm:w-auto min-h-[36px]">
               <CheckCircle className="h-3.5 w-3.5" />
               <span>AUTO-ADVANCED</span>
             </div>
+          ) : isTournamentComplete ? (
+            pairing.lichessGameId ? (
+              <a
+                href={
+                  pairing.lichessGameUrl ||
+                  `https://lichess.org/${pairing.lichessGameId}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-semibold shadow-2xs transition w-full sm:w-auto min-h-[36px]"
+                title="Review game on Lichess"
+              >
+                <span>REVIEW ON LICHESS</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ) : (
+              <span className="inline-flex items-center justify-center px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-xs font-medium w-full sm:w-auto min-h-[36px]">
+                Concluded
+              </span>
+            )
           ) : pairing.status === 'ABORTED' || pairing.result === 'ABORTED' ? (
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full sm:w-auto">
               {canManageGame && (

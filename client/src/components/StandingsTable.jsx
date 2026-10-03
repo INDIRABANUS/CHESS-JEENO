@@ -1,36 +1,47 @@
 import React from 'react';
-import { Trophy } from 'lucide-react';
+import { Trophy, CheckCircle } from 'lucide-react';
 
 /**
- * StandingsTable — renders the live tournament standings table.
+ * StandingsTable — renders the live or final tournament standings table.
  *
  * Props:
- * @param {Array}  standings     – Array of standing entries
- * @param {Array}  rounds        – Array of tournament rounds (used for "After Round N" badge)
- * @param {string} currentUserId – Currently authenticated user ID (for "You" highlight)
+ * @param {Array}   standings      – Array of standing entries
+ * @param {Array}   rounds         – Array of tournament rounds (used for "After Round N" badge)
+ * @param {string}  currentUserId  – Currently authenticated user ID (for "You" highlight)
+ * @param {boolean} [isCompleted]  – Whether the tournament is completed
+ * @param {string}  [winnerPlayerId] – ID of the tournament winner (optional)
  */
 const StandingsTable = ({
   standings = [],
   rounds = [],
   currentUserId,
+  isCompleted = false,
+  winnerPlayerId = null,
 }) => {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
       <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center space-x-2">
-            <Trophy className="h-5 w-5 text-amber-500" />
-            <span>Standings</span>
+            <Trophy className={`h-5 w-5 ${isCompleted ? 'text-amber-500' : 'text-amber-500'}`} />
+            <span>{isCompleted ? 'Final Standings' : 'Standings'}</span>
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Live tournament standings calculated deterministically from match outcomes and BYEs
+            {isCompleted
+              ? 'Official final standings and results calculated deterministically from match outcomes and BYEs'
+              : 'Live tournament standings calculated deterministically from match outcomes and BYEs'}
           </p>
         </div>
-        {rounds.length > 0 && (
+        {isCompleted ? (
+          <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 self-start sm:self-auto flex items-center space-x-1.5">
+            <CheckCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Final Results</span>
+          </div>
+        ) : rounds.length > 0 ? (
           <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 self-start sm:self-auto">
             After Round {rounds.length}
           </div>
-        )}
+        ) : null}
       </div>
 
       {standings.length === 0 ? (
@@ -105,6 +116,11 @@ const StandingsTable = ({
                             <span className="truncate" title={entry.name}>
                               {entry.name}
                             </span>
+                            {isCompleted && (entry.rank === 1 || (winnerPlayerId && (entry.playerId === winnerPlayerId || entry.playerId?._id === winnerPlayerId))) && (
+                              <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded shrink-0">
+                                👑 Champion
+                              </span>
+                            )}
                             {isCurrent && (
                               <span className="text-[10px] font-medium bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.2 rounded shrink-0">
                                 You

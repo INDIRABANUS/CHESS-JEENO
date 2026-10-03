@@ -366,7 +366,11 @@ export const getTournaments = async ({
   const query = {};
 
   if (status) {
-    query.status = status;
+    if (status === 'FINISHED' || status === 'COMPLETED') {
+      query.status = { $in: ['FINISHED', 'COMPLETED'] };
+    } else {
+      query.status = status;
+    }
   }
 
   if (format) {

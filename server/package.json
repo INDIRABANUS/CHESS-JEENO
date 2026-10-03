@@ -33,6 +33,7 @@
     "test:v2:core": "node src/utils/testV2CoreTournamentExperience.js",
     "test:join-requests": "node src/utils/testTournamentJoinRequests.js",
     "test:my-tournaments": "node src/utils/testMyTournamentsAndSorting.js",
+    "test:history": "node src/utils/testTournamentHistoryAndCompletion.js",
     "test:invite": "node src/utils/testTournamentInviteShare.js",
     "verify:deploy": "node src/utils/verifyDeploymentReadiness.js"
   },

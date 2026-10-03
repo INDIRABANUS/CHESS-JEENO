@@ -27,13 +27,14 @@ const RoundCard = ({
   pairingGameLoading = {},
   syncLoading = {},
   rematchLoading = {},
+  isTournamentComplete = false,
   onCreateAllGames,
   onCreateGame,
   onSyncResult,
   onRematch,
 }) => {
   const roundPairings = round.pairings || [];
-  const hasPendingGames = roundPairings.some(
+  const hasPendingGames = !isTournamentComplete && roundPairings.some(
     (p) =>
       !p.lichessGameId &&
       p.status !== 'BYE' &&
@@ -138,6 +139,7 @@ const RoundCard = ({
                 pairingGameLoading={pairingGameLoading}
                 syncLoading={syncLoading}
                 rematchLoading={rematchLoading}
+                isTournamentComplete={isTournamentComplete}
                 onCreateGame={onCreateGame}
                 onSyncResult={onSyncResult}
                 onRematch={onRematch}
