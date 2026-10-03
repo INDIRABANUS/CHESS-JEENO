@@ -26,23 +26,13 @@ export const validateEnvironment = () => {
     missing.push('CLIENT_URL');
   }
 
-    // Lichess OAuth configuration checks
+  // Lichess OAuth configuration checks
+  if (isProduction) {
     if (!process.env.LICHESS_OAUTH_CLIENT_ID) {
       missing.push('LICHESS_OAUTH_CLIENT_ID');
     }
     if (!process.env.LICHESS_OAUTH_REDIRECT_URI) {
       missing.push('LICHESS_OAUTH_REDIRECT_URI');
-    }
-
-    // Google OAuth configuration checks
-    if (!process.env.GOOGLE_CLIENT_ID) {
-      missing.push('GOOGLE_CLIENT_ID');
-    }
-    if (!process.env.GOOGLE_CLIENT_SECRET) {
-      missing.push('GOOGLE_CLIENT_SECRET');
-    }
-    if (!process.env.GOOGLE_OAUTH_REDIRECT_URI) {
-      missing.push('GOOGLE_OAUTH_REDIRECT_URI');
     }
   }
 
@@ -63,3 +53,4 @@ export const validateEnvironment = () => {
 };
 
 export default validateEnvironment;
+
