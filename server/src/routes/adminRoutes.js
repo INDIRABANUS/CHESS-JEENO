@@ -1,6 +1,6 @@
 import express from 'express';
 import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
-import { getAdminMe } from '../controllers/adminController.js';
+import { getAdminMe, getAdminOverview } from '../controllers/adminController.js';
 
 const router = express.Router();
 
@@ -10,5 +10,12 @@ const router = express.Router();
  * @access  Private (Bearer JWT + ADMIN role)
  */
 router.get('/me', requireAuth, requireAdmin, getAdminMe);
+
+/**
+ * @route   GET /api/admin/overview
+ * @desc    Get platform aggregate stats, recent users, tournaments, and system health
+ * @access  Private (Bearer JWT + ADMIN role)
+ */
+router.get('/overview', requireAuth, requireAdmin, getAdminOverview);
 
 export default router;

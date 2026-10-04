@@ -15,6 +15,7 @@ import {
   X,
   Sun,
   Moon,
+  Shield,
 } from 'lucide-react';
 import { checkApiHealth } from '../services/healthService';
 import { useAuth } from '../context/AuthContext';
@@ -124,6 +125,24 @@ const MainLayout = () => {
                   }
                 >
                   Dashboard
+                </NavLink>
+              )}
+
+              {/* Platform Admin Link (Visible only to authenticated ADMINs) */}
+              {isAuthenticated && user?.role === 'ADMIN' && (
+                <NavLink
+                  to="/admin"
+                  id="admin-nav-link-desktop"
+                  className={({ isActive }) =>
+                    `flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`
+                  }
+                >
+                  <Shield className="h-4 w-4 text-amber-500" />
+                  <span>Admin</span>
                 </NavLink>
               )}
 
@@ -337,6 +356,25 @@ const MainLayout = () => {
                 }
               >
                 <span>Dashboard</span>
+              </NavLink>
+            )}
+
+            {/* Platform Admin Link (Visible only to authenticated ADMINs) */}
+            {isAuthenticated && user?.role === 'ADMIN' && (
+              <NavLink
+                to="/admin"
+                id="admin-nav-link-mobile"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`
+                }
+              >
+                <Shield className="h-4 w-4 text-amber-500" />
+                <span>Admin Dashboard</span>
               </NavLink>
             )}
 

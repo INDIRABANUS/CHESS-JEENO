@@ -1,3 +1,5 @@
+import * as adminService from '../services/adminService.js';
+
 /**
  * Admin Controller.
  * Provides platform-level administration endpoints.
@@ -33,6 +35,30 @@ export const getAdminMe = async (req, res, next) => {
   }
 };
 
+/**
+ * Returns platform-level overview data:
+ * - User and tournament aggregate statistics
+ * - Recent user registrations (newest first, limited)
+ * - Recent tournaments with participant counts
+ * - Application-level operational status
+ * 
+ * @route GET /api/admin/overview
+ * @access Private (Bearer JWT + ADMIN role)
+ */
+export const getAdminOverview = async (req, res, next) => {
+  try {
+    const overview = await adminService.getPlatformOverview();
+
+    res.status(200).json({
+      success: true,
+      overview,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getAdminMe,
+  getAdminOverview,
 };
