@@ -80,9 +80,17 @@ const RecentTournamentsTable = ({ tournaments = [] }) => {
             </p>
           </div>
         </div>
-        <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-          {tournaments.length} {tournaments.length === 1 ? 'tournament' : 'tournaments'}
-        </span>
+        <div className="flex items-center space-x-3">
+          <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+            {tournaments.length} {tournaments.length === 1 ? 'tournament' : 'tournaments'}
+          </span>
+          <Link
+            to="/admin/tournaments"
+            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+          >
+            Manage All &rarr;
+          </Link>
+        </div>
       </div>
 
       {/* Empty State */}

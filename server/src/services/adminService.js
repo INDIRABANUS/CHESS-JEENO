@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Tournament from '../models/Tournament.js';
 import TournamentPlayer from '../models/TournamentPlayer.js';
+import Round from '../models/Round.js';
+import Pairing from '../models/Pairing.js';
 
 /**
  * Active tournament statuses representing tournaments currently in an active playable/ongoing state.
@@ -353,11 +355,426 @@ export const updateAdminUserRole = async (userId, newRole, actorUserId) => {
   return sanitizeAdminUser(targetUser);
 };
 
+/**
+ * Valid tournament statuses supported by the Tournament schema.
+ */
+export const VALID_TOURNAMENT_STATUSES = [
+  'DRAFT',
+  'REGISTRATION',
+  'READY_CHECK',
+  'COUNTDOWN',
+  'RUNNING',
+  'IN_PROGRESS',
+  'FINISHED',
+  'COMPLETED',
+  'CANCELLED',
+];
+
+/**
+ * Valid tournament formats supported by the Tournament schema.
+ */
+export const VALID_TOURNAMENT_FORMATS = ['ROUND_ROBIN', 'SWISS', 'KNOCKOUT'];
+
+/**
+ * Retrieves a paginated, searchable, and filterable list of tournaments for platform administrators.
+ *
+ * Query params:
+ * - page: positive integer >= 1
+ * - limit: integer between 1 and 50
+ * - search: string, case-insensitive, matches tournament name, creator handle/name/email, or tournament ID
+ * - status: valid tournament lifecycle status
+ * - format: valid tournament format (ROUND_ROBIN, SWISS, KNOCKOUT)
+ *
+ * @param {Object} [options]
+ * @param {number|string} [options.page=1]
+ * @param {number|string} [options.limit=20]
+ * @param {string} [options.search='']
+ * @param {string} [options.status='']
+ * @param {string} [options.format='']
+ * @returns {Promise<Object>} { tournaments, page, limit, total, totalPages }
+ */
+export const getAdminTournaments = async ({
+  page = 1,
+  limit = 20,
+  search = '',
+  status = '',
+  format = '',
+} = {}) => {
+  // Validate page
+  const parsedPage = Number(page);
+  if (!Number.isInteger(parsedPage) || parsedPage < 1) {
+    const error = new Error('Invalid page parameter. Page must be a positive integer greater than or equal to 1.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validate limit
+  const parsedLimit = Number(limit);
+  if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+    const error = new Error('Invalid limit parameter. Limit must be an integer between 1 and 50.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const query = {};
+
+  // Validate and apply status filter
+  if (status !== undefined && status !== null && String(status).trim() !== '') {
+    const normalizedStatus = String(status).trim().toUpperCase();
+    if (!VALID_TOURNAMENT_STATUSES.includes(normalizedStatus)) {
+      const error = new Error(
+        `Invalid status filter. Allowed statuses: ${VALID_TOURNAMENT_STATUSES.join(', ')}`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+    if (normalizedStatus === 'FINISHED' || normalizedStatus === 'COMPLETED') {
+      query.status = { $in: ['FINISHED', 'COMPLETED'] };
+    } else {
+      query.status = normalizedStatus;
+    }
+  }
+
+  // Validate and apply format filter
+  if (format !== undefined && format !== null && String(format).trim() !== '') {
+    const normalizedFormat = String(format).trim().toUpperCase();
+    if (!VALID_TOURNAMENT_FORMATS.includes(normalizedFormat)) {
+      const error = new Error(
+        `Invalid format filter. Allowed formats: ${VALID_TOURNAMENT_FORMATS.join(', ')}`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+    query.format = normalizedFormat;
+  }
+
+  // Validate and apply search filter
+  if (search !== undefined && search !== null && String(search).trim() !== '') {
+    const trimmedSearch = String(search).trim();
+    if (trimmedSearch.length > 100) {
+      const error = new Error('Search query too long. Maximum 100 characters allowed.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const escapedSearch = trimmedSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Find matching creator user IDs
+    const matchingCreators = await User.find({
+      $or: [
+        { name: { $regex: escapedSearch, $options: 'i' } },
+        { email: { $regex: escapedSearch, $options: 'i' } },
+        { lichessUsername: { $regex: escapedSearch, $options: 'i' } },
+      ],
+    }).distinct('_id');
+
+    const searchConditions = [
+      { name: { $regex: escapedSearch, $options: 'i' } },
+      { createdBy: { $in: matchingCreators } },
+    ];
+
+    if (mongoose.isValidObjectId(trimmedSearch)) {
+      searchConditions.push({ _id: new mongoose.Types.ObjectId(trimmedSearch) });
+    }
+
+    query.$or = searchConditions;
+  }
+
+  const skip = (parsedPage - 1) * parsedLimit;
+
+  const [total, tournamentDocs] = await Promise.all([
+    Tournament.countDocuments(query),
+    Tournament.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .populate('createdBy', 'name email avatar lichessUsername')
+      .populate('winnerPlayer', 'name email avatar lichessUsername'),
+  ]);
+
+  const totalPages = Math.ceil(total / parsedLimit) || (total === 0 ? 0 : 1);
+
+  // Batch query participant counts (avoids N+1)
+  const tournamentIds = tournamentDocs.map((t) => t._id);
+  let participantCountMap = new Map();
+
+  if (tournamentIds.length > 0) {
+    const counts = await TournamentPlayer.aggregate([
+      { $match: { tournamentId: { $in: tournamentIds } } },
+      { $group: { _id: '$tournamentId', count: { $sum: 1 } } },
+    ]);
+    participantCountMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+  }
+
+  const tournaments = tournamentDocs.map((t) => ({
+    id: t._id.toString(),
+    name: t.name,
+    description: t.description || '',
+    format: t.format,
+    status: t.status,
+    rated: Boolean(t.rated),
+    clockLimit: t.clockLimit,
+    increment: t.increment,
+    maxPlayers: t.maxPlayers || null,
+    totalRounds: t.totalRounds || null,
+    startTime: t.startTime || null,
+    countdownStartedAt: t.countdownStartedAt || null,
+    scheduledStartAt: t.scheduledStartAt || null,
+    countdownSeconds: t.countdownSeconds,
+    completionReason: t.completionReason || null,
+    participantCount: participantCountMap.get(t._id.toString()) || 0,
+    creator: t.createdBy
+      ? {
+          id: t.createdBy._id.toString(),
+          name: t.createdBy.name || 'Organizer',
+          email: t.createdBy.email || '',
+          avatar: t.createdBy.avatar || null,
+          lichessUsername: t.createdBy.lichessUsername || null,
+        }
+      : null,
+    winner: t.winnerPlayer
+      ? {
+          id: t.winnerPlayer._id.toString(),
+          name: t.winnerPlayer.name || 'Winner',
+          email: t.winnerPlayer.email || '',
+          avatar: t.winnerPlayer.avatar || null,
+          lichessUsername: t.winnerPlayer.lichessUsername || null,
+        }
+      : null,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+  }));
+
+  return {
+    tournaments,
+    page: parsedPage,
+    limit: parsedLimit,
+    total,
+    totalPages,
+  };
+};
+
+/**
+ * Retrieves safe, comprehensive administrator details for a single tournament by ID.
+ * Includes tournament metadata, approved participants, and rounds with pairings.
+ *
+ * @param {string} tournamentId
+ * @returns {Promise<Object>} Safe tournament inspection details
+ */
+export const getAdminTournamentDetails = async (tournamentId) => {
+  if (!mongoose.isValidObjectId(tournamentId)) {
+    const error = new Error('Invalid tournament ID format');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const tournament = await Tournament.findById(tournamentId)
+    .populate('createdBy', 'name email avatar lichessUsername')
+    .populate('winnerPlayer', 'name email avatar lichessUsername');
+
+  if (!tournament) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Fetch participants, rounds, and pairings in parallel
+  const [participants, rounds, pairings] = await Promise.all([
+    TournamentPlayer.find({ tournamentId })
+      .populate('userId', 'name email avatar lichessUsername')
+      .sort({ score: -1, isReady: -1, createdAt: 1 }),
+    Round.find({ tournamentId }).sort({ roundNumber: 1 }),
+    Pairing.find({ tournamentId })
+      .populate('whitePlayer', 'name email avatar lichessUsername')
+      .populate('blackPlayer', 'name email avatar lichessUsername')
+      .sort({ roundId: 1, createdAt: 1 }),
+  ]);
+
+  // Group pairings by round ID
+  const pairingsByRound = new Map();
+  pairings.forEach((p) => {
+    const rId = p.roundId.toString();
+    if (!pairingsByRound.has(rId)) pairingsByRound.set(rId, []);
+    pairingsByRound.get(rId).push({
+      id: p._id.toString(),
+      whitePlayer: p.whitePlayer
+        ? {
+            id: p.whitePlayer._id.toString(),
+            name: p.whitePlayer.name,
+            lichessUsername: p.whitePlayer.lichessUsername || null,
+          }
+        : null,
+      blackPlayer: p.blackPlayer
+        ? {
+            id: p.blackPlayer._id.toString(),
+            name: p.blackPlayer.name,
+            lichessUsername: p.blackPlayer.lichessUsername || null,
+          }
+        : null,
+      status: p.status,
+      result: p.result,
+      lichessGameId: p.lichessGameId || null,
+      lichessGameUrl: p.lichessGameUrl || null,
+      lichessStatus: p.lichessStatus || null,
+      rematchCount: p.rematchCount || 0,
+      startedAt: p.startedAt || null,
+      completedAt: p.completedAt || null,
+    });
+  });
+
+  const safeRounds = rounds.map((r) => ({
+    id: r._id.toString(),
+    roundNumber: r.roundNumber,
+    status: r.status,
+    stageName: r.stageName || null,
+    startedAt: r.startedAt || null,
+    completedAt: r.completedAt || null,
+    pairings: pairingsByRound.get(r._id.toString()) || [],
+  }));
+
+  const safeParticipants = participants.map((p) => ({
+    id: p._id.toString(),
+    userId: p.userId ? p.userId._id.toString() : null,
+    name: p.userId?.name || 'Unknown Player',
+    email: p.userId?.email || '',
+    avatar: p.userId?.avatar || null,
+    lichessUsername: p.userId?.lichessUsername || null,
+    isReady: Boolean(p.isReady),
+    isApproved: p.isApproved !== false,
+    score: p.score || 0,
+    joinedAt: p.createdAt,
+  }));
+
+  // Determine current round
+  let currentRound = null;
+  const runningRound = safeRounds.find((r) => r.status === 'RUNNING');
+  if (runningRound) {
+    currentRound = runningRound.roundNumber;
+  } else if (safeRounds.length > 0) {
+    currentRound = safeRounds[safeRounds.length - 1].roundNumber;
+  }
+
+  return {
+    id: tournament._id.toString(),
+    name: tournament.name,
+    description: tournament.description || '',
+    format: tournament.format,
+    status: tournament.status,
+    rated: Boolean(tournament.rated),
+    clockLimit: tournament.clockLimit,
+    increment: tournament.increment,
+    maxPlayers: tournament.maxPlayers || null,
+    totalRounds: tournament.totalRounds || null,
+    currentRound,
+    startTime: tournament.startTime || null,
+    countdownStartedAt: tournament.countdownStartedAt || null,
+    scheduledStartAt: tournament.scheduledStartAt || null,
+    countdownSeconds: tournament.countdownSeconds,
+    completionReason: tournament.completionReason || null,
+    participantCount: safeParticipants.length,
+    creator: tournament.createdBy
+      ? {
+          id: tournament.createdBy._id.toString(),
+          name: tournament.createdBy.name || 'Organizer',
+          email: tournament.createdBy.email || '',
+          avatar: tournament.createdBy.avatar || null,
+          lichessUsername: tournament.createdBy.lichessUsername || null,
+        }
+      : null,
+    winner: tournament.winnerPlayer
+      ? {
+          id: tournament.winnerPlayer._id.toString(),
+          name: tournament.winnerPlayer.name || 'Winner',
+          email: tournament.winnerPlayer.email || '',
+          avatar: tournament.winnerPlayer.avatar || null,
+          lichessUsername: tournament.winnerPlayer.lichessUsername || null,
+        }
+      : null,
+    participants: safeParticipants,
+    rounds: safeRounds,
+    createdAt: tournament.createdAt,
+    updatedAt: tournament.updatedAt,
+  };
+};
+
+/**
+ * Safely cancels a tournament as a platform administrator.
+ *
+ * Safety Invariants:
+ * - Cannot cancel a tournament that is already FINISHED or COMPLETED (returns 400).
+ * - Cannot cancel a tournament that is already CANCELLED (returns 400).
+ * - Cannot cancel a tournament with actively running Lichess matches (returns 409).
+ * - Preserves historical records, participant data, and previous round history in MongoDB.
+ *
+ * @param {string} tournamentId
+ * @param {string} actorUserId
+ * @returns {Promise<Object>}
+ */
+export const cancelAdminTournament = async (tournamentId, actorUserId) => {
+  if (!mongoose.isValidObjectId(tournamentId)) {
+    const error = new Error('Invalid tournament ID format');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const tournament = await Tournament.findById(tournamentId)
+    .populate('createdBy', 'name email avatar lichessUsername');
+
+  if (!tournament) {
+    const error = new Error('Tournament not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (tournament.status === 'CANCELLED') {
+    const error = new Error('Tournament is already cancelled.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (tournament.status === 'FINISHED' || tournament.status === 'COMPLETED') {
+    const error = new Error('Cannot cancel a tournament that has already finished.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Check for active matches currently in progress
+  const activePairingsCount = await Pairing.countDocuments({
+    tournamentId,
+    status: { $in: ['ACTIVE', 'RUNNING', 'REMATCHING'] },
+  });
+
+  if (activePairingsCount > 0) {
+    const error = new Error(
+      'Cannot cancel tournament while matches are actively being played. Active games must conclude or abort first.'
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  tournament.status = 'CANCELLED';
+  await tournament.save();
+
+  return {
+    id: tournament._id.toString(),
+    name: tournament.name,
+    status: tournament.status,
+    format: tournament.format,
+    updatedAt: tournament.updatedAt,
+  };
+};
+
 export default {
   getPlatformOverview,
   getAdminUsers,
   getAdminUserDetails,
   updateAdminUserRole,
   sanitizeAdminUser,
+  getAdminTournaments,
+  getAdminTournamentDetails,
+  cancelAdminTournament,
+  VALID_TOURNAMENT_STATUSES,
+  VALID_TOURNAMENT_FORMATS,
 };
+
 

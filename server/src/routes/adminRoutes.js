@@ -6,6 +6,9 @@ import {
   getAdminUsers,
   getAdminUserDetails,
   updateAdminUserRole,
+  getAdminTournaments,
+  getAdminTournamentDetails,
+  cancelAdminTournament,
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -45,5 +48,27 @@ router.get('/users/:userId', requireAuth, requireAdmin, getAdminUserDetails);
  */
 router.patch('/users/:userId/role', requireAuth, requireAdmin, updateAdminUserRole);
 
+/**
+ * @route   GET /api/admin/tournaments
+ * @desc    Get paginated, searchable, filterable tournament list
+ * @access  Private (Bearer JWT + ADMIN role)
+ */
+router.get('/tournaments', requireAuth, requireAdmin, getAdminTournaments);
+
+/**
+ * @route   GET /api/admin/tournaments/:tournamentId
+ * @desc    Get safe administrator inspection details for a single tournament
+ * @access  Private (Bearer JWT + ADMIN role)
+ */
+router.get('/tournaments/:tournamentId', requireAuth, requireAdmin, getAdminTournamentDetails);
+
+/**
+ * @route   PATCH /api/admin/tournaments/:tournamentId/cancel
+ * @desc    Safely cancel a tournament as platform administrator
+ * @access  Private (Bearer JWT + ADMIN role)
+ */
+router.patch('/tournaments/:tournamentId/cancel', requireAuth, requireAdmin, cancelAdminTournament);
+
 export default router;
+
 

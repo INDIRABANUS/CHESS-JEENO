@@ -57,10 +57,65 @@ export const updateAdminUserRole = async (userId, role) => {
   return response.data?.user || response.data?.data || response.data;
 };
 
+/**
+ * Fetches paginated, searchable, and filterable tournaments for administrators.
+ * 
+ * @param {Object} [params]
+ * @param {number} [params.page=1]
+ * @param {number} [params.limit=20]
+ * @param {string} [params.search='']
+ * @param {string} [params.status='']
+ * @param {string} [params.format='']
+ * @returns {Promise<Object>} { tournaments, page, limit, total, totalPages }
+ */
+export const getAdminTournaments = async ({
+  page = 1,
+  limit = 20,
+  search = '',
+  status = '',
+  format = '',
+} = {}) => {
+  const params = {};
+  if (page) params.page = page;
+  if (limit) params.limit = limit;
+  if (search && search.trim()) params.search = search.trim();
+  if (status && status.trim()) params.status = status.trim();
+  if (format && format.trim()) params.format = format.trim();
+
+  const response = await api.get('/admin/tournaments', { params });
+  return response.data?.data || response.data;
+};
+
+/**
+ * Fetches safe admin inspection details for a single tournament by ID.
+ * 
+ * @param {string} tournamentId
+ * @returns {Promise<Object>} Safe tournament inspection details
+ */
+export const getAdminTournamentDetails = async (tournamentId) => {
+  const response = await api.get(`/admin/tournaments/${tournamentId}`);
+  return response.data?.tournament || response.data?.data || response.data;
+};
+
+/**
+ * Safely cancels a tournament as a platform administrator.
+ * 
+ * @param {string} tournamentId
+ * @returns {Promise<Object>} Cancelled tournament result
+ */
+export const cancelAdminTournament = async (tournamentId) => {
+  const response = await api.patch(`/admin/tournaments/${tournamentId}/cancel`);
+  return response.data?.tournament || response.data?.data || response.data;
+};
+
 export default {
   getAdminOverview,
   getAdminUsers,
   getAdminUserDetails,
   updateAdminUserRole,
+  getAdminTournaments,
+  getAdminTournamentDetails,
+  cancelAdminTournament,
 };
+
 

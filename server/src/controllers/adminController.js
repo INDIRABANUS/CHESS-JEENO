@@ -136,11 +136,90 @@ export const updateAdminUserRole = async (req, res, next) => {
   }
 };
 
+/**
+ * Returns a paginated, searchable, filterable list of tournaments for administrators.
+ * 
+ * Query params:
+ * - page: number (>= 1, default 1)
+ * - limit: number (1-50, default 20)
+ * - search: string (matches tournament name, creator, or ID)
+ * - status: string (tournament lifecycle status)
+ * - format: string (ROUND_ROBIN, SWISS, KNOCKOUT)
+ * 
+ * @route GET /api/admin/tournaments
+ * @access Private (Bearer JWT + ADMIN role)
+ */
+export const getAdminTournaments = async (req, res, next) => {
+  try {
+    const { page, limit, search, status, format } = req.query;
+    const result = await adminService.getAdminTournaments({ page, limit, search, status, format });
+
+    res.status(200).json({
+      success: true,
+      tournaments: result.tournaments,
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Returns safe administrator inspection details for a single tournament by ID.
+ * 
+ * @route GET /api/admin/tournaments/:tournamentId
+ * @access Private (Bearer JWT + ADMIN role)
+ */
+export const getAdminTournamentDetails = async (req, res, next) => {
+  try {
+    const { tournamentId } = req.params;
+    const tournament = await adminService.getAdminTournamentDetails(tournamentId);
+
+    res.status(200).json({
+      success: true,
+      tournament,
+      data: tournament,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Safely cancels a tournament as a platform administrator.
+ * 
+ * @route PATCH /api/admin/tournaments/:tournamentId/cancel
+ * @access Private (Bearer JWT + ADMIN role)
+ */
+export const cancelAdminTournament = async (req, res, next) => {
+  try {
+    const { tournamentId } = req.params;
+    const result = await adminService.cancelAdminTournament(tournamentId, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: `Tournament "${result.name}" was successfully cancelled.`,
+      tournament: result,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getAdminMe,
   getAdminOverview,
   getAdminUsers,
   getAdminUserDetails,
   updateAdminUserRole,
+  getAdminTournaments,
+  getAdminTournamentDetails,
+  cancelAdminTournament,
 };
+
 
