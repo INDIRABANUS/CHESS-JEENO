@@ -152,6 +152,212 @@ export const getPlatformOverview = async () => {
   };
 };
 
+/**
+ * Sanitizes a User document into a safe admin representation.
+ * Explicitly excludes passwordHash, tokens, and OAuth secrets.
+ *
+ * @param {Object} user - Mongoose User document or plain object
+ * @returns {Object} Safe admin user object
+ */
+export const sanitizeAdminUser = (user) => ({
+  id: user._id.toString(),
+  name: user.name,
+  email: user.email,
+  role: user.role || 'USER',
+  avatar: user.avatar || null,
+  bio: user.bio || '',
+  authProvider: user.authProvider || 'local',
+  googleConnected: Boolean(user.googleId),
+  lichessConnected: Boolean(user.lichessUsername || user.lichessOAuth?.connectedAt),
+  lichessUsername: user.lichessUsername || null,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+});
+
+/**
+ * Retrieves a paginated, searchable, and filterable list of users for platform administrators.
+ *
+ * Validation rules:
+ * - page: must be a positive integer >= 1
+ * - limit: must be an integer between 1 and 50
+ * - role: if specified, must be 'USER' or 'ADMIN'
+ * - search: string, case-insensitive, regex-escaped, max 100 chars
+ *
+ * @param {Object} options
+ * @param {number|string} [options.page=1]
+ * @param {number|string} [options.limit=20]
+ * @param {string} [options.search='']
+ * @param {string} [options.role='']
+ * @returns {Promise<Object>} { users, page, limit, total, totalPages }
+ */
+export const getAdminUsers = async ({ page = 1, limit = 20, search = '', role = '' } = {}) => {
+  // Validate page
+  const parsedPage = Number(page);
+  if (!Number.isInteger(parsedPage) || parsedPage < 1) {
+    const error = new Error('Invalid page parameter. Page must be a positive integer greater than or equal to 1.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validate limit
+  const parsedLimit = Number(limit);
+  if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+    const error = new Error('Invalid limit parameter. Limit must be an integer between 1 and 50.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Build query
+  const query = {};
+
+  // Validate and apply role filter
+  if (role !== undefined && role !== null && String(role).trim() !== '') {
+    const normalizedRole = String(role).trim().toUpperCase();
+    if (normalizedRole !== 'USER' && normalizedRole !== 'ADMIN') {
+      const error = new Error("Invalid role filter. Role must be 'USER' or 'ADMIN'.");
+      error.statusCode = 400;
+      throw error;
+    }
+    query.role = normalizedRole;
+  }
+
+  // Validate and apply search filter (name, email, lichessUsername)
+  if (search !== undefined && search !== null && String(search).trim() !== '') {
+    const trimmedSearch = String(search).trim();
+    if (trimmedSearch.length > 100) {
+      const error = new Error('Search query too long. Maximum 100 characters allowed.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Safely escape regex special characters to prevent ReDoS / injection
+    const escapedSearch = trimmedSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.$or = [
+      { name: { $regex: escapedSearch, $options: 'i' } },
+      { email: { $regex: escapedSearch, $options: 'i' } },
+      { lichessUsername: { $regex: escapedSearch, $options: 'i' } },
+    ];
+  }
+
+  const skip = (parsedPage - 1) * parsedLimit;
+
+  // Execute count and query in parallel
+  const [total, userDocs] = await Promise.all([
+    User.countDocuments(query),
+    User.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .select('name email role avatar bio authProvider googleId lichessUsername lichessOAuth.connectedAt createdAt updatedAt'),
+  ]);
+
+  const totalPages = Math.ceil(total / parsedLimit) || (total === 0 ? 0 : 1);
+  const users = userDocs.map(sanitizeAdminUser);
+
+  return {
+    users,
+    page: parsedPage,
+    limit: parsedLimit,
+    total,
+    totalPages,
+  };
+};
+
+/**
+ * Retrieves safe admin details for a single user by ID.
+ *
+ * @param {string} userId - Target user ObjectId string
+ * @returns {Promise<Object>} Safe user details object
+ */
+export const getAdminUserDetails = async (userId) => {
+  if (!mongoose.isValidObjectId(userId)) {
+    const error = new Error('Invalid user ID format');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const user = await User.findById(userId).select(
+    'name email role avatar bio authProvider googleId lichessUsername lichessUserId lichessOAuth.connectedAt createdAt updatedAt'
+  );
+
+  if (!user) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return sanitizeAdminUser(user);
+};
+
+/**
+ * Updates a user's role between USER and ADMIN with lockout prevention.
+ *
+ * Safety Invariants:
+ * - Only 'USER' and 'ADMIN' roles are valid.
+ * - Cannot demote the final remaining administrator (returns 409).
+ * - Prevents self-demotion if it would leave zero administrators (returns 409).
+ * - Database is the authoritative source of truth.
+ *
+ * @param {string} userId - Target user ObjectId string
+ * @param {string} newRole - Target role ('USER' or 'ADMIN')
+ * @param {string} actorUserId - Authenticated admin ID performing the change
+ * @returns {Promise<Object>} Safe updated user object
+ */
+export const updateAdminUserRole = async (userId, newRole, actorUserId) => {
+  if (!mongoose.isValidObjectId(userId)) {
+    const error = new Error('Invalid user ID format');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!newRole || typeof newRole !== 'string') {
+    const error = new Error('Role is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const normalizedRole = newRole.trim().toUpperCase();
+  if (normalizedRole !== 'USER' && normalizedRole !== 'ADMIN') {
+    const error = new Error("Invalid role. Role must be 'USER' or 'ADMIN'");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const targetUser = await User.findById(userId);
+  if (!targetUser) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // If already at requested role, return current state
+  if (targetUser.role === normalizedRole) {
+    return sanitizeAdminUser(targetUser);
+  }
+
+  // Prevent lockout if demoting an ADMIN to USER
+  if (targetUser.role === 'ADMIN' && normalizedRole === 'USER') {
+    const adminCount = await User.countDocuments({ role: 'ADMIN' });
+    if (adminCount <= 1) {
+      const error = new Error(
+        'Cannot demote the final remaining administrator. The platform must retain at least one admin account.'
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+
+  targetUser.role = normalizedRole;
+  await targetUser.save();
+
+  return sanitizeAdminUser(targetUser);
+};
+
 export default {
   getPlatformOverview,
+  getAdminUsers,
+  getAdminUserDetails,
+  updateAdminUserRole,
+  sanitizeAdminUser,
 };
+

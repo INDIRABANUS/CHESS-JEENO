@@ -6,6 +6,7 @@ import MainLayout from './layouts/MainLayout';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminUsersPage from './pages/AdminUsersPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
@@ -22,6 +23,7 @@ function App() {
           <Route index element={<HomePage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="admin" element={<AdminDashboardPage />} />
+          <Route path="admin/users" element={<AdminUsersPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="profile" element={<ProfilePage />} />

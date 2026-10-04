@@ -1,5 +1,6 @@
 import React from 'react';
-import { Users, Shield, Calendar, Mail, UserCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Users, Shield, Calendar, Mail, UserCheck, ArrowRight } from 'lucide-react';
 
 /**
  * Formats ISO date string to a human-readable format.
@@ -42,9 +43,19 @@ const RecentUsersTable = ({ users = [] }) => {
             </p>
           </div>
         </div>
-        <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-          {users.length} {users.length === 1 ? 'user' : 'users'}
-        </span>
+        <div className="flex items-center space-x-3">
+          <span className="hidden sm:inline-block px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+            {users.length} {users.length === 1 ? 'user' : 'users'}
+          </span>
+          <Link
+            to="/admin/users"
+            id="view-all-users-link"
+            className="inline-flex items-center space-x-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition"
+          >
+            <span>Manage All</span>
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
       </div>
 
       {/* Empty State */}

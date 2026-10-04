@@ -58,7 +58,89 @@ export const getAdminOverview = async (req, res, next) => {
   }
 };
 
+/**
+ * Returns a paginated, searchable, filterable list of users.
+ * 
+ * Query params:
+ * - page: number (>= 1, default 1)
+ * - limit: number (1-50, default 20)
+ * - search: string (matches name, email, lichessUsername)
+ * - role: string ('USER' | 'ADMIN')
+ * 
+ * @route GET /api/admin/users
+ * @access Private (Bearer JWT + ADMIN role)
+ */
+export const getAdminUsers = async (req, res, next) => {
+  try {
+    const { page, limit, search, role } = req.query;
+    const result = await adminService.getAdminUsers({ page, limit, search, role });
+
+    res.status(200).json({
+      success: true,
+      users: result.users,
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Returns safe administrator details for a single user by ID.
+ * 
+ * @route GET /api/admin/users/:userId
+ * @access Private (Bearer JWT + ADMIN role)
+ */
+export const getAdminUserDetails = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const user = await adminService.getAdminUserDetails(userId);
+
+    res.status(200).json({
+      success: true,
+      user,
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Updates a user's role between USER and ADMIN.
+ * 
+ * Body:
+ * - role: 'USER' | 'ADMIN'
+ * 
+ * @route PATCH /api/admin/users/:userId/role
+ * @access Private (Bearer JWT + ADMIN role)
+ */
+export const updateAdminUserRole = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body || {};
+    const updatedUser = await adminService.updateAdminUserRole(userId, role, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: `User role successfully updated to ${updatedUser.role}`,
+      user: updatedUser,
+      data: updatedUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getAdminMe,
   getAdminOverview,
+  getAdminUsers,
+  getAdminUserDetails,
+  updateAdminUserRole,
 };
+

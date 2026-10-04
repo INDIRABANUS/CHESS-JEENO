@@ -18,6 +18,7 @@ import AdminStatCard from '../components/admin/AdminStatCard';
 import RecentUsersTable from '../components/admin/RecentUsersTable';
 import RecentTournamentsTable from '../components/admin/RecentTournamentsTable';
 import PlatformStatusCard from '../components/admin/PlatformStatusCard';
+import AdminNavTabs from '../components/admin/AdminNavTabs';
 
 /**
  * AdminDashboardPage — Dedicated, responsive platform overview for administrators at /admin.
@@ -133,6 +134,10 @@ const AdminDashboardPage = () => {
           </button>
         </div>
       </div>
+
+      {/* ──────────────── Admin Subnav Tabs ──────────────── */}
+      <AdminNavTabs />
+
 
       {/* ──────────────── Loading State ──────────────── */}
       {loading && !overview && (

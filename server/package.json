@@ -16,6 +16,7 @@
     "test:profile": "node src/utils/testProfileApi.js",
     "test:admin": "node src/utils/testAdminRbac.js",
     "test:admin:overview": "node src/utils/testAdminOverview.js",
+    "test:admin:users": "node src/utils/testAdminUsers.js",
     "bootstrap:admin": "node src/utils/bootstrapAdmin.js",
     "test:lichess:oauth": "node src/utils/testLichessOAuth.js",
     "test:google:oauth": "node src/utils/testGoogleOAuth.js",
