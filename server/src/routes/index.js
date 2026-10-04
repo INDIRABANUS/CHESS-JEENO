@@ -4,6 +4,7 @@ import tournamentRoutes from './tournamentRoutes.js';
 import authRoutes from './authRoutes.js';
 import lichessRoutes from './lichessRoutes.js';
 import userRoutes from './userRoutes.js';
+import adminRoutes from './adminRoutes.js';
 import { resolveCreatorId } from '../utils/devUser.js';
 import User from '../models/User.js';
 
@@ -14,6 +15,7 @@ apiRouter.use('/auth', authRoutes);
 apiRouter.use('/users', userRoutes);
 apiRouter.use('/tournaments', tournamentRoutes);
 apiRouter.use('/lichess', lichessRoutes);
+apiRouter.use('/admin', adminRoutes);
 
 // Endpoint for retrieving legacy development user profile (test/dev backward compatibility)
 apiRouter.get('/dev-user', async (req, res, next) => {

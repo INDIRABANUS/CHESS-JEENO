@@ -86,7 +86,45 @@ export const optionalAuth = async (req, res, next) => {
   }
 };
 
+/**
+ * Middleware that strictly restricts route access to users with persisted ADMIN role.
+ * 
+ * Guarantees:
+ * 1. Requires normal authentication first (runs requireAuth if req.user is not yet attached).
+ * 2. Authenticated user is resolved from database by ID.
+ * 3. Checks that the user's persisted role in the database is strictly 'ADMIN'.
+ * 4. Rejects non-admin users with HTTP 403 Forbidden.
+ * 5. Rejects unauthenticated/invalid/deleted users with standard 401 error.
+ * 6. Never trusts client-supplied roles in body, query, or path.
+ * 7. Avoids leaking internal implementation details.
+ */
+export const requireAdmin = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return requireAuth(req, res, (err) => {
+        if (err) return next(err);
+        return verifyAdminRole(req, res, next);
+      });
+    }
+
+    return verifyAdminRole(req, res, next);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const verifyAdminRole = (req, res, next) => {
+  if (!req.user || req.user.role !== 'ADMIN') {
+    const error = new Error('Access denied. Administrator privileges required.');
+    error.statusCode = 403;
+    return next(error);
+  }
+
+  next();
+};
+
 export default {
   requireAuth,
   optionalAuth,
+  requireAdmin,
 };

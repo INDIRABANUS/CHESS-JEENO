@@ -112,6 +112,7 @@ Key Variables:
 | `GOOGLE_CLIENT_ID` | Google OAuth 2.0 Web Client ID | `your_id.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 Client Secret (backend only) | `your_google_client_secret` |
 | `GOOGLE_OAUTH_REDIRECT_URI` | Google OAuth backend callback URL | `http://localhost:5000/api/auth/google/callback` |
+| `ADMIN_BOOTSTRAP_EMAIL` | *(Optional)* Target email for safe one-time server-side admin promotion | `admin@example.com` |
 
 ### Frontend (`client/.env`)
 
@@ -328,3 +329,20 @@ Deploy the `client/` directory to Vercel.
    - Connect a Lichess account via OAuth on `/profile`.
    - Create a Swiss, Round Robin, or Knockout tournament.
    - Verify realtime game updates and standings.
+
+---
+
+### Step 7: Platform Administrator Setup (Safe Bootstrap)
+
+To bootstrap the first `ADMIN` user safely without exposing public endpoints or modifying source code:
+
+1. Have the prospective administrator register a standard account via the frontend or `POST /api/auth/register`.
+2. Run the server-side bootstrap command on the backend environment:
+   ```bash
+   ADMIN_BOOTSTRAP_EMAIL=admin@yourdomain.com npm --prefix server run bootstrap:admin
+   ```
+   Or pass the email as an argument:
+   ```bash
+   node server/src/utils/bootstrapAdmin.js admin@yourdomain.com
+   ```
+3. The utility verifies the user's existence, promotes their role to `ADMIN`, and exits cleanly. It does not create arbitrary accounts or expose credentials.

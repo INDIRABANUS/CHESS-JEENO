@@ -32,6 +32,7 @@ export const sanitizeUserProfile = (user) => ({
   _id: user._id,
   name: user.name,
   email: user.email,
+  role: user.role || 'USER',
   bio: user.bio || '',
   avatar: user.avatar || null,
   authProvider: user.authProvider,
