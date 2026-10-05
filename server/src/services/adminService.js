@@ -195,8 +195,8 @@ export const sanitizeAdminUser = (user) => ({
 export const getAdminUsers = async ({ page = 1, limit = 20, search = '', role = '' } = {}) => {
   // Validate page
   const parsedPage = Number(page);
-  if (!Number.isInteger(parsedPage) || parsedPage < 1) {
-    const error = new Error('Invalid page parameter. Page must be a positive integer greater than or equal to 1.');
+  if (!Number.isInteger(parsedPage) || parsedPage < 1 || parsedPage > 10000) {
+    const error = new Error('Invalid page parameter. Page must be a positive integer between 1 and 10000.');
     error.statusCode = 400;
     throw error;
   }
@@ -214,7 +214,12 @@ export const getAdminUsers = async ({ page = 1, limit = 20, search = '', role = 
 
   // Validate and apply role filter
   if (role !== undefined && role !== null && String(role).trim() !== '') {
-    const normalizedRole = String(role).trim().toUpperCase();
+    if (typeof role !== 'string') {
+      const error = new Error("Invalid role filter. Role must be 'USER' or 'ADMIN'.");
+      error.statusCode = 400;
+      throw error;
+    }
+    const normalizedRole = role.trim().toUpperCase();
     if (normalizedRole !== 'USER' && normalizedRole !== 'ADMIN') {
       const error = new Error("Invalid role filter. Role must be 'USER' or 'ADMIN'.");
       error.statusCode = 400;
@@ -225,7 +230,12 @@ export const getAdminUsers = async ({ page = 1, limit = 20, search = '', role = 
 
   // Validate and apply search filter (name, email, lichessUsername)
   if (search !== undefined && search !== null && String(search).trim() !== '') {
-    const trimmedSearch = String(search).trim();
+    if (typeof search !== 'string') {
+      const error = new Error('Invalid search parameter. Search must be a text string.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const trimmedSearch = search.trim();
     if (trimmedSearch.length > 100) {
       const error = new Error('Search query too long. Maximum 100 characters allowed.');
       error.statusCode = 400;
@@ -308,6 +318,12 @@ export const getAdminUserDetails = async (userId) => {
 export const updateAdminUserRole = async (userId, newRole, actorUserId) => {
   if (!mongoose.isValidObjectId(userId)) {
     const error = new Error('Invalid user ID format');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (actorUserId && !mongoose.isValidObjectId(actorUserId)) {
+    const error = new Error('Invalid actor admin ID format');
     error.statusCode = 400;
     throw error;
   }
@@ -402,8 +418,8 @@ export const getAdminTournaments = async ({
 } = {}) => {
   // Validate page
   const parsedPage = Number(page);
-  if (!Number.isInteger(parsedPage) || parsedPage < 1) {
-    const error = new Error('Invalid page parameter. Page must be a positive integer greater than or equal to 1.');
+  if (!Number.isInteger(parsedPage) || parsedPage < 1 || parsedPage > 10000) {
+    const error = new Error('Invalid page parameter. Page must be a positive integer between 1 and 10000.');
     error.statusCode = 400;
     throw error;
   }
@@ -420,7 +436,14 @@ export const getAdminTournaments = async ({
 
   // Validate and apply status filter
   if (status !== undefined && status !== null && String(status).trim() !== '') {
-    const normalizedStatus = String(status).trim().toUpperCase();
+    if (typeof status !== 'string') {
+      const error = new Error(
+        `Invalid status filter. Allowed statuses: ${VALID_TOURNAMENT_STATUSES.join(', ')}`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+    const normalizedStatus = status.trim().toUpperCase();
     if (!VALID_TOURNAMENT_STATUSES.includes(normalizedStatus)) {
       const error = new Error(
         `Invalid status filter. Allowed statuses: ${VALID_TOURNAMENT_STATUSES.join(', ')}`
@@ -437,7 +460,14 @@ export const getAdminTournaments = async ({
 
   // Validate and apply format filter
   if (format !== undefined && format !== null && String(format).trim() !== '') {
-    const normalizedFormat = String(format).trim().toUpperCase();
+    if (typeof format !== 'string') {
+      const error = new Error(
+        `Invalid format filter. Allowed formats: ${VALID_TOURNAMENT_FORMATS.join(', ')}`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+    const normalizedFormat = format.trim().toUpperCase();
     if (!VALID_TOURNAMENT_FORMATS.includes(normalizedFormat)) {
       const error = new Error(
         `Invalid format filter. Allowed formats: ${VALID_TOURNAMENT_FORMATS.join(', ')}`
@@ -450,7 +480,12 @@ export const getAdminTournaments = async ({
 
   // Validate and apply search filter
   if (search !== undefined && search !== null && String(search).trim() !== '') {
-    const trimmedSearch = String(search).trim();
+    if (typeof search !== 'string') {
+      const error = new Error('Invalid search parameter. Search must be a text string.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const trimmedSearch = search.trim();
     if (trimmedSearch.length > 100) {
       const error = new Error('Search query too long. Maximum 100 characters allowed.');
       error.statusCode = 400;
@@ -713,6 +748,12 @@ export const getAdminTournamentDetails = async (tournamentId) => {
 export const cancelAdminTournament = async (tournamentId, actorUserId) => {
   if (!mongoose.isValidObjectId(tournamentId)) {
     const error = new Error('Invalid tournament ID format');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (actorUserId && !mongoose.isValidObjectId(actorUserId)) {
+    const error = new Error('Invalid actor admin ID format');
     error.statusCode = 400;
     throw error;
   }

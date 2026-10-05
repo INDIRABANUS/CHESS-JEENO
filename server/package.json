@@ -19,6 +19,7 @@
     "test:admin:users": "node src/utils/testAdminUsers.js",
     "test:admin:tournaments": "node src/utils/testAdminTournaments.js",
     "test:admin:analytics": "node src/utils/testAdminAnalytics.js",
+    "test:admin:hardening": "node src/utils/testAdminHardening.js",
     "bootstrap:admin": "node src/utils/bootstrapAdmin.js",
     "test:lichess:oauth": "node src/utils/testLichessOAuth.js",
     "test:google:oauth": "node src/utils/testGoogleOAuth.js",
