@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminTournamentsPage from './pages/AdminTournamentsPage';
+import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
@@ -26,6 +27,7 @@ function App() {
           <Route path="admin" element={<AdminDashboardPage />} />
           <Route path="admin/users" element={<AdminUsersPage />} />
           <Route path="admin/tournaments" element={<AdminTournamentsPage />} />
+          <Route path="admin/analytics" element={<AdminAnalyticsPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="profile" element={<ProfilePage />} />

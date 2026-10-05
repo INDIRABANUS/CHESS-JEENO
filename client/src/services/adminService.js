@@ -108,6 +108,16 @@ export const cancelAdminTournament = async (tournamentId) => {
   return response.data?.tournament || response.data?.data || response.data;
 };
 
+/**
+ * Fetches platform-wide real-data analytics and business insights for administrators.
+ * 
+ * @returns {Promise<Object>} Analytics data object
+ */
+export const getAdminAnalytics = async () => {
+  const response = await api.get('/admin/analytics');
+  return response.data?.data || response.data;
+};
+
 export default {
   getAdminOverview,
   getAdminUsers,
@@ -116,6 +126,7 @@ export default {
   getAdminTournaments,
   getAdminTournamentDetails,
   cancelAdminTournament,
+  getAdminAnalytics,
 };
 
 

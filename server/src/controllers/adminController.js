@@ -211,6 +211,26 @@ export const cancelAdminTournament = async (req, res, next) => {
   }
 };
 
+/**
+ * Returns platform analytics and insights.
+ * 
+ * @route GET /api/admin/analytics
+ * @access Private (Bearer JWT + ADMIN role)
+ */
+export const getAdminAnalytics = async (req, res, next) => {
+  try {
+    const analytics = await adminService.getAdminAnalytics();
+
+    res.status(200).json({
+      success: true,
+      ...analytics,
+      data: analytics,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getAdminMe,
   getAdminOverview,
@@ -220,6 +240,7 @@ export default {
   getAdminTournaments,
   getAdminTournamentDetails,
   cancelAdminTournament,
+  getAdminAnalytics,
 };
 
 

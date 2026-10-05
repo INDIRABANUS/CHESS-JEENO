@@ -764,6 +764,209 @@ export const cancelAdminTournament = async (tournamentId, actorUserId) => {
   };
 };
 
+/**
+ * Compiles platform analytics and business insights for administrators.
+ * 
+ * Aggregates:
+ * 1. Overview counts: total users, admins, tournaments (by lifecycle), players, rounds, pairings.
+ * 2. User metrics: role distribution and recent registration trend (last 30 days).
+ * 3. Tournament metrics: status distribution, format distribution, and recent creation trend.
+ * 4. Game metrics: total, completed, aborted, White wins, Black wins, draws.
+ * 
+ * Guarantees:
+ * - Real MongoDB collections; zero mock data
+ * - Parallel execution without N+1 queries
+ * - Safe aggregated metrics: zero secrets, passwords, or OAuth tokens
+ * 
+ * @returns {Promise<Object>} Safe platform analytics
+ */
+export const getAdminAnalytics = async () => {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+  const [
+    totalUsers,
+    totalAdmins,
+    totalTournaments,
+    activeTournaments,
+    completedTournaments,
+    cancelledTournaments,
+    totalTournamentPlayers,
+    totalRounds,
+    totalPairings,
+    completedPairings,
+    roleDistributionRaw,
+    recentRegistrationsRaw,
+    statusDistributionRaw,
+    formatDistributionRaw,
+    recentCreationTrendRaw,
+    gamesAggregation,
+  ] = await Promise.all([
+    User.countDocuments({}),
+    User.countDocuments({ role: 'ADMIN' }),
+    Tournament.countDocuments({}),
+    Tournament.countDocuments({ status: { $in: ['RUNNING', 'IN_PROGRESS', 'COUNTDOWN', 'READY_CHECK', 'ACTIVE'] } }),
+    Tournament.countDocuments({ status: { $in: ['FINISHED', 'COMPLETED'] } }),
+    Tournament.countDocuments({ status: 'CANCELLED' }),
+    TournamentPlayer.countDocuments({}),
+    Round.countDocuments({}),
+    Pairing.countDocuments({}),
+    Pairing.countDocuments({ status: { $in: ['FINISHED', 'COMPLETED'] } }),
+    User.aggregate([
+      { $group: { _id: { $ifNull: ['$role', 'USER'] }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]),
+    User.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+    Tournament.aggregate([
+      { $group: { _id: { $ifNull: ['$status', 'REGISTRATION'] }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]),
+    Tournament.aggregate([
+      { $group: { _id: { $ifNull: ['$format', 'ROUND_ROBIN'] }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]),
+    Tournament.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+    Pairing.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalGames: { $sum: 1 },
+          completedGames: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $in: ['$status', ['FINISHED', 'COMPLETED']] },
+                    { $in: ['$result', ['1-0', '0-1', '1/2-1/2', 'WHITE_WIN', 'BLACK_WIN', 'DRAW']] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          abortedGames: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ['$status', 'ABORTED'] },
+                    { $eq: ['$result', 'ABORTED'] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          whiteWins: {
+            $sum: {
+              $cond: [{ $in: ['$result', ['1-0', 'WHITE_WIN']] }, 1, 0],
+            },
+          },
+          blackWins: {
+            $sum: {
+              $cond: [{ $in: ['$result', ['0-1', 'BLACK_WIN']] }, 1, 0],
+            },
+          },
+          draws: {
+            $sum: {
+              $cond: [{ $in: ['$result', ['1/2-1/2', 'DRAW']] }, 1, 0],
+            },
+          },
+        },
+      },
+    ]),
+  ]);
+
+  const games = gamesAggregation[0]
+    ? {
+        totalGames: gamesAggregation[0].totalGames || 0,
+        completedGames: gamesAggregation[0].completedGames || 0,
+        abortedGames: gamesAggregation[0].abortedGames || 0,
+        whiteWins: gamesAggregation[0].whiteWins || 0,
+        blackWins: gamesAggregation[0].blackWins || 0,
+        draws: gamesAggregation[0].draws || 0,
+      }
+    : {
+        totalGames: 0,
+        completedGames: 0,
+        abortedGames: 0,
+        whiteWins: 0,
+        blackWins: 0,
+        draws: 0,
+      };
+
+  const roleDistribution = (roleDistributionRaw || []).map((item) => ({
+    role: item._id || 'UNKNOWN',
+    count: item.count || 0,
+  }));
+
+  const recentRegistrations = (recentRegistrationsRaw || []).map((item) => ({
+    date: item._id,
+    count: item.count || 0,
+  }));
+
+  const statusDistribution = (statusDistributionRaw || []).map((item) => ({
+    status: item._id || 'UNKNOWN',
+    count: item.count || 0,
+  }));
+
+  const formatDistribution = (formatDistributionRaw || []).map((item) => ({
+    format: item._id || 'UNKNOWN',
+    count: item.count || 0,
+  }));
+
+  const recentCreationTrend = (recentCreationTrendRaw || []).map((item) => ({
+    date: item._id,
+    count: item.count || 0,
+  }));
+
+  return {
+    overview: {
+      totalUsers,
+      totalAdmins,
+      totalTournaments,
+      activeTournaments,
+      completedTournaments,
+      cancelledTournaments,
+      totalTournamentPlayers,
+      totalRounds,
+      totalPairings,
+      completedPairings,
+    },
+    users: {
+      recentRegistrations,
+      roleDistribution,
+    },
+    tournaments: {
+      statusDistribution,
+      formatDistribution,
+      recentCreationTrend,
+    },
+    games,
+  };
+};
+
 export default {
   getPlatformOverview,
   getAdminUsers,
@@ -773,6 +976,7 @@ export default {
   getAdminTournaments,
   getAdminTournamentDetails,
   cancelAdminTournament,
+  getAdminAnalytics,
   VALID_TOURNAMENT_STATUSES,
   VALID_TOURNAMENT_FORMATS,
 };

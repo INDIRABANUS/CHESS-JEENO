@@ -9,6 +9,7 @@ import {
   getAdminTournaments,
   getAdminTournamentDetails,
   cancelAdminTournament,
+  getAdminAnalytics,
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -26,6 +27,13 @@ router.get('/me', requireAuth, requireAdmin, getAdminMe);
  * @access  Private (Bearer JWT + ADMIN role)
  */
 router.get('/overview', requireAuth, requireAdmin, getAdminOverview);
+
+/**
+ * @route   GET /api/admin/analytics
+ * @desc    Get real-data platform analytics, metrics, trends, and distribution
+ * @access  Private (Bearer JWT + ADMIN role)
+ */
+router.get('/analytics', requireAuth, requireAdmin, getAdminAnalytics);
 
 /**
  * @route   GET /api/admin/users

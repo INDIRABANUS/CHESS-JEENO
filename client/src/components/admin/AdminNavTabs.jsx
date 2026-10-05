@@ -1,10 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Trophy } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, BarChart3 } from 'lucide-react';
 
 /**
  * AdminNavTabs — Secondary administrative navigation bar for switching between
- * Overview (/admin), User Management (/admin/users), and Tournament Management (/admin/tournaments).
+ * Overview (/admin), User Management (/admin/users), Tournament Management (/admin/tournaments),
+ * and Analytics (/admin/analytics).
  */
 const AdminNavTabs = () => {
   return (
@@ -53,6 +54,21 @@ const AdminNavTabs = () => {
       >
         <Trophy className="h-4 w-4" />
         <span>Tournaments</span>
+      </NavLink>
+
+      <NavLink
+        to="/admin/analytics"
+        id="admin-tab-analytics"
+        className={({ isActive }) =>
+          `flex items-center space-x-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+            isActive
+              ? 'border-amber-500 text-amber-700 dark:text-amber-400 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
+          }`
+        }
+      >
+        <BarChart3 className="h-4 w-4" />
+        <span>Analytics</span>
       </NavLink>
     </div>
   );
