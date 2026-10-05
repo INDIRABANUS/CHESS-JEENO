@@ -51,19 +51,18 @@ const RecentResultsCard = ({ results = [] }) => {
             return (
               <div
                 key={item.pairingId || index}
-                className="p-3 sm:p-3.5 flex items-center justify-between hover:bg-white dark:hover:bg-slate-800 transition"
+                className="p-3 sm:p-3.5 flex items-center justify-between bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/60 transition-colors"
               >
                 {/* Left: Outcome Badge & Opponent */}
                 <div className="flex items-center space-x-3 min-w-0 pr-2">
                   {/* Result Tag (✓ Win, ✗ Loss, ½ Draw) */}
                   <div
-                    className={`w-16 sm:w-20 px-2 py-1 rounded-lg font-extrabold text-xs sm:text-sm flex items-center justify-center space-x-1 shrink-0 ${
-                      isWin
+                    className={`w-16 sm:w-20 px-2 py-1 rounded-lg font-extrabold text-xs sm:text-sm flex items-center justify-center space-x-1 shrink-0 ${isWin
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                         : isLoss
-                        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                        : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                    }`}
+                          ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                          : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                      }`}
                   >
                     <span className="font-bold">{item.symbol}</span>
                     <span className="tracking-wide">{item.label}</span>
@@ -92,13 +91,12 @@ const RecentResultsCard = ({ results = [] }) => {
                 {/* Right: Score Delta & Game Link */}
                 <div className="flex items-center space-x-2 shrink-0">
                   <span
-                    className={`font-mono font-bold text-xs px-2 py-0.5 rounded ${
-                      isWin
+                    className={`font-mono font-bold text-xs px-2 py-0.5 rounded ${isWin
                         ? 'bg-emerald-100/60 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                         : isLoss
-                        ? 'bg-rose-100/60 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                        : 'bg-amber-100/60 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                    }`}
+                          ? 'bg-rose-100/60 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                          : 'bg-amber-100/60 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                      }`}
                   >
                     {item.pointDelta} pts
                   </span>

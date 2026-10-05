@@ -37,20 +37,20 @@ const MyTournamentsCard = ({ myTournaments = {} }) => {
     activeCount > 0
       ? 'active'
       : upcomingCount > 0
-      ? 'upcoming'
-      : hostedCount > 0
-      ? 'hosted'
-      : 'completed'
+        ? 'upcoming'
+        : hostedCount > 0
+          ? 'hosted'
+          : 'completed'
   );
 
   const currentList =
     activeTab === 'active'
       ? active
       : activeTab === 'upcoming'
-      ? upcoming
-      : activeTab === 'hosted'
-      ? hosted
-      : completed;
+        ? upcoming
+        : activeTab === 'hosted'
+          ? hosted
+          : completed;
 
   return (
     <div
@@ -82,11 +82,10 @@ const MyTournamentsCard = ({ myTournaments = {} }) => {
           type="button"
           onClick={() => setActiveTab('active')}
           id="tab-active-tournaments"
-          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-            activeTab === 'active'
+          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${activeTab === 'active'
               ? 'bg-amber-500/10 border-amber-500/50 dark:bg-amber-950/40 dark:border-amber-500/50 shadow-xs ring-1 ring-amber-500/40'
               : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-center space-x-1 text-amber-500 font-bold text-xs sm:text-sm">
             <span className="text-sm">🏆</span>
@@ -102,11 +101,10 @@ const MyTournamentsCard = ({ myTournaments = {} }) => {
           type="button"
           onClick={() => setActiveTab('upcoming')}
           id="tab-upcoming-tournaments"
-          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-            activeTab === 'upcoming'
+          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${activeTab === 'upcoming'
               ? 'bg-indigo-500/10 border-indigo-500/50 dark:bg-indigo-950/40 dark:border-indigo-500/50 shadow-xs ring-1 ring-indigo-500/40'
               : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-center space-x-1 text-indigo-600 dark:text-indigo-400 font-bold text-xs sm:text-sm">
             <span className="text-sm">📅</span>
@@ -122,11 +120,10 @@ const MyTournamentsCard = ({ myTournaments = {} }) => {
           type="button"
           onClick={() => setActiveTab('completed')}
           id="tab-completed-tournaments"
-          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-            activeTab === 'completed'
+          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${activeTab === 'completed'
               ? 'bg-emerald-500/10 border-emerald-500/50 dark:bg-emerald-950/40 dark:border-emerald-500/50 shadow-xs ring-1 ring-emerald-500/40'
               : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-center space-x-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs sm:text-sm">
             <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">✓</span>
@@ -142,11 +139,10 @@ const MyTournamentsCard = ({ myTournaments = {} }) => {
           type="button"
           onClick={() => setActiveTab('hosted')}
           id="tab-hosted-tournaments"
-          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-            activeTab === 'hosted'
+          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${activeTab === 'hosted'
               ? 'bg-purple-500/10 border-purple-500/50 dark:bg-purple-950/40 dark:border-purple-500/50 shadow-xs ring-1 ring-purple-500/40'
               : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-center space-x-1 text-purple-600 dark:text-purple-400 font-bold text-xs sm:text-sm">
             <Crown className="h-3.5 w-3.5 text-purple-500" />
@@ -165,10 +161,10 @@ const MyTournamentsCard = ({ myTournaments = {} }) => {
             {activeTab === 'active'
               ? 'Active Tournaments'
               : activeTab === 'upcoming'
-              ? 'Upcoming Tournaments'
-              : activeTab === 'hosted'
-              ? 'Hosted Tournaments'
-              : 'Completed Tournaments'}
+                ? 'Upcoming Tournaments'
+                : activeTab === 'hosted'
+                  ? 'Hosted Tournaments'
+                  : 'Completed Tournaments'}
           </span>
           <span className="font-mono text-[11px]">
             {currentList.length} shown
@@ -176,15 +172,15 @@ const MyTournamentsCard = ({ myTournaments = {} }) => {
         </div>
 
         {currentList.length > 0 ? (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-850/50 overflow-hidden">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800/80 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
             {currentList.map((t) => (
               <Link
                 key={t._id}
                 to={`/tournaments/${t._id}`}
-                className="p-3 flex items-center justify-between hover:bg-white dark:hover:bg-slate-800 transition group cursor-pointer"
+                className="p-3 flex items-center justify-between bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors group cursor-pointer"
               >
                 <div className="min-w-0 pr-2">
-                  <div className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+                  <div className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                     {t.name}
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center space-x-2 mt-0.5">
@@ -193,7 +189,7 @@ const MyTournamentsCard = ({ myTournaments = {} }) => {
                       <span>&bull; {formatTimeControl(t.clockLimit, t.increment)}</span>
                     )}
                     {t.isHost && (
-                      <span className="px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-[10px]">
                         Host
                       </span>
                     )}
