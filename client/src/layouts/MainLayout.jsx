@@ -23,6 +23,7 @@ import {
   FileQuestion,
   Mail,
   ChevronDown,
+  LayoutDashboard,
 } from 'lucide-react';
 import { checkApiHealth } from '../services/healthService';
 import { useAuth } from '../context/AuthContext';
@@ -120,18 +121,18 @@ const MainLayout = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             {/* Logo */}
-            <div className="flex items-center space-x-3 shrink-0">
+            <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
               <Link
                 to="/"
-                className="flex items-center space-x-2 font-bold text-lg sm:text-xl text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition"
+                className="flex items-center space-x-2 font-bold text-base sm:text-lg lg:text-xl text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition"
               >
-                <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500" />
+                <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500 shrink-0" />
                 <span>CHESS JEENO</span>
               </Link>
             </div>
 
-            {/* Desktop Nav Links (hidden on mobile, visible on md and up) */}
-            <nav className="hidden md:flex items-center space-x-1 lg:space-x-1.5 flex-nowrap whitespace-nowrap">
+            {/* Desktop / Tablet Nav Links (hidden on mobile < 768px, compact on tablet 768-1199px, full on 1200px+) */}
+            <nav className="hidden md:flex items-center space-x-1 lg:space-x-1.5 flex-nowrap whitespace-nowrap min-w-0">
               <NavLink
                 to="/"
                 end
@@ -146,11 +147,12 @@ const MainLayout = () => {
                 Home
               </NavLink>
 
+              {/* Dashboard: top-level on large desktop (1200px+), accessible in More dropdown on tablet (768-1199px) */}
               {isAuthenticated && (
                 <NavLink
                   to="/dashboard"
                   className={({ isActive }) =>
-                    `px-2.5 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    `hidden xl:inline-flex items-center px-2.5 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isActive
                         ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
                         : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -331,6 +333,26 @@ const MainLayout = () => {
                     aria-label="More Navigation"
                     className="absolute left-0 mt-1.5 w-52 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-1 z-50 space-y-0.5"
                   >
+                    {/* Tablet/Small-Desktop Dashboard access (< 1200px) */}
+                    {isAuthenticated && (
+                      <NavLink
+                        to="/dashboard"
+                        id="more-dashboard-nav-link-tablet"
+                        role="menuitem"
+                        onClick={() => setIsMoreDropdownOpen(false)}
+                        className={({ isActive }) =>
+                          `xl:hidden flex items-center space-x-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`
+                        }
+                      >
+                        <LayoutDashboard className="h-4 w-4 text-indigo-500 shrink-0" />
+                        <span>Dashboard</span>
+                      </NavLink>
+                    )}
+
                     <NavLink
                       to="/about"
                       id="more-about-nav-link-desktop"
@@ -438,21 +460,22 @@ const MainLayout = () => {
                         {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="h-3 w-3" />}
                       </div>
                     )}
-                    <span className="max-w-[120px] truncate">{user.name}</span>
+                    <span className="max-w-[70px] lg:max-w-[120px] truncate">{user.name}</span>
                   </Link>
 
                   <button
                     onClick={logout}
                     id="logout-button"
                     title="Log Out"
+                    aria-label="Log Out"
                     className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
                   >
-                    <LogOut className="h-4 w-4" />
-                    <span className="hidden sm:inline">Logout</span>
+                    <LogOut className="h-4 w-4 shrink-0" />
+                    <span className="hidden xl:inline">Logout</span>
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center space-x-1.5 pl-2 border-l border-slate-200 dark:border-slate-800">
+                <div className="flex items-center space-x-1 sm:space-x-1.5 pl-1.5 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0">
                   <NavLink
                     to="/login"
                     className={({ isActive }) =>
