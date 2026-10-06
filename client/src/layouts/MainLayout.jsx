@@ -183,6 +183,20 @@ const MainLayout = () => {
               </NavLink>
 
               <NavLink
+                to="/team-competitions"
+                className={({ isActive }) =>
+                  `flex items-center space-x-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`
+                }
+              >
+                <Users className="h-4 w-4 shrink-0" />
+                <span>Teams</span>
+              </NavLink>
+
+              <NavLink
                 to="/tournaments/create"
                 className={({ isActive }) =>
                   `flex items-center space-x-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -724,6 +738,21 @@ const MainLayout = () => {
             >
               <List className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               <span>Tournaments</span>
+            </NavLink>
+
+            <NavLink
+              to="/team-competitions"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                    : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`
+              }
+            >
+              <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <span>Team Competitions</span>
             </NavLink>
 
             <NavLink

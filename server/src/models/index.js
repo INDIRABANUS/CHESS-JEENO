@@ -5,6 +5,9 @@ import TournamentJoinRequest from './TournamentJoinRequest.js';
 import Round from './Round.js';
 import Pairing from './Pairing.js';
 import Notification from './Notification.js';
+import TeamCompetition from './TeamCompetition.js';
+import TeamCompetitionTeam from './TeamCompetitionTeam.js';
+import TeamCompetitionMember from './TeamCompetitionMember.js';
 
 export {
   User,
@@ -14,6 +17,9 @@ export {
   Round,
   Pairing,
   Notification,
+  TeamCompetition,
+  TeamCompetitionTeam,
+  TeamCompetitionMember,
 };
 
 export default {
@@ -24,6 +30,9 @@ export default {
   Round,
   Pairing,
   Notification,
+  TeamCompetition,
+  TeamCompetitionTeam,
+  TeamCompetitionMember,
 };
 
 

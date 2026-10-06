@@ -1,8 +1,15 @@
 import express from 'express';
-import { getMe, updateMe, getDashboard } from '../controllers/userController.js';
+import { getMe, updateMe, getDashboard, searchUsers } from '../controllers/userController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+/**
+ * @route   GET /api/users/search
+ * @desc    Search users by name, email, or lichessUsername
+ * @access  Private (Bearer JWT)
+ */
+router.get('/search', requireAuth, searchUsers);
 
 /**
  * @route   GET /api/users/me

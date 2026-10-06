@@ -10,6 +10,10 @@ export const NOTIFICATION_TYPES = [
   'PAIRING_CREATED',
   'GAME_RESULT',
   'TOURNAMENT_COMPLETED',
+  'TEAM_INVITATION',
+  'TEAM_INVITATION_ACCEPTED',
+  'TEAM_INVITATION_DECLINED',
+  'TEAM_CAPTAIN_TRANSFERRED',
 ];
 
 const notificationSchema = new mongoose.Schema(
@@ -43,6 +47,16 @@ const notificationSchema = new mongoose.Schema(
     tournament: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Tournament',
+      default: null,
+    },
+    teamCompetition: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TeamCompetition',
+      default: null,
+    },
+    team: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TeamCompetitionTeam',
       default: null,
     },
     pairing: {

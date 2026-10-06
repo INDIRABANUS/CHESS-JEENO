@@ -45,6 +45,7 @@
     "test:invite": "node src/utils/testTournamentInviteShare.js",
     "test:dashboard": "node src/utils/testPlayerDashboard.js",
     "test:notifications": "node src/utils/testNotificationSystem.js",
+    "test:team-competition": "node src/utils/testTeamCompetition.js",
     "verify:deploy": "node src/utils/verifyDeploymentReadiness.js"
   },
   "dependencies": {
