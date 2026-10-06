@@ -15,6 +15,10 @@ import ProfilePage from './pages/ProfilePage';
 import TournamentsPage from './pages/TournamentsPage';
 import CreateTournamentPage from './pages/CreateTournamentPage';
 import TournamentDetailsPage from './pages/TournamentDetailsPage';
+import AboutPage from './pages/AboutPage';
+import ContactPage from './pages/ContactPage';
+import HelpPage from './pages/HelpPage';
+import FAQPage from './pages/FAQPage';
 
 function App() {
   return (
@@ -34,6 +38,10 @@ function App() {
           <Route path="tournaments" element={<TournamentsPage />} />
           <Route path="tournaments/create" element={<CreateTournamentPage />} />
           <Route path="tournaments/:id" element={<TournamentDetailsPage />} />
+          <Route path="about" element={<AboutPage />} />
+          <Route path="contact" element={<ContactPage />} />
+          <Route path="help" element={<HelpPage />} />
+          <Route path="faq" element={<FAQPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

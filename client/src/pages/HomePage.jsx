@@ -306,36 +306,6 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-
-      {/* 7. FOOTER */}
-      <footer className="pt-8 pb-4 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 space-y-3">
-        <div className="font-bold text-slate-800 dark:text-slate-200 text-sm tracking-wide">
-          CHESS JEENO
-        </div>
-        <p className="text-slate-500 dark:text-slate-400 text-xs">
-          A simple tournament platform for competitive chess.
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-6 gap-y-1 text-xs text-slate-600 dark:text-slate-400 pt-1">
-          <Link
-            to="/tournaments"
-            className="inline-flex items-center min-h-[44px] px-2 py-2 sm:min-h-0 sm:px-0 sm:py-0 hover:text-indigo-600 dark:hover:text-indigo-400 transition font-medium"
-          >
-            Tournaments
-          </Link>
-          <Link
-            to="/tournaments/create"
-            className="inline-flex items-center min-h-[44px] px-2 py-2 sm:min-h-0 sm:px-0 sm:py-0 hover:text-indigo-600 dark:hover:text-indigo-400 transition font-medium"
-          >
-            Create Tournament
-          </Link>
-          <Link
-            to="/profile"
-            className="inline-flex items-center min-h-[44px] px-2 py-2 sm:min-h-0 sm:px-0 sm:py-0 hover:text-indigo-600 dark:hover:text-indigo-400 transition font-medium"
-          >
-            Profile
-          </Link>
-        </div>
-      </footer>
     </div>
   );
 };

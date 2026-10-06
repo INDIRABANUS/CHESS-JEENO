@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   Trophy,
@@ -18,10 +18,16 @@ import {
   Shield,
   Users,
   BarChart3,
+  Info,
+  HelpCircle,
+  FileQuestion,
+  Mail,
+  ChevronDown,
 } from 'lucide-react';
 import { checkApiHealth } from '../services/healthService';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import Footer from '../components/Footer';
 
 const MainLayout = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -29,10 +35,21 @@ const MainLayout = () => {
   const location = useLocation();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAdminDropdownOpen, setIsAdminDropdownOpen] = useState(false);
+  const [isMoreDropdownOpen, setIsMoreDropdownOpen] = useState(false);
+  const adminDropdownRef = useRef(null);
+  const moreDropdownRef = useRef(null);
+
   const [backendHealth, setBackendHealth] = useState({
     status: 'checking', // 'connected', 'error', 'checking'
     message: 'Checking API health...',
   });
+
+  // Determine active route state for dropdown triggers
+  const isAdminActive = location.pathname === '/admin' || location.pathname.startsWith('/admin/');
+  const isMoreActive = ['/about', '/help', '/faq', '/contact'].some(
+    (p) => location.pathname === p || location.pathname.startsWith(`${p}/`)
+  );
 
   const verifyHealth = async () => {
     setBackendHealth({ status: 'checking', message: 'Checking API health...' });
@@ -62,25 +79,39 @@ const MainLayout = () => {
     verifyHealth();
   }, []);
 
-  // Close mobile menu on route changes
+  // Close all menus on route changes
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    setIsAdminDropdownOpen(false);
+    setIsMoreDropdownOpen(false);
   }, [location.pathname]);
 
-  // Close mobile menu on Escape key press
+  // Handle click outside and Escape key for dropdown menus and mobile drawer
   useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (adminDropdownRef.current && !adminDropdownRef.current.contains(e.target)) {
+        setIsAdminDropdownOpen(false);
+      }
+      if (moreDropdownRef.current && !moreDropdownRef.current.contains(e.target)) {
+        setIsMoreDropdownOpen(false);
+      }
+    };
+
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         setIsMobileMenuOpen(false);
+        setIsAdminDropdownOpen(false);
+        setIsMoreDropdownOpen(false);
       }
     };
-    if (isMobileMenuOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isMobileMenuOpen]);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-150">
@@ -89,7 +120,7 @@ const MainLayout = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             {/* Logo */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 shrink-0">
               <Link
                 to="/"
                 className="flex items-center space-x-2 font-bold text-lg sm:text-xl text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition"
@@ -100,12 +131,12 @@ const MainLayout = () => {
             </div>
 
             {/* Desktop Nav Links (hidden on mobile, visible on md and up) */}
-            <nav className="hidden md:flex items-center space-x-1 sm:space-x-2">
+            <nav className="hidden md:flex items-center space-x-1 lg:space-x-1.5 flex-nowrap whitespace-nowrap">
               <NavLink
                 to="/"
                 end
                 className={({ isActive }) =>
-                  `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  `px-2.5 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
                       ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
                       : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -119,7 +150,7 @@ const MainLayout = () => {
                 <NavLink
                   to="/dashboard"
                   className={({ isActive }) =>
-                    `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    `px-2.5 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isActive
                         ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
                         : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -130,100 +161,246 @@ const MainLayout = () => {
                 </NavLink>
               )}
 
-              {/* Platform Admin Links (Visible only to authenticated ADMINs) */}
-              {isAuthenticated && user?.role === 'ADMIN' && (
-                <>
-                  <NavLink
-                    to="/admin"
-                    end
-                    id="admin-nav-link-desktop"
-                    className={({ isActive }) =>
-                      `flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold'
-                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                      }`
-                    }
-                  >
-                    <Shield className="h-4 w-4 text-amber-500" />
-                    <span>Admin</span>
-                  </NavLink>
-
-                  <NavLink
-                    to="/admin/users"
-                    id="admin-users-nav-link-desktop"
-                    className={({ isActive }) =>
-                      `flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold'
-                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                      }`
-                    }
-                  >
-                    <Users className="h-4 w-4 text-amber-500" />
-                    <span>Users</span>
-                  </NavLink>
-
-                  <NavLink
-                    to="/admin/tournaments"
-                    id="admin-tournaments-nav-link-desktop"
-                    className={({ isActive }) =>
-                      `flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold'
-                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                      }`
-                    }
-                  >
-                    <Trophy className="h-4 w-4 text-amber-500" />
-                    <span>Tournaments</span>
-                  </NavLink>
-
-                  <NavLink
-                    to="/admin/analytics"
-                    id="admin-analytics-nav-link-desktop"
-                    className={({ isActive }) =>
-                      `flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold'
-                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                      }`
-                    }
-                  >
-                    <BarChart3 className="h-4 w-4 text-amber-500" />
-                    <span>Analytics</span>
-                  </NavLink>
-                </>
-              )}
-
               <NavLink
                 to="/tournaments"
                 end
                 className={({ isActive }) =>
-                  `flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  `flex items-center space-x-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
                       ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
                       : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`
                 }
               >
-                <List className="h-4 w-4" />
+                <List className="h-4 w-4 shrink-0" />
                 <span>Tournaments</span>
               </NavLink>
 
               <NavLink
                 to="/tournaments/create"
                 className={({ isActive }) =>
-                  `flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  `flex items-center space-x-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
                       ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
                       : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`
                 }
               >
-                <PlusCircle className="h-4 w-4" />
+                <PlusCircle className="h-4 w-4 shrink-0" />
                 <span>Create</span>
               </NavLink>
+
+              {/* Platform Admin Dropdown Menu (Visible only to authenticated ADMINs) */}
+              {isAuthenticated && user?.role === 'ADMIN' && (
+                <div className="relative" ref={adminDropdownRef}>
+                  <button
+                    type="button"
+                    id="admin-dropdown-trigger"
+                    aria-haspopup="true"
+                    aria-expanded={isAdminDropdownOpen}
+                    aria-controls="admin-dropdown-menu"
+                    onClick={() => {
+                      setIsAdminDropdownOpen((prev) => !prev);
+                      setIsMoreDropdownOpen(false);
+                    }}
+                    className={`flex items-center space-x-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer select-none ${
+                      isAdminActive
+                        ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold ring-1 ring-amber-300/70 dark:ring-amber-800/80'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <Shield className="h-4 w-4 text-amber-500 shrink-0" />
+                    <span>Admin</span>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 transition-transform duration-150 shrink-0 ${
+                        isAdminDropdownOpen ? 'rotate-180 text-amber-600 dark:text-amber-400' : 'text-slate-400'
+                      }`}
+                    />
+                  </button>
+
+                  {isAdminDropdownOpen && (
+                    <div
+                      id="admin-dropdown-menu"
+                      role="menu"
+                      aria-label="Admin Navigation"
+                      className="absolute left-0 mt-1.5 w-56 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-1 z-50 space-y-0.5"
+                    >
+                      <NavLink
+                        to="/admin"
+                        end
+                        id="admin-nav-link-desktop"
+                        role="menuitem"
+                        onClick={() => setIsAdminDropdownOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center space-x-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold'
+                              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`
+                        }
+                      >
+                        <Shield className="h-4 w-4 text-amber-500 shrink-0" />
+                        <span>Overview</span>
+                      </NavLink>
+
+                      <NavLink
+                        to="/admin/users"
+                        id="admin-users-nav-link-desktop"
+                        role="menuitem"
+                        onClick={() => setIsAdminDropdownOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center space-x-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold'
+                              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`
+                        }
+                      >
+                        <Users className="h-4 w-4 text-amber-500 shrink-0" />
+                        <span>Users</span>
+                      </NavLink>
+
+                      <NavLink
+                        to="/admin/tournaments"
+                        id="admin-tournaments-nav-link-desktop"
+                        role="menuitem"
+                        onClick={() => setIsAdminDropdownOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center space-x-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold'
+                              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`
+                        }
+                      >
+                        <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
+                        <span>Tournaments</span>
+                      </NavLink>
+
+                      <NavLink
+                        to="/admin/analytics"
+                        id="admin-analytics-nav-link-desktop"
+                        role="menuitem"
+                        onClick={() => setIsAdminDropdownOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center space-x-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold'
+                              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`
+                        }
+                      >
+                        <BarChart3 className="h-4 w-4 text-amber-500 shrink-0" />
+                        <span>Analytics</span>
+                      </NavLink>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Public Informational Dropdown Menu (More) */}
+              <div className="relative" ref={moreDropdownRef}>
+                <button
+                  type="button"
+                  id="more-dropdown-trigger"
+                  aria-haspopup="true"
+                  aria-expanded={isMoreDropdownOpen}
+                  aria-controls="more-dropdown-menu"
+                  onClick={() => {
+                    setIsMoreDropdownOpen((prev) => !prev);
+                    setIsAdminDropdownOpen(false);
+                  }}
+                  className={`flex items-center space-x-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer select-none ${
+                    isMoreActive
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold ring-1 ring-indigo-200 dark:ring-indigo-800/80'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span>More</span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform duration-150 shrink-0 ${
+                      isMoreDropdownOpen ? 'rotate-180 text-indigo-600 dark:text-indigo-400' : 'text-slate-400'
+                    }`}
+                  />
+                </button>
+
+                {isMoreDropdownOpen && (
+                  <div
+                    id="more-dropdown-menu"
+                    role="menu"
+                    aria-label="More Navigation"
+                    className="absolute left-0 mt-1.5 w-52 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-1 z-50 space-y-0.5"
+                  >
+                    <NavLink
+                      to="/about"
+                      id="more-about-nav-link-desktop"
+                      role="menuitem"
+                      onClick={() => setIsMoreDropdownOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center space-x-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`
+                      }
+                    >
+                      <Info className="h-4 w-4 text-indigo-500 shrink-0" />
+                      <span>About</span>
+                    </NavLink>
+
+                    <NavLink
+                      to="/help"
+                      id="more-help-nav-link-desktop"
+                      role="menuitem"
+                      onClick={() => setIsMoreDropdownOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center space-x-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`
+                      }
+                    >
+                      <HelpCircle className="h-4 w-4 text-indigo-500 shrink-0" />
+                      <span>Help & How It Works</span>
+                    </NavLink>
+
+                    <NavLink
+                      to="/faq"
+                      id="more-faq-nav-link-desktop"
+                      role="menuitem"
+                      onClick={() => setIsMoreDropdownOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center space-x-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`
+                      }
+                    >
+                      <FileQuestion className="h-4 w-4 text-indigo-500 shrink-0" />
+                      <span>FAQ</span>
+                    </NavLink>
+
+                    <NavLink
+                      to="/contact"
+                      id="more-contact-nav-link-desktop"
+                      role="menuitem"
+                      onClick={() => setIsMoreDropdownOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center space-x-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`
+                      }
+                    >
+                      <Mail className="h-4 w-4 text-indigo-500 shrink-0" />
+                      <span>Contact</span>
+                    </NavLink>
+                  </div>
+                )}
+              </div>
 
               {/* Theme Toggle (Desktop) */}
               <button
@@ -340,8 +517,8 @@ const MainLayout = () => {
               </button>
             </div>
 
-            {/* Backend Health Badge (desktop only) */}
-            <div className="hidden lg:flex items-center space-x-2">
+            {/* Backend Health Badge (desktop only, shown on xl screens to maintain clean spacing) */}
+            <div className="hidden xl:flex items-center space-x-2 shrink-0">
               <button
                 onClick={verifyHealth}
                 title="Click to re-check API health"
@@ -510,6 +687,68 @@ const MainLayout = () => {
               <span>Create Tournament</span>
             </NavLink>
 
+            <div className="pt-2 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-1">
+              <NavLink
+                to="/about"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`
+                }
+              >
+                <Info className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <span>About</span>
+              </NavLink>
+
+              <NavLink
+                to="/help"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`
+                }
+              >
+                <HelpCircle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <span>Help & How It Works</span>
+              </NavLink>
+
+              <NavLink
+                to="/faq"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`
+                }
+              >
+                <FileQuestion className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <span>FAQ</span>
+              </NavLink>
+
+              <NavLink
+                to="/contact"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`
+                }
+              >
+                <Mail className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <span>Contact</span>
+              </NavLink>
+            </div>
+
             {/* Mobile Theme Toggle Item */}
             <div className="pt-2 mt-1 border-t border-slate-100 dark:border-slate-800">
               <button
@@ -615,9 +854,7 @@ const MainLayout = () => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-4 text-center text-sm sm:text-xs text-slate-500 dark:text-slate-400">
-        <p>CHESS JEENO &bull; Foundation Layer</p>
-      </footer>
+      <Footer />
     </div>
   );
 };
