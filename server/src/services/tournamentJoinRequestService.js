@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Tournament from '../models/Tournament.js';
 import TournamentPlayer from '../models/TournamentPlayer.js';
 import TournamentJoinRequest from '../models/TournamentJoinRequest.js';
+import * as notificationService from './notificationService.js';
 
 /**
  * Creates a join request for a player.
@@ -99,6 +100,27 @@ export const createJoinRequest = async (tournamentId, userId) => {
       }
     } catch (_) {
       // Non-blocking socket emission
+    }
+
+    // Notify tournament host about new join request
+    try {
+      const requesterName = populatedRequest.user?.name || 'A player';
+      await notificationService.createNotification({
+        recipient: tournament.createdBy,
+        type: 'JOIN_REQUEST_RECEIVED',
+        title: 'New join request',
+        message: `${requesterName} requested to join ${tournament.name}.`,
+        tournament: tournament._id,
+        metadata: {
+          requestId: request._id,
+          tournamentName: tournament.name,
+          requesterId: userId,
+          requesterName,
+        },
+        eventKey: `JOIN_REQUEST_RECEIVED:${tournament._id}:${userId}`,
+      });
+    } catch (notifErr) {
+      console.warn('[Notification] Failed to create join request received notification:', notifErr.message);
     }
 
     return populatedRequest;
@@ -281,6 +303,25 @@ export const approveJoinRequest = async (tournamentId, requestId, hostUserId) =>
     // Non-blocking socket emission
   }
 
+  // Notify player about approved request
+  try {
+    const recipientUserId = request.user?._id || request.user;
+    await notificationService.createNotification({
+      recipient: recipientUserId,
+      type: 'JOIN_REQUEST_APPROVED',
+      title: 'Join request approved',
+      message: `You have been approved to join ${tournament.name}.`,
+      tournament: tournament._id,
+      metadata: {
+        requestId: request._id,
+        tournamentName: tournament.name,
+      },
+      eventKey: `JOIN_REQUEST_APPROVED:${tournament._id}:${recipientUserId}`,
+    });
+  } catch (notifErr) {
+    console.warn('[Notification] Failed to create join request approved notification:', notifErr.message);
+  }
+
   return { request: populatedRequest, player: populatedPlayer };
 };
 
@@ -365,6 +406,25 @@ export const rejectJoinRequest = async (tournamentId, requestId, hostUserId) => 
     }
   } catch (_) {
     // Non-blocking socket emission
+  }
+
+  // Notify player about rejected request
+  try {
+    const recipientUserId = request.user?._id || request.user;
+    await notificationService.createNotification({
+      recipient: recipientUserId,
+      type: 'JOIN_REQUEST_REJECTED',
+      title: 'Join request rejected',
+      message: `Your request to join ${tournament.name} was rejected.`,
+      tournament: tournament._id,
+      metadata: {
+        requestId: request._id,
+        tournamentName: tournament.name,
+      },
+      eventKey: `JOIN_REQUEST_REJECTED:${tournament._id}:${recipientUserId}`,
+    });
+  } catch (notifErr) {
+    console.warn('[Notification] Failed to create join request rejected notification:', notifErr.message);
   }
 
   return populatedRequest;

@@ -24,15 +24,19 @@ import {
   Mail,
   ChevronDown,
   LayoutDashboard,
+  Bell,
 } from 'lucide-react';
 import { checkApiHealth } from '../services/healthService';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useNotifications } from '../context/NotificationContext';
+import NotificationBell from '../components/NotificationBell';
 import Footer from '../components/Footer';
 
 const MainLayout = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
+  const { unreadCount } = useNotifications();
   const location = useLocation();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -440,6 +444,9 @@ const MainLayout = () => {
                 )}
               </button>
 
+              {/* Notification Bell (Desktop/Tablet) */}
+              {isAuthenticated && <NotificationBell />}
+
               {/* Authentication Status Area */}
               {isAuthenticated && user ? (
                 <div className="flex items-center space-x-2 pl-2 border-l border-slate-200 dark:border-slate-800">
@@ -507,8 +514,10 @@ const MainLayout = () => {
               )}
             </nav>
 
-            {/* Mobile Header Actions (Theme Toggle + Menu Button) */}
+            {/* Mobile Header Actions (Notification Bell + Theme Toggle + Menu Button) */}
             <div className="flex items-center space-x-1.5 md:hidden">
+              {isAuthenticated && <NotificationBell />}
+
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -606,6 +615,28 @@ const MainLayout = () => {
                 }
               >
                 <span>Dashboard</span>
+              </NavLink>
+            )}
+
+            {isAuthenticated && (
+              <NavLink
+                to="/notifications"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`
+                }
+              >
+                <Bell className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <span className="flex-1">Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-600 text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </NavLink>
             )}
 

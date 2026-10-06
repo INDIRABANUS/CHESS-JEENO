@@ -44,3 +44,33 @@ export const formatDate = (dateString) => {
     minute: '2-digit',
   });
 };
+
+/**
+ * Format an ISO date or timestamp into a short relative time string.
+ * e.g., 'just now', '2 min ago', '1h ago', '3d ago'
+ *
+ * @param {string|Date} dateInput
+ * @returns {string}
+ */
+export const formatTimeAgo = (dateInput) => {
+  if (!dateInput) return '';
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return '';
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+
+  if (seconds < 30) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+

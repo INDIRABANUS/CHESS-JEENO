@@ -812,6 +812,35 @@ export const startCountdown = async (tournamentId, userId, options = {}) => {
     // Non-fatal realtime warning
   }
 
+  // Notify registered players that tournament countdown has started
+  try {
+    const players = await TournamentPlayer.find({ tournamentId });
+    const notificationService = await import('./notificationService.js');
+    const notifPromises = [];
+    for (const p of players) {
+      const pUserId = p.userId?._id || p.userId;
+      if (pUserId) {
+        notifPromises.push(
+          notificationService.createNotification({
+            recipient: pUserId,
+            type: 'TOURNAMENT_STARTING',
+            title: 'Tournament starting',
+            message: `${finalTournament.name} is starting in ${countdownSeconds} seconds!`,
+            tournament: finalTournament._id,
+            metadata: {
+              tournamentName: finalTournament.name,
+              countdownSeconds,
+            },
+            eventKey: `TOURNAMENT_STARTING:${tournamentId.toString()}:${pUserId.toString()}`,
+          }).catch((err) => console.warn('[Notification] Failed to notify player countdown start:', err.message))
+        );
+      }
+    }
+    await Promise.all(notifPromises);
+  } catch (notifErr) {
+    console.warn('[Notification] Tournament starting notification error:', notifErr.message);
+  }
+
   const resObj = finalTournament.toObject();
   resObj.registeredPlayers = totalPlayers;
   resObj.readyPlayers = readyCount;
@@ -940,6 +969,35 @@ export const startTournament = async (tournamentId, userId = null) => {
     }
   } catch (err) {
     // Non-fatal realtime warning
+  }
+
+  // Notify participants that tournament has started
+  try {
+    const players = await TournamentPlayer.find({ tournamentId });
+    const notificationService = await import('./notificationService.js');
+    const notifPromises = [];
+    for (const p of players) {
+      const pUserId = p.userId?._id || p.userId;
+      if (pUserId) {
+        notifPromises.push(
+          notificationService.createNotification({
+            recipient: pUserId,
+            type: 'TOURNAMENT_STARTING',
+            title: 'Tournament started',
+            message: `${tournament.name} has started! Round 1 is underway.`,
+            tournament: tournament._id,
+            metadata: {
+              tournamentName: tournament.name,
+              roundNumber: 1,
+            },
+            eventKey: `TOURNAMENT_STARTING:${tournamentId.toString()}:${pUserId.toString()}`,
+          }).catch((err) => console.warn('[Notification] Failed to notify player tournament start:', err.message))
+        );
+      }
+    }
+    await Promise.all(notifPromises);
+  } catch (notifErr) {
+    console.warn('[Notification] Tournament start notification error:', notifErr.message);
   }
 
   return tournament;

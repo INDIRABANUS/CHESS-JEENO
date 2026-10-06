@@ -76,6 +76,35 @@ export const finishTournament = async (tournamentOrId, reason = 'TOTAL_ROUNDS_RE
     // Non-fatal
   }
 
+  // Notify tournament participants about tournament completion
+  try {
+    const players = await TournamentPlayer.find({ tournamentId: tournament._id });
+    const notificationService = await import('./notificationService.js');
+    const notifPromises = [];
+    for (const p of players) {
+      const pUserId = p.userId?._id || p.userId;
+      if (pUserId) {
+        notifPromises.push(
+          notificationService.createNotification({
+            recipient: pUserId,
+            type: 'TOURNAMENT_COMPLETED',
+            title: 'Tournament completed',
+            message: `${tournament.name} has finished. View the final standings.`,
+            tournament: tournament._id,
+            metadata: {
+              tournamentName: tournament.name,
+              completionReason: tournament.completionReason || reason,
+            },
+            eventKey: `TOURNAMENT_COMPLETED:${tournament._id.toString()}:${pUserId.toString()}`,
+          }).catch((err) => console.warn('[Notification] Failed to create tournament completed notification:', err.message))
+        );
+      }
+    }
+    await Promise.all(notifPromises);
+  } catch (nErr) {
+    console.warn('[Notification] Tournament completion notification error:', nErr.message);
+  }
+
   return tournament;
 };
 
@@ -311,6 +340,86 @@ export const createRound = async (tournamentId, userId = null) => {
   const populatedPairings = await Pairing.find({ roundId: round._id })
     .populate('whitePlayer', 'name email avatar lichessUsername')
     .populate('blackPlayer', 'name email avatar lichessUsername');
+
+  // Generate in-app notifications for pairings and round readiness
+  try {
+    const notificationService = await import('./notificationService.js');
+    const notifPromises = [];
+    for (const p of populatedPairings) {
+      const whiteId = p.whitePlayer?._id || p.whitePlayer;
+      const blackId = p.blackPlayer?._id || p.blackPlayer;
+      const whiteName = p.whitePlayer?.name || 'White';
+      const blackName = p.blackPlayer?.name || 'Black';
+
+      if (whiteId) {
+        const msg = blackId
+          ? `You have been paired against ${blackName}.`
+          : `You have received a BYE for Round ${nextRoundNumber}.`;
+        notifPromises.push(
+          notificationService.createNotification({
+            recipient: whiteId,
+            type: 'PAIRING_CREATED',
+            title: `Round ${nextRoundNumber} pairing ready`,
+            message: msg,
+            tournament: tournamentId,
+            round: round._id,
+            pairing: p._id,
+            metadata: {
+              roundNumber: nextRoundNumber,
+              opponentName: blackId ? blackName : 'BYE',
+              lichessGameUrl: p.lichessGameUrl || null,
+            },
+            eventKey: `PAIRING_CREATED:${p._id.toString()}:${whiteId.toString()}`,
+          }).catch((err) => console.warn('[Notification] Failed to notify white player pairing:', err.message))
+        );
+      }
+
+      if (blackId) {
+        notifPromises.push(
+          notificationService.createNotification({
+            recipient: blackId,
+            type: 'PAIRING_CREATED',
+            title: `Round ${nextRoundNumber} pairing ready`,
+            message: `You have been paired against ${whiteName}.`,
+            tournament: tournamentId,
+            round: round._id,
+            pairing: p._id,
+            metadata: {
+              roundNumber: nextRoundNumber,
+              opponentName: whiteName,
+              lichessGameUrl: p.lichessGameUrl || null,
+            },
+            eventKey: `PAIRING_CREATED:${p._id.toString()}:${blackId.toString()}`,
+          }).catch((err) => console.warn('[Notification] Failed to notify black player pairing:', err.message))
+        );
+      }
+    }
+
+    // Also notify registered players about the new round being ready
+    for (const player of registeredPlayers) {
+      const pUserId = player.userId?._id || player.userId;
+      if (pUserId) {
+        notifPromises.push(
+          notificationService.createNotification({
+            recipient: pUserId,
+            type: 'ROUND_READY',
+            title: `Round ${nextRoundNumber} is ready`,
+            message: `Round ${nextRoundNumber} has been generated for ${tournament.name}.`,
+            tournament: tournamentId,
+            round: round._id,
+            metadata: {
+              roundNumber: nextRoundNumber,
+              tournamentName: tournament.name,
+            },
+            eventKey: `ROUND_READY:${tournamentId.toString()}:${nextRoundNumber}:${pUserId.toString()}`,
+          }).catch((err) => console.warn('[Notification] Failed to notify player round ready:', err.message))
+        );
+      }
+    }
+    await Promise.all(notifPromises);
+  } catch (notifErr) {
+    console.warn('[Notification] Round/pairing notification error:', notifErr.message);
+  }
 
   return {
     round: populatedRound,

@@ -112,6 +112,11 @@ export const initSocketServer = (httpServer, options = {}) => {
 
   // Connection handler
   io.on('connection', (socket) => {
+    // Automatically join the authenticated user's private room for direct notifications
+    if (socket.userId) {
+      socket.join(`user:${socket.userId}`);
+    }
+
     // 1. Tournament room subscription events
     socket.on('joinTournament', (data, callback) => {
       handleJoinTournament(socket, data, callback);

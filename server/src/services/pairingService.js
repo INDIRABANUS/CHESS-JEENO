@@ -513,6 +513,8 @@ export const syncPairingResult = async (
   }
 
   // 6. Fetch game state from Lichess
+  const previousResult = pairing.result;
+  const previousStatus = pairing.status;
   const gameData = await lichessService.getGameResult(pairing.lichessGameId, options);
 
   // 7. Update Pairing
@@ -537,6 +539,72 @@ export const syncPairingResult = async (
   if (pairing.tournamentId) {
     await standingsService.syncTournamentPlayerScores(pairing.tournamentId);
   }
+
+  // Notify players if the result or terminal status transitioned
+  const hasResultChanged =
+    gameData.completed &&
+    (pairing.result !== previousResult || pairing.status !== previousStatus) &&
+    pairing.result !== 'PENDING';
+
+  if (hasResultChanged) {
+    try {
+      const notificationService = await import('./notificationService.js');
+      let roundNum = rNum;
+      if (!roundNum && pairing.roundId) {
+        const foundRound = await Round.findById(pairing.roundId);
+        if (foundRound) roundNum = foundRound.roundNumber;
+      }
+      roundNum = roundNum || 1;
+
+      const whiteId = pairing.whitePlayer?._id || pairing.whitePlayer;
+      const blackId = pairing.blackPlayer?._id || pairing.blackPlayer;
+      const whiteName = pairing.whitePlayer?.name || 'White';
+      const blackName = pairing.blackPlayer?.name || 'Black';
+
+      if (whiteId) {
+        notificationService.createNotification({
+          recipient: whiteId,
+          type: 'GAME_RESULT',
+          title: 'Game result updated',
+          message: `Your Round ${roundNum} game against ${blackName} has been recorded.`,
+          tournament: pairing.tournamentId,
+          pairing: pairing._id,
+          round: pairing.roundId,
+          metadata: {
+            roundNumber: roundNum,
+            opponentName: blackName,
+            result: pairing.result,
+            status: pairing.status,
+            lichessGameUrl: pairing.lichessGameUrl,
+          },
+          eventKey: `GAME_RESULT:${pairing._id.toString()}:${whiteId.toString()}:${pairing.result}`,
+        }).catch((err) => console.warn('[Notification] Failed to notify white player game result:', err.message));
+      }
+
+      if (blackId) {
+        notificationService.createNotification({
+          recipient: blackId,
+          type: 'GAME_RESULT',
+          title: 'Game result updated',
+          message: `Your Round ${roundNum} game against ${whiteName} has been recorded.`,
+          tournament: pairing.tournamentId,
+          pairing: pairing._id,
+          round: pairing.roundId,
+          metadata: {
+            roundNumber: roundNum,
+            opponentName: whiteName,
+            result: pairing.result,
+            status: pairing.status,
+            lichessGameUrl: pairing.lichessGameUrl,
+          },
+          eventKey: `GAME_RESULT:${pairing._id.toString()}:${blackId.toString()}:${pairing.result}`,
+        }).catch((err) => console.warn('[Notification] Failed to notify black player game result:', err.message));
+      }
+    } catch (notifErr) {
+      console.warn('[Notification] Game result notification error:', notifErr.message);
+    }
+  }
+
   return pairing;
 };
 

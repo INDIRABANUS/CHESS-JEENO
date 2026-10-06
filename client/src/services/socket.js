@@ -184,10 +184,37 @@ export const leaveTournamentRoom = (tournamentId) => {
   }
 };
 
+/**
+ * Subscribes to direct user notifications on the existing socket.
+ * 
+ * @param {Function} onNotification
+ * @returns {Function} Unsubscribe cleanup function
+ */
+export const subscribeToNotifications = (onNotification) => {
+  if (!onNotification || typeof onNotification !== 'function') {
+    return () => {};
+  }
+
+  const currentSocket = socket || connectSocket();
+  if (!currentSocket) {
+    return () => {};
+  }
+
+  currentSocket.on('notification:new', onNotification);
+
+  return () => {
+    if (currentSocket) {
+      currentSocket.off('notification:new', onNotification);
+    }
+  };
+};
+
 export default {
   connectSocket,
   getSocket,
   disconnectSocket,
   joinTournamentRoom,
   leaveTournamentRoom,
+  subscribeToNotifications,
 };
+

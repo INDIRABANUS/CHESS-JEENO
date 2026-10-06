@@ -5,6 +5,7 @@ import authRoutes from './authRoutes.js';
 import lichessRoutes from './lichessRoutes.js';
 import userRoutes from './userRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
 import { resolveCreatorId } from '../utils/devUser.js';
 import User from '../models/User.js';
 
@@ -14,6 +15,7 @@ apiRouter.use('/', healthRoutes);
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/users', userRoutes);
 apiRouter.use('/tournaments', tournamentRoutes);
+apiRouter.use('/notifications', notificationRoutes);
 apiRouter.use('/lichess', lichessRoutes);
 apiRouter.use('/admin', adminRoutes);
 
