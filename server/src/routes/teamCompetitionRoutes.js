@@ -20,6 +20,22 @@ import {
   transferCaptain,
   getMyInvitations,
 } from '../controllers/teamCompetitionController.js';
+import {
+  createRound,
+  getRounds,
+  getRoundById,
+  updateRound,
+  createMatch,
+  getMatches,
+  getMatchById,
+  getMatchBoards,
+  updateMatch,
+  cancelMatch,
+  updateLineup,
+  setPlayerReady,
+  lockLineup,
+  unlockLineup,
+} from '../controllers/teamMatchController.js';
 import { requireAuth, optionalAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -64,4 +80,48 @@ router.route('/:competitionId/teams/:teamId/members/:userId')
 
 router.post('/:competitionId/teams/:teamId/transfer-captain', requireAuth, transferCaptain);
 
+// ==========================================
+// Team Competition V2: Rounds & Matches
+// ==========================================
+
+// Rounds under a competition
+router.route('/:competitionId/rounds')
+  .post(requireAuth, createRound)
+  .get(optionalAuth, getRounds);
+
+router.route('/:competitionId/rounds/:roundId')
+  .get(optionalAuth, getRoundById)
+  .patch(requireAuth, updateRound);
+
+// Matches under a round
+router.route('/:competitionId/rounds/:roundId/matches')
+  .post(requireAuth, createMatch)
+  .get(optionalAuth, getMatches);
+
+// Matches under a competition
+router.route('/:competitionId/matches')
+  .get(optionalAuth, getMatches);
+
+// Single Match details & update
+router.route('/:competitionId/matches/:matchId')
+  .get(optionalAuth, getMatchById)
+  .patch(requireAuth, updateMatch);
+
+// Match cancellation
+router.post('/:competitionId/matches/:matchId/cancel', requireAuth, cancelMatch);
+
+// Match boards
+router.get('/:competitionId/matches/:matchId/boards', optionalAuth, getMatchBoards);
+
+// Match lineup management
+router.patch('/:competitionId/matches/:matchId/lineup', requireAuth, updateLineup);
+
+// Match player readiness
+router.post('/:competitionId/matches/:matchId/ready', requireAuth, setPlayerReady);
+
+// Match team lineup lock & unlock
+router.post('/:competitionId/matches/:matchId/lock-lineup', requireAuth, lockLineup);
+router.post('/:competitionId/matches/:matchId/unlock-lineup', requireAuth, unlockLineup);
+
 export default router;
+

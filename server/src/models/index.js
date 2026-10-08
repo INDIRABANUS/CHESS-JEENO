@@ -8,6 +8,9 @@ import Notification from './Notification.js';
 import TeamCompetition from './TeamCompetition.js';
 import TeamCompetitionTeam from './TeamCompetitionTeam.js';
 import TeamCompetitionMember from './TeamCompetitionMember.js';
+import TeamCompetitionRound from './TeamCompetitionRound.js';
+import TeamMatch from './TeamMatch.js';
+import TeamMatchBoard from './TeamMatchBoard.js';
 
 export {
   User,
@@ -20,6 +23,9 @@ export {
   TeamCompetition,
   TeamCompetitionTeam,
   TeamCompetitionMember,
+  TeamCompetitionRound,
+  TeamMatch,
+  TeamMatchBoard,
 };
 
 export default {
@@ -33,6 +39,9 @@ export default {
   TeamCompetition,
   TeamCompetitionTeam,
   TeamCompetitionMember,
+  TeamCompetitionRound,
+  TeamMatch,
+  TeamMatchBoard,
 };
 
 

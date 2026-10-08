@@ -14,6 +14,9 @@ export const NOTIFICATION_TYPES = [
   'TEAM_INVITATION_ACCEPTED',
   'TEAM_INVITATION_DECLINED',
   'TEAM_CAPTAIN_TRANSFERRED',
+  'TEAM_MATCH_BOARD_ASSIGNED',
+  'TEAM_LINEUP_LOCKED',
+  'TEAM_MATCH_READY',
 ];
 
 const notificationSchema = new mongoose.Schema(
@@ -57,6 +60,16 @@ const notificationSchema = new mongoose.Schema(
     team: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'TeamCompetitionTeam',
+      default: null,
+    },
+    teamMatch: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TeamMatch',
+      default: null,
+    },
+    teamRound: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TeamCompetitionRound',
       default: null,
     },
     pairing: {

@@ -163,6 +163,122 @@ export const searchUsers = async (query) => {
   return response.data.data;
 };
 
+// ==========================================
+// Team Competition V2: Rounds & Matches
+// ==========================================
+
+/**
+ * Create a new round (Organizer).
+ */
+export const createRound = async (competitionId, data) => {
+  const response = await api.post(`/team-competitions/${competitionId}/rounds`, data);
+  return response.data.data;
+};
+
+/**
+ * Get all rounds for a competition.
+ */
+export const getRounds = async (competitionId) => {
+  const response = await api.get(`/team-competitions/${competitionId}/rounds`);
+  return response.data.data;
+};
+
+/**
+ * Get round details including matches.
+ */
+export const getRoundById = async (competitionId, roundId) => {
+  const response = await api.get(`/team-competitions/${competitionId}/rounds/${roundId}`);
+  return response.data.data;
+};
+
+/**
+ * Update round details or advance status.
+ */
+export const updateRound = async (competitionId, roundId, data) => {
+  const response = await api.patch(`/team-competitions/${competitionId}/rounds/${roundId}`, data);
+  return response.data.data;
+};
+
+/**
+ * Create a match inside a round (Organizer).
+ */
+export const createMatch = async (competitionId, roundId, data) => {
+  const response = await api.post(`/team-competitions/${competitionId}/rounds/${roundId}/matches`, data);
+  return response.data.data;
+};
+
+/**
+ * Get all matches for a competition or round.
+ */
+export const getMatches = async (competitionId, params = {}) => {
+  const response = await api.get(`/team-competitions/${competitionId}/matches`, { params });
+  return response.data.data;
+};
+
+/**
+ * Get single match details with boards and user context.
+ */
+export const getMatchById = async (competitionId, matchId) => {
+  const response = await api.get(`/team-competitions/${competitionId}/matches/${matchId}`);
+  return response.data.data;
+};
+
+/**
+ * Get boards for a match.
+ */
+export const getMatchBoards = async (competitionId, matchId) => {
+  const response = await api.get(`/team-competitions/${competitionId}/matches/${matchId}/boards`);
+  return response.data.data;
+};
+
+/**
+ * Update match details or scheduling (Organizer).
+ */
+export const updateMatch = async (competitionId, matchId, data) => {
+  const response = await api.patch(`/team-competitions/${competitionId}/matches/${matchId}`, data);
+  return response.data.data;
+};
+
+/**
+ * Cancel a match (Organizer).
+ */
+export const cancelMatch = async (competitionId, matchId) => {
+  const response = await api.post(`/team-competitions/${competitionId}/matches/${matchId}/cancel`);
+  return response.data.data;
+};
+
+/**
+ * Update team lineup assignments (Team Captain).
+ */
+export const updateLineup = async (competitionId, matchId, data) => {
+  const response = await api.patch(`/team-competitions/${competitionId}/matches/${matchId}/lineup`, data);
+  return response.data.data;
+};
+
+/**
+ * Set player readiness for an assigned board (Player or Captain).
+ */
+export const setPlayerReady = async (competitionId, matchId, data) => {
+  const response = await api.post(`/team-competitions/${competitionId}/matches/${matchId}/ready`, data);
+  return response.data.data;
+};
+
+/**
+ * Lock team lineup (Team Captain).
+ */
+export const lockLineup = async (competitionId, matchId, data) => {
+  const response = await api.post(`/team-competitions/${competitionId}/matches/${matchId}/lock-lineup`, data);
+  return response.data.data;
+};
+
+/**
+ * Unlock team lineup (Team Captain).
+ */
+export const unlockLineup = async (competitionId, matchId, data) => {
+  const response = await api.post(`/team-competitions/${competitionId}/matches/${matchId}/unlock-lineup`, data);
+  return response.data.data;
+};
+
 export default {
   getCompetitions,
   getCompetitionById,
@@ -184,4 +300,19 @@ export default {
   transferCaptain,
   getMyPendingInvitations,
   searchUsers,
+  createRound,
+  getRounds,
+  getRoundById,
+  updateRound,
+  createMatch,
+  getMatches,
+  getMatchById,
+  getMatchBoards,
+  updateMatch,
+  cancelMatch,
+  updateLineup,
+  setPlayerReady,
+  lockLineup,
+  unlockLineup,
 };
+
