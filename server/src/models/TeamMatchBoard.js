@@ -39,6 +39,72 @@ const teamMatchBoardSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Lichess Match Execution & Result fields
+    lichessGameId: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    lichessUrl: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    lichessStatus: {
+      type: String,
+      enum: [
+        'NOT_STARTED',
+        'CREATING',
+        'CREATED',
+        'ACTIVE',
+        'FINISHED',
+        'ABORTED',
+        'ERROR',
+      ],
+      default: 'NOT_STARTED',
+      index: true,
+    },
+    whitePlayer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    blackPlayer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    lichessWhiteUsername: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    lichessBlackUsername: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    gameStartedAt: {
+      type: Date,
+      default: null,
+    },
+    gameFinishedAt: {
+      type: Date,
+      default: null,
+    },
+    result: {
+      type: String,
+      enum: ['1-0', '0-1', '1/2-1/2', 'ABORTED', null],
+      default: null,
+    },
+    resultReason: {
+      type: String,
+      default: null,
+    },
+    lastSyncedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -47,6 +113,11 @@ const teamMatchBoardSchema = new mongoose.Schema(
 
 // Board numbers must be unique within a match
 teamMatchBoardSchema.index({ match: 1, boardNumber: 1 }, { unique: true });
+teamMatchBoardSchema.index({ match: 1, lichessGameId: 1 });
+teamMatchBoardSchema.index(
+  { lichessGameId: 1 },
+  { unique: true, partialFilterExpression: { lichessGameId: { $type: 'string' } } }
+);
 teamMatchBoardSchema.index({ match: 1, teamAPlayer: 1 });
 teamMatchBoardSchema.index({ match: 1, teamBPlayer: 1 });
 

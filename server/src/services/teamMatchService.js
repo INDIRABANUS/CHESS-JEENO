@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import User from '../models/User.js';
 import TeamCompetition from '../models/TeamCompetition.js';
 import TeamCompetitionTeam from '../models/TeamCompetitionTeam.js';
 import TeamCompetitionMember from '../models/TeamCompetitionMember.js';
@@ -6,6 +7,9 @@ import TeamCompetitionRound, { ROUND_STATUSES } from '../models/TeamCompetitionR
 import TeamMatch, { MATCH_STATUSES } from '../models/TeamMatch.js';
 import TeamMatchBoard from '../models/TeamMatchBoard.js';
 import * as notificationService from './notificationService.js';
+import * as lichessService from './lichessService.js';
+import * as lichessOAuthService from './lichessOAuthService.js';
+
 
 /**
  * Validates that an ID is a valid MongoDB ObjectId.
@@ -512,6 +516,8 @@ export const getMatchById = async (competitionId, matchId, currentUserId = null)
   const boards = await TeamMatchBoard.find({ match: matchId })
     .populate('teamAPlayer', '_id name email avatar lichessUsername')
     .populate('teamBPlayer', '_id name email avatar lichessUsername')
+    .populate('whitePlayer', '_id name email avatar lichessUsername')
+    .populate('blackPlayer', '_id name email avatar lichessUsername')
     .sort({ boardNumber: 1 })
     .lean();
 
@@ -589,6 +595,8 @@ export const getMatchBoards = async (competitionId, matchId) => {
   const boards = await TeamMatchBoard.find({ match: matchId })
     .populate('teamAPlayer', '_id name email avatar lichessUsername')
     .populate('teamBPlayer', '_id name email avatar lichessUsername')
+    .populate('whitePlayer', '_id name email avatar lichessUsername')
+    .populate('blackPlayer', '_id name email avatar lichessUsername')
     .sort({ boardNumber: 1 })
     .lean();
 
@@ -730,14 +738,8 @@ export const updateLineup = async (competitionId, matchId, { teamId, assignments
     throw error;
   }
 
-  if (match.status === 'CANCELLED') {
-    const error = new Error('Cannot modify lineup for a cancelled match');
-    error.statusCode = 400;
-    throw error;
-  }
-
-  if (match.status === 'COMPLETED') {
-    const error = new Error('Cannot modify lineup for a completed match');
+  if (['CANCELLED', 'COMPLETED', 'STARTING', 'IN_PROGRESS'].includes(match.status)) {
+    const error = new Error(`Cannot modify lineup for a ${match.status.toLowerCase()} match`);
     error.statusCode = 400;
     throw error;
   }
@@ -960,7 +962,7 @@ export const setPlayerReady = async (competitionId, matchId, { boardNumber, read
     throw error;
   }
 
-  if (match.status === 'CANCELLED' || match.status === 'COMPLETED') {
+  if (['CANCELLED', 'COMPLETED', 'STARTING', 'IN_PROGRESS'].includes(match.status)) {
     const error = new Error(`Cannot update readiness for a ${match.status.toLowerCase()} match`);
     error.statusCode = 400;
     throw error;
@@ -1039,7 +1041,7 @@ export const lockLineup = async (competitionId, matchId, { teamId }, userId) => 
     throw error;
   }
 
-  if (match.status === 'CANCELLED' || match.status === 'COMPLETED') {
+  if (['CANCELLED', 'COMPLETED', 'STARTING', 'IN_PROGRESS'].includes(match.status)) {
     const error = new Error(`Cannot lock lineup for a ${match.status.toLowerCase()} match`);
     error.statusCode = 400;
     throw error;
@@ -1223,7 +1225,7 @@ export const unlockLineup = async (competitionId, matchId, { teamId }, userId) =
     throw error;
   }
 
-  if (match.status === 'CANCELLED' || match.status === 'COMPLETED' || match.status === 'IN_PROGRESS') {
+  if (['CANCELLED', 'COMPLETED', 'STARTING', 'IN_PROGRESS'].includes(match.status)) {
     const error = new Error(`Cannot unlock lineup for a ${match.status.toLowerCase()} match`);
     error.statusCode = 400;
     throw error;
@@ -1264,6 +1266,632 @@ export const unlockLineup = async (competitionId, matchId, { teamId }, userId) =
   return match;
 };
 
+/**
+ * Start a READY team match and create Lichess games for all boards (Organizer only).
+ * Validates locked lineups, active members, player Lichess credentials, and prevents duplicate games.
+ * Alternates colors across boards (Odd: A=White, B=Black; Even: B=White, A=Black).
+ */
+export const startMatch = async (competitionId, matchId, userId, options = {}) => {
+  validateObjectId(competitionId, 'competition ID');
+  validateObjectId(matchId, 'match ID');
+  validateObjectId(userId, 'user ID');
+
+  const competition = await TeamCompetition.findById(competitionId);
+  if (!competition) {
+    const error = new Error('Competition not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (toIdString(competition.organizer) !== userId.toString()) {
+    const error = new Error('Forbidden: Only the competition organizer can start the match');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const match = await TeamMatch.findById(matchId);
+  if (!match) {
+    const error = new Error('Match not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (match.competition.toString() !== competitionId.toString()) {
+    const error = new Error('Match does not belong to this competition');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const round = await TeamCompetitionRound.findById(match.round);
+  if (!round || round.competition.toString() !== competitionId.toString()) {
+    const error = new Error('Round does not belong to this competition');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (match.status !== 'READY') {
+    const error = new Error(`Cannot start match in status "${match.status}". Match must be in READY status.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!match.teamALineupLocked || !match.teamBLineupLocked) {
+    const error = new Error('Both team captains must lock their lineups before the match can be started.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const teamA = await TeamCompetitionTeam.findById(match.teamA);
+  const teamB = await TeamCompetitionTeam.findById(match.teamB);
+  if (
+    !teamA ||
+    !teamB ||
+    teamA.competition.toString() !== competitionId.toString() ||
+    teamB.competition.toString() !== competitionId.toString()
+  ) {
+    const error = new Error('Match teams do not belong to this competition');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (teamA.status !== 'ACTIVE' || teamB.status !== 'ACTIVE') {
+    const error = new Error('Both teams must be active to start the match');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const boards = await TeamMatchBoard.find({ match: matchId }).sort({ boardNumber: 1 });
+  if (boards.length !== match.boardCount) {
+    const error = new Error(`Match has ${boards.length} boards configured, expected ${match.boardCount}`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const teamAPlayerIds = new Set();
+  const teamBPlayerIds = new Set();
+  const allPlayerIds = [];
+
+  for (const board of boards) {
+    if (!board.teamAPlayer) {
+      const error = new Error(`Board ${board.boardNumber} is missing Team A player assignment.`);
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!board.teamBPlayer) {
+      const error = new Error(`Board ${board.boardNumber} is missing Team B player assignment.`);
+      error.statusCode = 400;
+      throw error;
+    }
+    if (board.lichessGameId) {
+      const error = new Error(`Board ${board.boardNumber} already has a Lichess game created.`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const pA = board.teamAPlayer.toString();
+    const pB = board.teamBPlayer.toString();
+
+    if (pA === pB) {
+      const error = new Error(`Board ${board.boardNumber} has the same player assigned to both teams.`);
+      error.statusCode = 400;
+      throw error;
+    }
+    if (teamAPlayerIds.has(pA)) {
+      const error = new Error(`Player assigned to Board ${board.boardNumber} is already assigned on another board for Team A.`);
+      error.statusCode = 400;
+      throw error;
+    }
+    if (teamBPlayerIds.has(pB)) {
+      const error = new Error(`Player assigned to Board ${board.boardNumber} is already assigned on another board for Team B.`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    teamAPlayerIds.add(pA);
+    teamBPlayerIds.add(pB);
+    allPlayerIds.push(pA, pB);
+  }
+
+  // Verify all players are active members in their respective teams
+  const memberships = await TeamCompetitionMember.find({
+    team: { $in: [match.teamA, match.teamB] },
+    user: { $in: allPlayerIds },
+    status: 'ACTIVE',
+  }).lean();
+
+  const memberMap = new Map();
+  memberships.forEach((m) => {
+    memberMap.set(`${m.team.toString()}_${m.user.toString()}`, true);
+  });
+
+  for (const board of boards) {
+    const pA = board.teamAPlayer.toString();
+    const pB = board.teamBPlayer.toString();
+    if (!memberMap.has(`${match.teamA.toString()}_${pA}`)) {
+      const error = new Error(`Team A player on Board ${board.boardNumber} is not an active team member.`);
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!memberMap.has(`${match.teamB.toString()}_${pB}`)) {
+      const error = new Error(`Team B player on Board ${board.boardNumber} is not an active team member.`);
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  // Pre-validate Lichess authorization for every player before state transition
+  const isProduction = process.env.NODE_ENV === 'production';
+  const allowDevBridge = !isProduction && Boolean(options.allowDevBridge ?? true);
+
+  for (const board of boards) {
+    for (const [side, playerId] of [['Team A', board.teamAPlayer], ['Team B', board.teamBPlayer]]) {
+      try {
+        await lichessOAuthService.resolveLichessPlayerCredentials(playerId, {
+          allowDevBridge,
+          requiredScopes: ['challenge:bulk'],
+        });
+      } catch (authErr) {
+        const userDoc = await User.findById(playerId).select('name lichessUsername');
+        const displayName = userDoc?.name || userDoc?.lichessUsername || playerId;
+        const error = new Error(`Lichess connection required for ${side} player ${displayName}: ${authErr.message}`);
+        error.statusCode = 400;
+        error.code = authErr.code || 'LICHESS_AUTH_REQUIRED';
+        error.playerId = playerId.toString();
+        throw error;
+      }
+    }
+  }
+
+  // Atomic state transition to STARTING to protect against double-click and concurrent calls
+  const startingMatch = await TeamMatch.findOneAndUpdate(
+    { _id: matchId, competition: competitionId, status: 'READY' },
+    { $set: { status: 'STARTING' } },
+    { new: true }
+  );
+
+  if (!startingMatch) {
+    const error = new Error('Match could not be started. It may have already been started or is no longer READY.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const successfulBoards = [];
+  const failedBoards = [];
+  const createdLichessGameIds = [];
+
+  for (const board of boards) {
+    // Alternating colors: Odd -> Team A White, Team B Black; Even -> Team B White, Team A Black
+    const isOdd = board.boardNumber % 2 === 1;
+    const whitePlayerId = isOdd ? board.teamAPlayer : board.teamBPlayer;
+    const blackPlayerId = isOdd ? board.teamBPlayer : board.teamAPlayer;
+
+    board.whitePlayer = whitePlayerId;
+    board.blackPlayer = blackPlayerId;
+    board.lichessStatus = 'CREATING';
+    await board.save();
+
+    try {
+      if (options?.failBoards && options.failBoards.includes(board.boardNumber)) {
+        throw new Error(`Simulated failure on Board ${board.boardNumber}`);
+      }
+
+      const whiteCreds = await lichessOAuthService.resolveLichessPlayerCredentials(whitePlayerId, {
+        allowDevBridge,
+        requiredScopes: ['challenge:bulk'],
+      });
+      const blackCreds = await lichessOAuthService.resolveLichessPlayerCredentials(blackPlayerId, {
+        allowDevBridge,
+        requiredScopes: ['challenge:bulk'],
+      });
+
+      const { gameId, gameUrl } = await lichessService.createGame({
+        whiteUsername: whiteCreds.lichessUsername,
+        blackUsername: blackCreds.lichessUsername,
+        clockLimit: options.clockLimit || 300,
+        increment: options.increment || 0,
+        rated: options.rated || false,
+        token: options.token,
+        whiteToken: options.whiteToken || whiteCreds.accessToken,
+        blackToken: options.blackToken || blackCreds.accessToken,
+      });
+
+      board.lichessGameId = gameId;
+      board.lichessUrl = gameUrl || `https://lichess.org/${gameId}`;
+      board.lichessWhiteUsername = whiteCreds.lichessUsername;
+      board.lichessBlackUsername = blackCreds.lichessUsername;
+      board.lichessStatus = 'ACTIVE';
+      board.gameStartedAt = new Date();
+      board.resultReason = null;
+      await board.save();
+
+      successfulBoards.push(board);
+      createdLichessGameIds.push(gameId);
+
+      // Start stream if realtime gameStreamManager is active
+      try {
+        const { startStream } = await import('../realtime/gameStreamManager.js');
+        startStream({
+          tournamentId: competitionId.toString(),
+          roundNumber: match.round?.toString(),
+          pairingId: board._id.toString(),
+          lichessGameId: gameId,
+          token: whiteCreds.accessToken || blackCreds.accessToken,
+        }).catch(() => {});
+      } catch {
+        // Stream warning non-fatal
+      }
+
+      // Notify assigned players
+      for (const pid of [whitePlayerId, blackPlayerId]) {
+        try {
+          await notificationService.createNotification({
+            recipient: pid,
+            type: 'TEAM_MATCH_STARTED',
+            title: 'Team Match Started',
+            message: `Your team match has started. Board ${board.boardNumber} is ready on Lichess.`,
+            teamCompetition: competitionId,
+            teamMatch: matchId,
+            teamRound: match.round,
+            metadata: {
+              matchId: matchId.toString(),
+              boardNumber: board.boardNumber,
+              lichessUrl: board.lichessUrl,
+              lichessGameId: gameId,
+            },
+            eventKey: `team_match_started_${matchId}_${board.boardNumber}_${pid}`,
+          });
+        } catch {
+          // Notification failure non-fatal
+        }
+      }
+    } catch (boardErr) {
+      board.lichessStatus = 'ERROR';
+      board.resultReason = boardErr.message || 'Game creation failed';
+      await board.save();
+      failedBoards.push({
+        boardNumber: board.boardNumber,
+        error: boardErr.message,
+      });
+    }
+  }
+
+  // Update match lifecycle according to board creation outcomes
+  if (successfulBoards.length > 0) {
+    startingMatch.status = 'IN_PROGRESS';
+    await startingMatch.save();
+  } else {
+    // If every board failed, revert to READY so organizer can resolve and retry
+    startingMatch.status = 'READY';
+    await startingMatch.save();
+  }
+
+  // Realtime broadcast of match start status
+  try {
+    const { getIo } = await import('../realtime/socket.js');
+    const io = getIo();
+    if (io) {
+      io.to(`competition:${competitionId}`).emit('team-match:started', {
+        matchId: matchId.toString(),
+        status: startingMatch.status,
+        successfulBoards: successfulBoards.map((b) => b.boardNumber),
+        failedBoards: failedBoards.map((f) => f.boardNumber),
+      });
+    }
+  } catch {
+    // Non-fatal
+  }
+
+  return {
+    match: startingMatch,
+    status: startingMatch.status,
+    successfulBoards: successfulBoards.map((b) => b.boardNumber),
+    failedBoards,
+    createdLichessGameIds,
+    retryableBoards: failedBoards.map((f) => f.boardNumber),
+  };
+};
+
+/**
+ * Retry failed / not-yet-created boards for a team match (Organizer only).
+ * Never recreates already-created games.
+ */
+export const retryFailedBoards = async (competitionId, matchId, userId, options = {}) => {
+  validateObjectId(competitionId, 'competition ID');
+  validateObjectId(matchId, 'match ID');
+  validateObjectId(userId, 'user ID');
+
+  const competition = await TeamCompetition.findById(competitionId);
+  if (!competition) {
+    const error = new Error('Competition not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (toIdString(competition.organizer) !== userId.toString()) {
+    const error = new Error('Forbidden: Only the competition organizer can retry failed boards');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const match = await TeamMatch.findById(matchId);
+  if (!match || match.competition.toString() !== competitionId.toString()) {
+    const error = new Error('Match not found in this competition');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (['COMPLETED', 'CANCELLED'].includes(match.status)) {
+    const error = new Error(`Cannot retry boards for a ${match.status.toLowerCase()} match`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const boards = await TeamMatchBoard.find({ match: matchId }).sort({ boardNumber: 1 });
+
+  // Race condition defense: check if any board is actively creating
+  if (boards.some((b) => b.lichessStatus === 'CREATING')) {
+    const error = new Error('Boards are currently being created. Please wait for current attempt to finish.');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const retryableBoards = boards.filter(
+    (b) => !b.lichessGameId || ['ERROR', 'NOT_STARTED'].includes(b.lichessStatus)
+  );
+
+  if (retryableBoards.length === 0) {
+    return {
+      match,
+      status: match.status,
+      message: 'No failed boards to retry',
+      retried: 0,
+      successfulBoards: [],
+      failedBoards: [],
+      createdLichessGameIds: [],
+      retryableBoards: [],
+    };
+  }
+
+  const isProduction = process.env.NODE_ENV === 'production';
+  const allowDevBridge = !isProduction && Boolean(options.allowDevBridge ?? true);
+
+  const retrySuccessful = [];
+  const retryFailed = [];
+  const retryCreatedIds = [];
+
+  for (const board of retryableBoards) {
+    const isOdd = board.boardNumber % 2 === 1;
+    const whitePlayerId = isOdd ? board.teamAPlayer : board.teamBPlayer;
+    const blackPlayerId = isOdd ? board.teamBPlayer : board.teamAPlayer;
+
+    board.whitePlayer = whitePlayerId;
+    board.blackPlayer = blackPlayerId;
+    board.lichessStatus = 'CREATING';
+    await board.save();
+
+    try {
+      if (options?.failBoards && options.failBoards.includes(board.boardNumber)) {
+        throw new Error(`Simulated retry failure on Board ${board.boardNumber}`);
+      }
+
+      const whiteCreds = await lichessOAuthService.resolveLichessPlayerCredentials(whitePlayerId, {
+        allowDevBridge,
+        requiredScopes: ['challenge:bulk'],
+      });
+      const blackCreds = await lichessOAuthService.resolveLichessPlayerCredentials(blackPlayerId, {
+        allowDevBridge,
+        requiredScopes: ['challenge:bulk'],
+      });
+
+      const { gameId, gameUrl } = await lichessService.createGame({
+        whiteUsername: whiteCreds.lichessUsername,
+        blackUsername: blackCreds.lichessUsername,
+        clockLimit: options.clockLimit || 300,
+        increment: options.increment || 0,
+        rated: options.rated || false,
+        token: options.token,
+        whiteToken: options.whiteToken || whiteCreds.accessToken,
+        blackToken: options.blackToken || blackCreds.accessToken,
+      });
+
+      board.lichessGameId = gameId;
+      board.lichessUrl = gameUrl || `https://lichess.org/${gameId}`;
+      board.lichessWhiteUsername = whiteCreds.lichessUsername;
+      board.lichessBlackUsername = blackCreds.lichessUsername;
+      board.lichessStatus = 'ACTIVE';
+      board.gameStartedAt = new Date();
+      board.resultReason = null;
+      await board.save();
+
+      retrySuccessful.push(board);
+      retryCreatedIds.push(gameId);
+
+      // Start stream if realtime gameStreamManager is active
+      try {
+        const { startStream } = await import('../realtime/gameStreamManager.js');
+        startStream({
+          tournamentId: competitionId.toString(),
+          roundNumber: match.round?.toString(),
+          pairingId: board._id.toString(),
+          lichessGameId: gameId,
+          token: whiteCreds.accessToken || blackCreds.accessToken,
+        }).catch(() => {});
+      } catch {
+        // Non-fatal
+      }
+
+      // Notify assigned players
+      for (const pid of [whitePlayerId, blackPlayerId]) {
+        try {
+          await notificationService.createNotification({
+            recipient: pid,
+            type: 'TEAM_MATCH_STARTED',
+            title: 'Team Match Started',
+            message: `Your team match has started. Board ${board.boardNumber} is ready on Lichess.`,
+            teamCompetition: competitionId,
+            teamMatch: matchId,
+            teamRound: match.round,
+            metadata: {
+              matchId: matchId.toString(),
+              boardNumber: board.boardNumber,
+              lichessUrl: board.lichessUrl,
+              lichessGameId: gameId,
+            },
+            eventKey: `team_match_started_${matchId}_${board.boardNumber}_${pid}`,
+          });
+        } catch {
+          // Non-fatal
+        }
+      }
+    } catch (retryErr) {
+      board.lichessStatus = 'ERROR';
+      board.resultReason = retryErr.message || 'Retry game creation failed';
+      await board.save();
+      retryFailed.push({
+        boardNumber: board.boardNumber,
+        error: retryErr.message,
+      });
+    }
+  }
+
+  // If match was READY or STARTING, transition to IN_PROGRESS if any board is now active
+  const allBoardsAfterRetry = await TeamMatchBoard.find({ match: matchId });
+  const hasActiveBoard = allBoardsAfterRetry.some(
+    (b) => b.lichessGameId && ['ACTIVE', 'FINISHED', 'ABORTED'].includes(b.lichessStatus)
+  );
+
+  if (hasActiveBoard && match.status !== 'IN_PROGRESS' && match.status !== 'COMPLETED') {
+    match.status = 'IN_PROGRESS';
+    await match.save();
+  }
+
+  return {
+    match,
+    status: match.status,
+    retried: retryableBoards.length,
+    successfulBoards: retrySuccessful.map((b) => b.boardNumber),
+    failedBoards: retryFailed,
+    createdLichessGameIds: retryCreatedIds,
+    retryableBoards: retryFailed.map((f) => f.boardNumber),
+  };
+};
+
+/**
+ * Synchronize Lichess game results for all boards in a team match.
+ * Idempotent: repeated synchronization of terminal games produces the same result.
+ * When all boards reach terminal state, transitions match to COMPLETED.
+ */
+export const syncMatchResults = async (competitionId, matchId, userId = null, options = {}) => {
+  validateObjectId(competitionId, 'competition ID');
+  validateObjectId(matchId, 'match ID');
+
+  const match = await TeamMatch.findById(matchId);
+  if (!match || match.competition.toString() !== competitionId.toString()) {
+    const error = new Error('Match not found in this competition');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // If match is already completed and not force, return current state
+  if (match.status === 'COMPLETED' && !options?.force) {
+    const boards = await TeamMatchBoard.find({ match: matchId }).sort({ boardNumber: 1 });
+    return {
+      match,
+      boards,
+      syncedBoards: 0,
+      completed: true,
+    };
+  }
+
+  const boards = await TeamMatchBoard.find({ match: matchId }).sort({ boardNumber: 1 });
+  let syncedCount = 0;
+
+  for (const board of boards) {
+    if (!board.lichessGameId) {
+      continue;
+    }
+
+    // Idempotency: skip already terminal boards unless forced
+    const isTerminal =
+      ['FINISHED', 'ABORTED'].includes(board.lichessStatus) &&
+      ['1-0', '0-1', '1/2-1/2', 'ABORTED'].includes(board.result);
+
+    if (isTerminal && !options?.force) {
+      continue;
+    }
+
+    try {
+      const gameData = await lichessService.getGameResult(board.lichessGameId, options);
+      board.lastSyncedAt = new Date();
+
+      if (gameData.completed) {
+        board.lichessStatus = gameData.pairingStatus; // 'FINISHED' or 'ABORTED'
+        board.result = gameData.result; // '1-0', '0-1', '1/2-1/2', 'ABORTED'
+        board.resultReason = gameData.status || null;
+        if (!board.gameFinishedAt) {
+          board.gameFinishedAt = new Date();
+        }
+      } else {
+        board.lichessStatus = 'ACTIVE';
+      }
+
+      await board.save();
+      syncedCount++;
+    } catch (syncErr) {
+      console.warn(`[Sync] Failed to sync Board ${board.boardNumber} (${board.lichessGameId}):`, syncErr.message);
+    }
+  }
+
+  // Check match completion: All boards must have terminal state
+  const updatedBoards = await TeamMatchBoard.find({ match: matchId }).sort({ boardNumber: 1 });
+  const allTerminal =
+    updatedBoards.length > 0 &&
+    updatedBoards.every(
+      (b) => ['FINISHED', 'ABORTED'].includes(b.lichessStatus) && b.result !== null
+    );
+
+  if (allTerminal && match.status !== 'COMPLETED') {
+    match.status = 'COMPLETED';
+    await match.save();
+
+    // Check round completion: If all non-cancelled matches in round are completed
+    if (match.round) {
+      const roundMatches = await TeamMatch.find({
+        round: match.round,
+        status: { $ne: 'CANCELLED' },
+      });
+      const allRoundCompleted =
+        roundMatches.length > 0 && roundMatches.every((m) => m.status === 'COMPLETED');
+      if (allRoundCompleted) {
+        await TeamCompetitionRound.findByIdAndUpdate(match.round, {
+          $set: { status: 'COMPLETED' },
+        });
+      }
+    }
+
+    // Realtime broadcast of match completion
+    try {
+      const { getIo } = await import('../realtime/socket.js');
+      const io = getIo();
+      if (io) {
+        io.to(`competition:${competitionId}`).emit('team-match:completed', {
+          matchId: matchId.toString(),
+          status: 'COMPLETED',
+        });
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  return {
+    match,
+    boards: updatedBoards,
+    syncedBoards: syncedCount,
+    completed: match.status === 'COMPLETED',
+  };
+};
+
 export default {
   validateObjectId,
   createRound,
@@ -1280,4 +1908,8 @@ export default {
   setPlayerReady,
   lockLineup,
   unlockLineup,
+  startMatch,
+  retryFailedBoards,
+  syncMatchResults,
 };
+

@@ -12,7 +12,8 @@
     "build:client": "npm --prefix client run build",
     "build": "npm --prefix client run build",
     "test:team-competition": "npm --prefix server run test:team-competition",
-    "test:team-competition:matches": "npm --prefix server run test:team-competition:matches"
+    "test:team-competition:matches": "npm --prefix server run test:team-competition:matches",
+    "test:team-competition:execution": "npm --prefix server run test:team-competition:execution"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

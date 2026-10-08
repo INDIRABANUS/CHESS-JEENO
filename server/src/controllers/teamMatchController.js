@@ -298,6 +298,75 @@ export const unlockLineup = async (req, res, next) => {
   }
 };
 
+/**
+ * Start a ready team match and create Lichess games for all boards (Organizer).
+ * POST /api/team-competitions/:competitionId/matches/:matchId/start
+ */
+export const startMatch = async (req, res, next) => {
+  try {
+    const { competitionId, matchId } = req.params;
+    const result = await teamMatchService.startMatch(
+      competitionId,
+      matchId,
+      req.user._id,
+      req.body || {}
+    );
+    res.status(200).json({
+      success: true,
+      message: 'Match execution started',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Retry failed boards for a team match (Organizer).
+ * POST /api/team-competitions/:competitionId/matches/:matchId/retry
+ */
+export const retryFailedBoards = async (req, res, next) => {
+  try {
+    const { competitionId, matchId } = req.params;
+    const result = await teamMatchService.retryFailedBoards(
+      competitionId,
+      matchId,
+      req.user._id,
+      req.body || {}
+    );
+    res.status(200).json({
+      success: true,
+      message: 'Failed boards retry processed',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Sync Lichess game results for all boards in a team match.
+ * POST /api/team-competitions/:competitionId/matches/:matchId/sync
+ */
+export const syncMatchResults = async (req, res, next) => {
+  try {
+    const { competitionId, matchId } = req.params;
+    const result = await teamMatchService.syncMatchResults(
+      competitionId,
+      matchId,
+      req.user?._id || null,
+      req.body || {}
+    );
+    res.status(200).json({
+      success: true,
+      message: 'Match results synchronized',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   createRound,
   getRounds,
@@ -313,4 +382,8 @@ export default {
   setPlayerReady,
   lockLineup,
   unlockLineup,
+  startMatch,
+  retryFailedBoards,
+  syncMatchResults,
 };
+

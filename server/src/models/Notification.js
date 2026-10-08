@@ -17,6 +17,7 @@ export const NOTIFICATION_TYPES = [
   'TEAM_MATCH_BOARD_ASSIGNED',
   'TEAM_LINEUP_LOCKED',
   'TEAM_MATCH_READY',
+  'TEAM_MATCH_STARTED',
 ];
 
 const notificationSchema = new mongoose.Schema(

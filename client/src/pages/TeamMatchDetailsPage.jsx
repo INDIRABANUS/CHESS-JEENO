@@ -15,12 +15,17 @@ import {
   Swords,
   XCircle,
   RefreshCw,
+  Play,
+  RotateCcw,
+  ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as teamCompetitionService from '../services/teamCompetitionService';
 import TeamMatchBoard from '../components/teamCompetition/TeamMatchBoard';
 import TeamLineupManager from '../components/teamCompetition/TeamLineupManager';
 import MatchReadinessPanel from '../components/teamCompetition/MatchReadinessPanel';
+import { getSocket } from '../services/socket';
 
 const TeamMatchDetailsPage = () => {
   const { id: competitionIdParam, competitionId: compIdParamAlt, matchId } = useParams();
@@ -37,6 +42,8 @@ const TeamMatchDetailsPage = () => {
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
 
   const loadMatchData = useCallback(async () => {
     if (!competitionId || !matchId) return;
@@ -72,6 +79,26 @@ const TeamMatchDetailsPage = () => {
 
   useEffect(() => {
     loadMatchData();
+  }, [loadMatchData]);
+
+  // Realtime Socket listener for match events
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleMatchUpdate = () => {
+      loadMatchData();
+    };
+
+    socket.on('team-match:started', handleMatchUpdate);
+    socket.on('team-match:completed', handleMatchUpdate);
+    socket.on('team-match:status-changed', handleMatchUpdate);
+
+    return () => {
+      socket.off('team-match:started', handleMatchUpdate);
+      socket.off('team-match:completed', handleMatchUpdate);
+      socket.off('team-match:status-changed', handleMatchUpdate);
+    };
   }, [loadMatchData]);
 
   if (loading) {
@@ -122,6 +149,14 @@ const TeamMatchDetailsPage = () => {
     ? match?.teamBLineupLockedAt
     : null;
 
+  // Execution states
+  const hasFailedBoards = boards.some(
+    (b) => b.lichessStatus === 'ERROR' || (!b.lichessGameId && match?.status === 'IN_PROGRESS')
+  );
+  const assignedPlayerBoard = boards.find(
+    (b) => b.boardNumber === userContext.assignedBoardNumber
+  );
+
   // Handlers
   const handleSaveLineup = async (assignments) => {
     setActionLoading(true);
@@ -152,7 +187,7 @@ const TeamMatchDetailsPage = () => {
       const res = await teamCompetitionService.lockLineup(competitionId, matchId, { teamId });
       setSuccessMsg('Lineup locked successfully!');
       if (res.status === 'READY') {
-        setSuccessMsg('Lineup locked! Both squads confirmed — MATCH IS READY!');
+        setSuccessMsg('Lineup locked! Both squads confirmed — MATCH IS READY TO START!');
       }
       await loadMatchData();
     } catch (err) {
@@ -196,6 +231,68 @@ const TeamMatchDetailsPage = () => {
     }
   };
 
+  const handleStartMatch = async () => {
+    setActionLoading(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const result = await teamCompetitionService.startMatch(competitionId, matchId);
+      setShowStartModal(false);
+      if (result.failedBoards?.length > 0) {
+        setError(
+          `Started with partial issues: ${result.successfulBoards?.length || 0} boards created, ${result.failedBoards.length} boards failed.`
+        );
+      } else {
+        setSuccessMsg('Match started successfully! All Lichess games created.');
+      }
+      await loadMatchData();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to start match');
+      setShowStartModal(false);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRetryFailedBoards = async () => {
+    setActionLoading(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const result = await teamCompetitionService.retryFailedBoards(competitionId, matchId);
+      if (result.failedBoards?.length > 0) {
+        setError(
+          `Retry completed with issues: ${result.successfulBoards?.length || 0} boards succeeded, ${result.failedBoards.length} boards still failed.`
+        );
+      } else {
+        setSuccessMsg('All failed boards successfully retried and created!');
+      }
+      await loadMatchData();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to retry boards');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSyncResults = async () => {
+    setSyncLoading(true);
+    setError(null);
+    try {
+      const result = await teamCompetitionService.syncMatchResults(competitionId, matchId);
+      if (result.completed) {
+        setSuccessMsg('Match synchronized: ALL BOARDS FINISHED! Match is now COMPLETED.');
+      } else {
+        setSuccessMsg(`Synchronized ${result.syncedBoards} board(s) with Lichess.`);
+      }
+      await loadMatchData();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to sync match results');
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
   const handleCancelMatch = async () => {
     setActionLoading(true);
     setError(null);
@@ -225,6 +322,32 @@ const TeamMatchDetailsPage = () => {
         </Link>
 
         <div className="flex items-center space-x-2">
+          {/* Sync Results Button (When in progress) */}
+          {(match?.status === 'IN_PROGRESS' || hasFailedBoards) && (
+            <button
+              onClick={handleSyncResults}
+              disabled={syncLoading || actionLoading}
+              className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition min-h-[44px] shadow-sm"
+              title="Sync latest game results from Lichess"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncLoading ? 'animate-spin text-indigo-600' : ''}`} />
+              <span>Sync Results</span>
+            </button>
+          )}
+
+          {/* Start Match Button (Organizer only, when READY) */}
+          {isOrganizer && match?.status === 'READY' && (
+            <button
+              onClick={() => setShowStartModal(true)}
+              disabled={actionLoading}
+              className="inline-flex items-center space-x-2 px-5 py-2 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 transition min-h-[44px] shadow-lg shadow-emerald-600/20"
+            >
+              <Play className="h-4 w-4 fill-current" />
+              <span>Start Match</span>
+            </button>
+          )}
+
+          {/* Refresh Button */}
           <button
             onClick={loadMatchData}
             disabled={loading || actionLoading}
@@ -233,7 +356,9 @@ const TeamMatchDetailsPage = () => {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          {isOrganizer && match?.status !== 'CANCELLED' && match?.status !== 'COMPLETED' && (
+
+          {/* Cancel Match Button (Organizer only) */}
+          {isOrganizer && ['DRAFT', 'LINEUP', 'READY'].includes(match?.status) && (
             <button
               onClick={() => setShowCancelModal(true)}
               disabled={actionLoading}
@@ -260,6 +385,37 @@ const TeamMatchDetailsPage = () => {
         </div>
       )}
 
+      {/* Partial Failure Notice Card */}
+      {hasFailedBoards && (
+        <div className="p-5 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start space-x-3">
+            <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-bold text-sm text-amber-900 dark:text-amber-200">
+                Some boards could not be started
+              </h4>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                One or more boards encountered game creation issues. Successfully started boards remain active on Lichess.
+              </p>
+            </div>
+          </div>
+          {isOrganizer && (
+            <button
+              onClick={handleRetryFailedBoards}
+              disabled={actionLoading}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition min-h-[40px] shrink-0"
+            >
+              {actionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4" />
+              )}
+              <span>Retry Failed Boards</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Match Header Hero Card */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-slate-800 p-6 sm:p-8 text-white shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -276,15 +432,19 @@ const TeamMatchDetailsPage = () => {
             <span
               className={`px-3.5 py-1 text-xs font-extrabold rounded-full uppercase tracking-wider ${
                 match.status === 'READY'
-                  ? 'bg-emerald-500 text-white'
-                  : match.status === 'LINEUP'
-                  ? 'bg-indigo-500 text-white'
+                  ? 'bg-emerald-500 text-white animate-pulse'
+                  : match.status === 'STARTING'
+                  ? 'bg-amber-500 text-slate-950 animate-pulse'
+                  : match.status === 'IN_PROGRESS'
+                  ? 'bg-emerald-600 text-white'
+                  : match.status === 'COMPLETED'
+                  ? 'bg-indigo-600 text-white'
                   : match.status === 'CANCELLED'
                   ? 'bg-rose-500 text-white'
-                  : 'bg-amber-500 text-slate-950'
+                  : 'bg-indigo-500 text-white'
               }`}
             >
-              {match.status}
+              {match.status === 'IN_PROGRESS' ? 'IN PROGRESS' : match.status}
             </span>
           </div>
         </div>
@@ -298,7 +458,7 @@ const TeamMatchDetailsPage = () => {
             </div>
             <div>
               <div className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
-                Team White
+                Team A
               </div>
               <h2 className="text-2xl font-black text-white">{match.teamA?.name}</h2>
               <div className="flex items-center space-x-1.5 text-xs text-slate-400 mt-0.5">
@@ -319,7 +479,7 @@ const TeamMatchDetailsPage = () => {
           <div className="md:col-span-2 flex items-center space-x-4 md:justify-end">
             <div className="md:text-right order-2 md:order-1">
               <div className="text-xs font-bold text-violet-300 uppercase tracking-wider">
-                Team Black
+                Team B
               </div>
               <h2 className="text-2xl font-black text-white">{match.teamB?.name}</h2>
               <div className="flex items-center space-x-1.5 text-xs text-slate-400 mt-0.5 md:justify-end">
@@ -342,11 +502,13 @@ const TeamMatchDetailsPage = () => {
         )}
       </div>
 
-      {/* Match Readiness Breakdown Panel */}
-      <MatchReadinessPanel match={match} boards={boards} />
+      {/* Match Readiness Breakdown Panel (Prior to start) */}
+      {['DRAFT', 'LINEUP', 'READY'].includes(match.status) && (
+        <MatchReadinessPanel match={match} boards={boards} />
+      )}
 
       {/* Captain UX: Dedicated Lineup Management Workspace */}
-      {isCaptain && activeCaptainTeam && match.status !== 'CANCELLED' && (
+      {isCaptain && activeCaptainTeam && ['DRAFT', 'LINEUP', 'READY'].includes(match.status) && (
         <TeamLineupManager
           team={activeCaptainTeam}
           boards={boards}
@@ -364,22 +526,54 @@ const TeamMatchDetailsPage = () => {
         />
       )}
 
-      {/* Assigned Player Quick Banner */}
-      {isPlayer && userContext.assignedBoardNumber && (
-        <div className="p-5 rounded-3xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black">
-              #{userContext.assignedBoardNumber}
+      {/* Assigned Player Experience Quick Banner */}
+      {isPlayer && assignedPlayerBoard && (
+        <div className="p-5 rounded-3xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-md">
+              #{assignedPlayerBoard.boardNumber}
             </div>
             <div>
-              <div className="font-extrabold text-base text-slate-900 dark:text-white">
-                You are playing on Board {userContext.assignedBoardNumber}
+              <div className="font-extrabold text-base text-slate-900 dark:text-white flex items-center space-x-2">
+                <span>You are on Board {assignedPlayerBoard.boardNumber}</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                  {userTeamSide === 'A'
+                    ? (assignedPlayerBoard.boardNumber % 2 === 1 ? 'White' : 'Black')
+                    : (assignedPlayerBoard.boardNumber % 2 === 1 ? 'Black' : 'White')}
+                </span>
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                Playing for {userTeamSide === 'A' ? match.teamA?.name : match.teamB?.name} ({userTeamSide === 'A' ? 'White' : 'Black'}). Confirm your readiness for the captain.
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                Opponent:{' '}
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {userTeamSide === 'A'
+                    ? assignedPlayerBoard.teamBPlayer?.name || 'Pending'
+                    : assignedPlayerBoard.teamAPlayer?.name || 'Pending'}
+                </span>
+                {assignedPlayerBoard.lichessStatus && (
+                  <span className="ml-2 font-medium text-indigo-600 dark:text-indigo-400">
+                    • Status: {assignedPlayerBoard.lichessStatus}
+                  </span>
+                )}
               </p>
             </div>
           </div>
+
+          {assignedPlayerBoard.lichessUrl && (
+            <a
+              href={assignedPlayerBoard.lichessUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-2 px-6 py-3 rounded-2xl text-sm font-black text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/30 shrink-0"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>
+                {assignedPlayerBoard.lichessStatus === 'FINISHED'
+                  ? 'View Finished Game'
+                  : 'Play on Lichess'}
+              </span>
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
         </div>
       )}
 
@@ -388,10 +582,10 @@ const TeamMatchDetailsPage = () => {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white">
-              Board Lineups ({boards.length})
+              Board Lineups & Execution ({boards.length})
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Individual board pairings, player readiness, and confirmation state.
+              Individual board pairings, alternating colors, live Lichess games, and board results.
             </p>
           </div>
         </div>
@@ -406,11 +600,71 @@ const TeamMatchDetailsPage = () => {
               currentUserId={user?._id?.toString()}
               onToggleReady={handleTogglePlayerReady}
               actionLoading={actionLoading}
-              isLocked={match.status === 'READY' || (userTeamSide === 'A' ? match.teamALineupLocked : match.teamBLineupLocked)}
+              isLocked={
+                ['READY', 'STARTING', 'IN_PROGRESS', 'COMPLETED'].includes(match.status) ||
+                (userTeamSide === 'A' ? match.teamALineupLocked : match.teamBLineupLocked)
+              }
             />
           ))}
         </div>
       </div>
+
+      {/* Start Match Confirmation Modal (Organizer) */}
+      {showStartModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center space-x-3 text-emerald-600 dark:text-emerald-400 mb-3">
+              <Play className="h-6 w-6 fill-current" />
+              <h4 className="text-lg font-black text-slate-900 dark:text-white">
+                Start Team Match?
+              </h4>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+              Starting this match will create live Lichess games for all {match.boardCount} boards between{' '}
+              <strong className="text-slate-900 dark:text-white">{match.teamA?.name}</strong> and{' '}
+              <strong className="text-slate-900 dark:text-white">{match.teamB?.name}</strong>.
+            </p>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs space-y-2 mb-6">
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                <span>Total Boards:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{match.boardCount}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                <span>Lineups:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">✓ Both Confirmed & Locked</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                <span>Color Policy:</span>
+                <span className="font-bold text-slate-900 dark:text-white">Alternating (Odd A=White, Even B=White)</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                <span>Lichess Integration:</span>
+                <span className="font-bold text-slate-900 dark:text-white">Standard Realtime Game Pairing</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3">
+              <button
+                onClick={() => setShowStartModal(false)}
+                disabled={actionLoading}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition min-h-[44px]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStartMatch}
+                disabled={actionLoading}
+                className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 transition flex items-center space-x-2 min-h-[44px] shadow-lg shadow-emerald-600/30"
+              >
+                {actionLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                <span>{actionLoading ? 'Starting Games...' : 'Confirm & Start Match'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel Confirmation Modal */}
       {showCancelModal && (

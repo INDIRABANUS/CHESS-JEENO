@@ -35,6 +35,9 @@ import {
   setPlayerReady,
   lockLineup,
   unlockLineup,
+  startMatch,
+  retryFailedBoards,
+  syncMatchResults,
 } from '../controllers/teamMatchController.js';
 import { requireAuth, optionalAuth } from '../middleware/authMiddleware.js';
 
@@ -122,6 +125,11 @@ router.post('/:competitionId/matches/:matchId/ready', requireAuth, setPlayerRead
 // Match team lineup lock & unlock
 router.post('/:competitionId/matches/:matchId/lock-lineup', requireAuth, lockLineup);
 router.post('/:competitionId/matches/:matchId/unlock-lineup', requireAuth, unlockLineup);
+
+// Match execution & Lichess games
+router.post('/:competitionId/matches/:matchId/start', requireAuth, startMatch);
+router.post('/:competitionId/matches/:matchId/retry', requireAuth, retryFailedBoards);
+router.post('/:competitionId/matches/:matchId/sync', optionalAuth, syncMatchResults);
 
 export default router;
 

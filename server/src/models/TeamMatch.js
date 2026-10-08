@@ -4,6 +4,7 @@ export const MATCH_STATUSES = [
   'DRAFT',
   'LINEUP',
   'READY',
+  'STARTING',
   'IN_PROGRESS',
   'COMPLETED',
   'CANCELLED',

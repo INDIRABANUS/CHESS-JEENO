@@ -279,6 +279,34 @@ export const unlockLineup = async (competitionId, matchId, data) => {
   return response.data.data;
 };
 
+// ==========================================
+// Team Competition V3: Match Execution & Lichess Games
+// ==========================================
+
+/**
+ * Start match execution and create Lichess games for all boards (Organizer).
+ */
+export const startMatch = async (competitionId, matchId, data = {}) => {
+  const response = await api.post(`/team-competitions/${competitionId}/matches/${matchId}/start`, data);
+  return response.data.data;
+};
+
+/**
+ * Retry failed boards for a team match (Organizer).
+ */
+export const retryFailedBoards = async (competitionId, matchId, data = {}) => {
+  const response = await api.post(`/team-competitions/${competitionId}/matches/${matchId}/retry`, data);
+  return response.data.data;
+};
+
+/**
+ * Sync Lichess game results for all boards in a team match.
+ */
+export const syncMatchResults = async (competitionId, matchId, data = {}) => {
+  const response = await api.post(`/team-competitions/${competitionId}/matches/${matchId}/sync`, data);
+  return response.data.data;
+};
+
 export default {
   getCompetitions,
   getCompetitionById,
@@ -314,5 +342,9 @@ export default {
   setPlayerReady,
   lockLineup,
   unlockLineup,
+  startMatch,
+  retryFailedBoards,
+  syncMatchResults,
 };
+
 

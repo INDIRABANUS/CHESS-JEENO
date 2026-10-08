@@ -47,6 +47,7 @@
     "test:notifications": "node src/utils/testNotificationSystem.js",
     "test:team-competition": "node src/utils/testTeamCompetition.js",
     "test:team-competition:matches": "node src/utils/testTeamCompetitionMatches.js",
+    "test:team-competition:execution": "node src/utils/testTeamCompetitionExecution.js",
     "verify:deploy": "node src/utils/verifyDeploymentReadiness.js"
   },
   "dependencies": {
