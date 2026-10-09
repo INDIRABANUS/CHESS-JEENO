@@ -307,6 +307,45 @@ export const syncMatchResults = async (competitionId, matchId, data = {}) => {
   return response.data.data;
 };
 
+// ==========================================
+// Team Competition V4: Scoring, Results & Standings
+// ==========================================
+
+/**
+ * Get match result breakdown.
+ */
+export const getMatchResult = async (competitionId, matchId) => {
+  const response = await api.get(`/team-competitions/${competitionId}/matches/${matchId}/result`);
+  return response.data.data;
+};
+
+/**
+ * Get round results including match scores and scoring statuses.
+ */
+export const getRoundResults = async (competitionId, roundId) => {
+  const response = await api.get(`/team-competitions/${competitionId}/rounds/${roundId}/results`);
+  return response.data.data;
+};
+
+/**
+ * Get competition standings.
+ */
+export const getCompetitionStandings = async (competitionId) => {
+  const response = await api.get(`/team-competitions/${competitionId}/standings`);
+  return response.data.data;
+};
+
+/**
+ * Resolve an aborted board result (Organizer only).
+ */
+export const resolveMatchResult = async (competitionId, matchId, data) => {
+  const response = await api.post(
+    `/team-competitions/${competitionId}/matches/${matchId}/resolve-result`,
+    data
+  );
+  return response.data.data;
+};
+
 export default {
   getCompetitions,
   getCompetitionById,
@@ -345,6 +384,11 @@ export default {
   startMatch,
   retryFailedBoards,
   syncMatchResults,
+  getMatchResult,
+  getRoundResults,
+  getCompetitionStandings,
+  resolveMatchResult,
 };
+
 
 

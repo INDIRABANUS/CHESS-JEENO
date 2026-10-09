@@ -12,8 +12,32 @@ import {
   Crown,
 } from 'lucide-react';
 
-const getMatchStatusBadge = (status) => {
+const getMatchStatusBadge = (status, scoringStatus) => {
+  if (status === 'COMPLETED') {
+    if (scoringStatus === 'REVIEW_REQUIRED') {
+      return {
+        bg: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700',
+        label: 'Review Required',
+      };
+    }
+    if (scoringStatus === 'FINAL') {
+      return {
+        bg: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700',
+        label: 'Final',
+      };
+    }
+    return {
+      bg: 'bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-700',
+      label: 'Completed',
+    };
+  }
+
   switch (status) {
+    case 'IN_PROGRESS':
+      return {
+        bg: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
+        label: 'In Progress',
+      };
     case 'READY':
       return {
         bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
@@ -43,7 +67,7 @@ const getMatchStatusBadge = (status) => {
 };
 
 const TeamMatchCard = ({ match, competitionId }) => {
-  const statusBadge = getMatchStatusBadge(match.status);
+  const statusBadge = getMatchStatusBadge(match.status, match.scoringStatus);
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between">
@@ -83,11 +107,32 @@ const TeamMatchCard = ({ match, competitionId }) => {
           </div>
         </div>
 
-        {/* VS Separator */}
+        {/* VS / Score Separator */}
         <div className="md:col-span-1 flex flex-col items-center justify-center py-1">
-          <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-            VS
-          </span>
+          {match.scoringStatus === 'FINAL' ? (
+            <>
+              <div className="flex items-center space-x-2 px-3 py-1 rounded-xl bg-slate-900 text-white dark:bg-slate-800 text-sm font-black shadow-xs">
+                <span>{match.teamAScore ?? 0}</span>
+                <span className="text-slate-400 font-bold">-</span>
+                <span>{match.teamBScore ?? 0}</span>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mt-1">
+                {match.teamAResult === 'WIN'
+                  ? `${match.teamA?.name?.split(' ')[0] || 'Team A'} Won`
+                  : match.teamBResult === 'WIN'
+                  ? `${match.teamB?.name?.split(' ')[0] || 'Team B'} Won`
+                  : 'Draw'}
+              </span>
+            </>
+          ) : match.scoringStatus === 'REVIEW_REQUIRED' ? (
+            <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+              Review Req.
+            </span>
+          ) : (
+            <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+              VS
+            </span>
+          )}
         </div>
 
         {/* Team B */}

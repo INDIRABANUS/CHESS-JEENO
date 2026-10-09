@@ -88,9 +88,15 @@ const TeamMatchBoard = ({
               )}
             </div>
           )}
-          {isAborted && (
+          {isAborted && !board.overrideResult && (
             <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-              <span>Aborted</span>
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Aborted (Needs Resolution)</span>
+            </span>
+          )}
+          {board.overrideResult && (
+            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300" title={board.overrideReason}>
+              <span>Overridden ({board.overrideResult})</span>
             </span>
           )}
           {isError && (
@@ -190,13 +196,34 @@ const TeamMatchBoard = ({
 
         {/* VS Indicator (col 6) */}
         <div className="md:col-span-1 flex flex-col items-center justify-center py-2">
-          <span className="px-2.5 py-1 rounded-full text-xs font-black bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
-            VS
-          </span>
-          {board.result && (
-            <span className="mt-1 text-xs font-black text-indigo-600 dark:text-indigo-400">
-              {board.result}
-            </span>
+          {board.teamAPoints !== undefined && board.teamAPoints !== null ? (
+            <div className="flex flex-col items-center">
+              <div className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-900 text-white dark:bg-slate-800 text-xs font-black shadow-xs">
+                <span>{board.teamAPoints}</span>
+                <span className="text-slate-400 font-bold">-</span>
+                <span>{board.teamBPoints}</span>
+              </div>
+              {board.overrideResult ? (
+                <span className="mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                  Override
+                </span>
+              ) : board.result ? (
+                <span className="mt-1 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
+                  {board.result}
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <span className="px-2.5 py-1 rounded-full text-xs font-black bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
+                VS
+              </span>
+              {board.result && (
+                <span className="mt-1 text-xs font-black text-indigo-600 dark:text-indigo-400">
+                  {board.result}
+                </span>
+              )}
+            </>
           )}
         </div>
 

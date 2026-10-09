@@ -105,6 +105,34 @@ const teamMatchBoardSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // V4 Scoring & Resolution fields
+    teamAPoints: {
+      type: Number,
+      default: null,
+    },
+    teamBPoints: {
+      type: Number,
+      default: null,
+    },
+    overrideResult: {
+      type: String,
+      enum: ['1-0', '0-1', '1/2-1/2', null],
+      default: null,
+    },
+    overrideReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    resolvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    resolvedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

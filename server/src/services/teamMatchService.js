@@ -9,6 +9,12 @@ import TeamMatchBoard from '../models/TeamMatchBoard.js';
 import * as notificationService from './notificationService.js';
 import * as lichessService from './lichessService.js';
 import * as lichessOAuthService from './lichessOAuthService.js';
+import {
+  calculateBoardScore,
+  calculateMatchScore,
+  rebuildCompetitionStandings,
+  getCompetitionStandings,
+} from './teamCompetitionStandingsService.js';
 
 
 /**
@@ -505,6 +511,7 @@ export const getMatchById = async (competitionId, matchId, currentUserId = null)
       select: '_id name captain status',
       populate: { path: 'captain', select: '_id name email avatar lichessUsername' },
     })
+    .populate('winnerTeam', '_id name')
     .lean();
 
   if (!match) {
@@ -518,6 +525,7 @@ export const getMatchById = async (competitionId, matchId, currentUserId = null)
     .populate('teamBPlayer', '_id name email avatar lichessUsername')
     .populate('whitePlayer', '_id name email avatar lichessUsername')
     .populate('blackPlayer', '_id name email avatar lichessUsername')
+    .populate('resolvedBy', '_id name email')
     .sort({ boardNumber: 1 })
     .lean();
 
@@ -1831,6 +1839,11 @@ export const syncMatchResults = async (competitionId, matchId, userId = null, op
         if (!board.gameFinishedAt) {
           board.gameFinishedAt = new Date();
         }
+
+        // V4 deterministic board scoring
+        const bScore = calculateBoardScore(board);
+        board.teamAPoints = bScore.teamAPoints;
+        board.teamBPoints = bScore.teamBPoints;
       } else {
         board.lichessStatus = 'ACTIVE';
       }
@@ -1847,12 +1860,44 @@ export const syncMatchResults = async (competitionId, matchId, userId = null, op
   const allTerminal =
     updatedBoards.length > 0 &&
     updatedBoards.every(
-      (b) => ['FINISHED', 'ABORTED'].includes(b.lichessStatus) && b.result !== null
+      (b) => ['FINISHED', 'ABORTED'].includes(b.lichessStatus) && (b.result !== null || b.overrideResult !== null)
     );
 
-  if (allTerminal && match.status !== 'COMPLETED') {
+  if (allTerminal) {
+    const matchCalc = calculateMatchScore(match, updatedBoards);
+    const wasNotFinal = match.scoringStatus !== 'FINAL';
+
     match.status = 'COMPLETED';
+    match.completedAt = match.completedAt || new Date();
+    match.scoringStatus = matchCalc.scoringStatus;
+    match.teamAScore = matchCalc.teamAScore;
+    match.teamBScore = matchCalc.teamBScore;
+
+    if (matchCalc.scoringStatus === 'FINAL') {
+      match.teamAResult = matchCalc.teamAResult;
+      match.teamBResult = matchCalc.teamBResult;
+      match.winnerTeam = matchCalc.winnerTeam;
+      match.teamAMatchPoints = matchCalc.teamAMatchPoints;
+      match.teamBMatchPoints = matchCalc.teamBMatchPoints;
+      match.finalizedAt = match.finalizedAt || new Date();
+    } else {
+      // REVIEW_REQUIRED: preserve partial board scores, but do not award winner or final match points
+      match.teamAResult = null;
+      match.teamBResult = null;
+      match.winnerTeam = null;
+      match.teamAMatchPoints = 0;
+      match.teamBMatchPoints = 0;
+    }
+
     await match.save();
+
+    // If match is FINAL, rebuild competition standings and notify participants
+    if (matchCalc.scoringStatus === 'FINAL') {
+      await rebuildCompetitionStandings(competitionId);
+      if (wasNotFinal) {
+        await notifyMatchCompletion(match, competitionId);
+      }
+    }
 
     // Check round completion: If all non-cancelled matches in round are completed
     if (match.round) {
@@ -1869,7 +1914,7 @@ export const syncMatchResults = async (competitionId, matchId, userId = null, op
       }
     }
 
-    // Realtime broadcast of match completion
+    // Realtime broadcast of match completion & standings update
     try {
       const { getIo } = await import('../realtime/socket.js');
       const io = getIo();
@@ -1877,7 +1922,16 @@ export const syncMatchResults = async (competitionId, matchId, userId = null, op
         io.to(`competition:${competitionId}`).emit('team-match:completed', {
           matchId: matchId.toString(),
           status: 'COMPLETED',
+          scoringStatus: match.scoringStatus,
+          teamAScore: match.teamAScore,
+          teamBScore: match.teamBScore,
+          winnerTeam: match.winnerTeam,
         });
+        if (match.scoringStatus === 'FINAL') {
+          io.to(`competition:${competitionId}`).emit('team-competition:standings-updated', {
+            competitionId: competitionId.toString(),
+          });
+        }
       }
     } catch {
       // Non-fatal
@@ -1891,6 +1945,337 @@ export const syncMatchResults = async (competitionId, matchId, userId = null, op
     completed: match.status === 'COMPLETED',
   };
 };
+
+/**
+ * Dispatch match completion notification to captains, players, and organizer.
+ * Uses deterministic eventKey to prevent duplicate notifications.
+ */
+export const notifyMatchCompletion = async (match, competitionId) => {
+  try {
+    const compDoc = await TeamCompetition.findById(competitionId).select('name organizer');
+    const teamADoc = await TeamCompetitionTeam.findById(match.teamA).select('name captain');
+    const teamBDoc = await TeamCompetitionTeam.findById(match.teamB).select('name captain');
+
+    const nameA = teamADoc?.name || 'Team A';
+    const nameB = teamBDoc?.name || 'Team B';
+
+    let outcomeMsg = '';
+    if (match.teamAResult === 'WIN') {
+      outcomeMsg = `${nameA} defeated ${nameB} (${match.teamAScore} - ${match.teamBScore})`;
+    } else if (match.teamBResult === 'WIN') {
+      outcomeMsg = `${nameB} defeated ${nameA} (${match.teamBScore} - ${match.teamAScore})`;
+    } else {
+      outcomeMsg = `${nameA} drew with ${nameB} (${match.teamAScore} - ${match.teamBScore})`;
+    }
+
+    const recipientIds = new Set();
+    if (teamADoc?.captain) recipientIds.add(teamADoc.captain.toString());
+    if (teamBDoc?.captain) recipientIds.add(teamBDoc.captain.toString());
+    if (compDoc?.organizer) recipientIds.add(compDoc.organizer.toString());
+
+    const boards = await TeamMatchBoard.find({ match: match._id });
+    boards.forEach((b) => {
+      if (b.teamAPlayer) recipientIds.add(b.teamAPlayer.toString());
+      if (b.teamBPlayer) recipientIds.add(b.teamBPlayer.toString());
+    });
+
+    for (const recipientId of recipientIds) {
+      try {
+        await notificationService.createNotification({
+          recipient: recipientId,
+          type: 'TEAM_MATCH_COMPLETED',
+          title: 'Team Match Completed',
+          message: `Match finished: ${outcomeMsg}`,
+          teamCompetition: competitionId,
+          teamMatch: match._id,
+          teamRound: match.round,
+          metadata: {
+            matchId: match._id.toString(),
+            teamAScore: match.teamAScore,
+            teamBScore: match.teamBScore,
+            teamAResult: match.teamAResult,
+            teamBResult: match.teamBResult,
+            winnerTeam: match.winnerTeam?.toString() || null,
+          },
+          eventKey: `team_match_completed_${match._id}_${recipientId}`,
+        });
+      } catch {
+        // Ignored if duplicate or non-fatal
+      }
+    }
+  } catch (err) {
+    console.warn('[Notification] Failed to send match completion notifications:', err.message);
+  }
+};
+
+/**
+ * Resolve an aborted or disputed board result (Organizer only).
+ * Recalculates match scoring and updates competition standings if match becomes FINAL.
+ */
+export const resolveMatchResult = async (
+  competitionId,
+  matchId,
+  { boardNumber, result, reason },
+  userId
+) => {
+  validateObjectId(competitionId, 'competition ID');
+  validateObjectId(matchId, 'match ID');
+  validateObjectId(userId, 'user ID');
+
+  const competition = await TeamCompetition.findById(competitionId);
+  if (!competition) {
+    const error = new Error('Competition not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (toIdString(competition.organizer) !== userId.toString()) {
+    const error = new Error('Forbidden: Only the competition organizer can resolve match results');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const match = await TeamMatch.findById(matchId);
+  if (!match || match.competition.toString() !== competitionId.toString()) {
+    const error = new Error('Match not found in this competition');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (match.status === 'CANCELLED') {
+    const error = new Error('Cannot resolve results for a cancelled match');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const parsedBoardNumber = parseInt(boardNumber, 10);
+  if (isNaN(parsedBoardNumber) || parsedBoardNumber < 1) {
+    const error = new Error('boardNumber must be a positive integer');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const allowedResults = ['1-0', '0-1', '1/2-1/2'];
+  if (!allowedResults.includes(result)) {
+    const error = new Error(`Invalid result: '${result}'. Allowed values: ${allowedResults.join(', ')}`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const board = await TeamMatchBoard.findOne({ match: matchId, boardNumber: parsedBoardNumber });
+  if (!board) {
+    const error = new Error(`Board ${parsedBoardNumber} not found in this match`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Update board resolution override
+  board.overrideResult = result;
+  board.overrideReason = typeof reason === 'string' && reason.trim() ? reason.trim() : 'Organizer decision';
+  board.resolvedBy = userId;
+  board.resolvedAt = new Date();
+
+  if (!['FINISHED', 'ABORTED'].includes(board.lichessStatus)) {
+    board.lichessStatus = 'FINISHED';
+  }
+  if (!board.gameFinishedAt) {
+    board.gameFinishedAt = new Date();
+  }
+
+  const bScore = calculateBoardScore(board);
+  board.teamAPoints = bScore.teamAPoints;
+  board.teamBPoints = bScore.teamBPoints;
+  await board.save();
+
+  // Recalculate match scoring across all boards
+  const allBoards = await TeamMatchBoard.find({ match: matchId }).sort({ boardNumber: 1 });
+  const matchCalc = calculateMatchScore(match, allBoards);
+  const wasNotFinal = match.scoringStatus !== 'FINAL';
+
+  match.status = 'COMPLETED';
+  match.completedAt = match.completedAt || new Date();
+  match.scoringStatus = matchCalc.scoringStatus;
+  match.teamAScore = matchCalc.teamAScore;
+  match.teamBScore = matchCalc.teamBScore;
+
+  if (matchCalc.scoringStatus === 'FINAL') {
+    match.teamAResult = matchCalc.teamAResult;
+    match.teamBResult = matchCalc.teamBResult;
+    match.winnerTeam = matchCalc.winnerTeam;
+    match.teamAMatchPoints = matchCalc.teamAMatchPoints;
+    match.teamBMatchPoints = matchCalc.teamBMatchPoints;
+    match.finalizedAt = new Date();
+  } else {
+    match.teamAResult = null;
+    match.teamBResult = null;
+    match.winnerTeam = null;
+    match.teamAMatchPoints = 0;
+    match.teamBMatchPoints = 0;
+  }
+
+  await match.save();
+
+  const standingsData = await rebuildCompetitionStandings(competitionId);
+  const standings = standingsData.standings;
+  if (matchCalc.scoringStatus === 'FINAL' && wasNotFinal) {
+    await notifyMatchCompletion(match, competitionId);
+  }
+
+  // Realtime broadcast of resolution & updated standings
+  try {
+    const { getIo } = await import('../realtime/socket.js');
+    const io = getIo();
+    if (io) {
+      io.to(`competition:${competitionId}`).emit('team-match:completed', {
+        matchId: matchId.toString(),
+        status: 'COMPLETED',
+        scoringStatus: match.scoringStatus,
+        teamAScore: match.teamAScore,
+        teamBScore: match.teamBScore,
+        winnerTeam: match.winnerTeam,
+      });
+      if (match.scoringStatus === 'FINAL') {
+        io.to(`competition:${competitionId}`).emit('team-competition:standings-updated', {
+          competitionId: competitionId.toString(),
+        });
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+
+  return {
+    match,
+    boards: allBoards,
+    resolvedBoard: board,
+    scoringStatus: match.scoringStatus,
+    standings,
+  };
+};
+
+/**
+ * Get match result breakdown.
+ */
+export const getMatchResult = async (competitionId, matchId) => {
+  validateObjectId(competitionId, 'competition ID');
+  validateObjectId(matchId, 'match ID');
+
+  const match = await TeamMatch.findOne({ _id: matchId, competition: competitionId })
+    .populate('teamA', '_id name captain status')
+    .populate('teamB', '_id name captain status')
+    .populate('winnerTeam', '_id name')
+    .populate('round', '_id roundNumber name status')
+    .lean();
+
+  if (!match) {
+    const error = new Error('Match not found in this competition');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const boards = await TeamMatchBoard.find({ match: matchId })
+    .populate('teamAPlayer', '_id name email avatar lichessUsername')
+    .populate('teamBPlayer', '_id name email avatar lichessUsername')
+    .populate('whitePlayer', '_id name email avatar lichessUsername')
+    .populate('blackPlayer', '_id name email avatar lichessUsername')
+    .populate('resolvedBy', '_id name email')
+    .sort({ boardNumber: 1 })
+    .lean();
+
+  return {
+    matchId: match._id,
+    competition: match.competition,
+    round: match.round,
+    teamA: match.teamA,
+    teamB: match.teamB,
+    teamAScore: match.teamAScore || 0,
+    teamBScore: match.teamBScore || 0,
+    teamAMatchPoints: match.teamAMatchPoints || 0,
+    teamBMatchPoints: match.teamBMatchPoints || 0,
+    teamAResult: match.teamAResult,
+    teamBResult: match.teamBResult,
+    winnerTeam: match.winnerTeam,
+    scoringStatus: match.scoringStatus || 'PENDING',
+    status: match.status,
+    boardCount: match.boardCount,
+    completedAt: match.completedAt,
+    finalizedAt: match.finalizedAt,
+    boards: boards.map((b) => {
+      const bScore = calculateBoardScore(b);
+      return {
+        _id: b._id,
+        boardNumber: b.boardNumber,
+        teamAPlayer: b.teamAPlayer,
+        teamBPlayer: b.teamBPlayer,
+        whitePlayer: b.whitePlayer,
+        blackPlayer: b.blackPlayer,
+        result: b.result,
+        overrideResult: b.overrideResult,
+        overrideReason: b.overrideReason,
+        resolvedBy: b.resolvedBy,
+        resolvedAt: b.resolvedAt,
+        effectiveResult: bScore.effectiveResult,
+        teamAPoints: bScore.isScoreable ? bScore.teamAPoints : null,
+        teamBPoints: bScore.isScoreable ? bScore.teamBPoints : null,
+        lichessStatus: b.lichessStatus,
+        lichessUrl: b.lichessUrl,
+        isAborted: bScore.isAborted,
+        isScoreable: bScore.isScoreable,
+      };
+    }),
+  };
+};
+
+/**
+ * Get round results including all matches and scoring status.
+ */
+export const getRoundResults = async (competitionId, roundId) => {
+  validateObjectId(competitionId, 'competition ID');
+  validateObjectId(roundId, 'round ID');
+
+  const round = await TeamCompetitionRound.findOne({ _id: roundId, competition: competitionId }).lean();
+  if (!round) {
+    const error = new Error('Round not found in this competition');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const matches = await TeamMatch.find({ round: roundId, competition: competitionId })
+    .populate('teamA', '_id name captain status')
+    .populate('teamB', '_id name captain status')
+    .populate('winnerTeam', '_id name')
+    .sort({ createdAt: 1 })
+    .lean();
+
+  return {
+    round: {
+      _id: round._id,
+      roundNumber: round.roundNumber,
+      name: round.name,
+      status: round.status,
+      scheduledStart: round.scheduledStart,
+    },
+    matches: matches.map((m) => ({
+      matchId: m._id,
+      roundId: m.round,
+      teamA: m.teamA,
+      teamB: m.teamB,
+      teamAScore: m.teamAScore || 0,
+      teamBScore: m.teamBScore || 0,
+      teamAMatchPoints: m.teamAMatchPoints || 0,
+      teamBMatchPoints: m.teamBMatchPoints || 0,
+      teamAResult: m.teamAResult,
+      teamBResult: m.teamBResult,
+      winner: m.winnerTeam,
+      scoringStatus: m.scoringStatus || 'PENDING',
+      status: m.status,
+      boardCount: m.boardCount,
+      completedAt: m.completedAt,
+    })),
+  };
+};
+
+export { getCompetitionStandings, rebuildCompetitionStandings };
 
 export default {
   validateObjectId,
@@ -1911,5 +2296,12 @@ export default {
   startMatch,
   retryFailedBoards,
   syncMatchResults,
+  notifyMatchCompletion,
+  resolveMatchResult,
+  getMatchResult,
+  getRoundResults,
+  getCompetitionStandings,
+  rebuildCompetitionStandings,
 };
+
 

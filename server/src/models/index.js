@@ -11,6 +11,7 @@ import TeamCompetitionMember from './TeamCompetitionMember.js';
 import TeamCompetitionRound from './TeamCompetitionRound.js';
 import TeamMatch from './TeamMatch.js';
 import TeamMatchBoard from './TeamMatchBoard.js';
+import TeamCompetitionStanding from './TeamCompetitionStanding.js';
 
 export {
   User,
@@ -26,6 +27,7 @@ export {
   TeamCompetitionRound,
   TeamMatch,
   TeamMatchBoard,
+  TeamCompetitionStanding,
 };
 
 export default {
@@ -42,6 +44,7 @@ export default {
   TeamCompetitionRound,
   TeamMatch,
   TeamMatchBoard,
+  TeamCompetitionStanding,
 };
 
 

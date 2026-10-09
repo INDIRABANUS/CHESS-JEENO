@@ -367,6 +367,80 @@ export const syncMatchResults = async (req, res, next) => {
   }
 };
 
+/**
+ * Get match result breakdown.
+ * GET /api/team-competitions/:competitionId/matches/:matchId/result
+ */
+export const getMatchResult = async (req, res, next) => {
+  try {
+    const { competitionId, matchId } = req.params;
+    const result = await teamMatchService.getMatchResult(competitionId, matchId);
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get round results including all match outcomes and scoring statuses.
+ * GET /api/team-competitions/:competitionId/rounds/:roundId/results
+ */
+export const getRoundResults = async (req, res, next) => {
+  try {
+    const { competitionId, roundId } = req.params;
+    const result = await teamMatchService.getRoundResults(competitionId, roundId);
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get competition standings (deterministically recalculated).
+ * GET /api/team-competitions/:competitionId/standings
+ */
+export const getCompetitionStandings = async (req, res, next) => {
+  try {
+    const competitionId = req.params.competitionId || req.params.id;
+    const result = await teamMatchService.getCompetitionStandings(competitionId);
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Resolve an aborted or disputed board result (Organizer only).
+ * POST /api/team-competitions/:competitionId/matches/:matchId/resolve-result
+ */
+export const resolveMatchResult = async (req, res, next) => {
+  try {
+    const { competitionId, matchId } = req.params;
+    const result = await teamMatchService.resolveMatchResult(
+      competitionId,
+      matchId,
+      req.body || {},
+      req.user._id
+    );
+    res.status(200).json({
+      success: true,
+      message: 'Match result resolved successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   createRound,
   getRounds,
@@ -385,5 +459,10 @@ export default {
   startMatch,
   retryFailedBoards,
   syncMatchResults,
+  getMatchResult,
+  getRoundResults,
+  getCompetitionStandings,
+  resolveMatchResult,
 };
+
 

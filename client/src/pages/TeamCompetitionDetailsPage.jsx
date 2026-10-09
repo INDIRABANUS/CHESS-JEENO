@@ -31,6 +31,9 @@ import CreateTeamModal from '../components/teamCompetition/CreateTeamModal';
 import TeamMatchCard from '../components/teamCompetition/TeamMatchCard';
 import CreateRoundModal from '../components/teamCompetition/CreateRoundModal';
 import CreateMatchModal from '../components/teamCompetition/CreateMatchModal';
+import TeamStandingTable from '../components/teamCompetition/TeamStandingTable';
+import RoundResults from '../components/teamCompetition/RoundResults';
+import { getSocket } from '../services/socket';
 
 const TeamCompetitionDetailsPage = () => {
   const { id } = useParams();
@@ -41,7 +44,8 @@ const TeamCompetitionDetailsPage = () => {
   const [teams, setTeams] = useState([]);
   const [rounds, setRounds] = useState([]);
   const [matches, setMatches] = useState([]);
-  const [activeTab, setActiveTab] = useState('squads'); // 'squads' | 'rounds'
+  const [standings, setStandings] = useState([]);
+  const [activeTab, setActiveTab] = useState('standings'); // 'standings' | 'rounds' | 'squads'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionSuccess, setActionSuccess] = useState(null);
@@ -59,16 +63,18 @@ const TeamCompetitionDetailsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [compData, teamsData, roundsData, matchesData] = await Promise.all([
+      const [compData, teamsData, roundsData, matchesData, standingsData] = await Promise.all([
         teamCompetitionService.getCompetitionById(id),
         teamCompetitionService.getTeams(id),
         teamCompetitionService.getRounds(id).catch(() => []),
         teamCompetitionService.getMatches(id).catch(() => []),
+        teamCompetitionService.getCompetitionStandings(id).catch(() => []),
       ]);
       setCompetition(compData);
       setTeams(teamsData || []);
       setRounds(roundsData || []);
       setMatches(matchesData || []);
+      setStandings(standingsData || []);
     } catch (err) {
       setError(
         err.response?.data?.message || err.message || 'Failed to load team competition'
@@ -80,6 +86,26 @@ const TeamCompetitionDetailsPage = () => {
 
   useEffect(() => {
     loadCompetitionData();
+  }, [loadCompetitionData]);
+
+  // Realtime updates for competition match results and standings
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleUpdate = () => {
+      loadCompetitionData();
+    };
+
+    socket.on('team-competition:standings-updated', handleUpdate);
+    socket.on('team-match:completed', handleUpdate);
+    socket.on('team-match:started', handleUpdate);
+
+    return () => {
+      socket.off('team-competition:standings-updated', handleUpdate);
+      socket.off('team-match:completed', handleUpdate);
+      socket.off('team-match:started', handleUpdate);
+    };
   }, [loadCompetitionData]);
 
   if (loading) {
@@ -528,22 +554,22 @@ const TeamCompetitionDetailsPage = () => {
       )}
 
       {/* Tabs Navigation */}
-      <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-px">
         <button
-          onClick={() => setActiveTab('squads')}
-          className={`px-5 py-3 font-bold text-sm flex items-center space-x-2 border-b-2 transition min-h-[44px] ${
-            activeTab === 'squads'
+          onClick={() => setActiveTab('standings')}
+          className={`px-5 py-3 font-bold text-sm flex items-center space-x-2 border-b-2 transition whitespace-nowrap min-h-[44px] cursor-pointer ${
+            activeTab === 'standings'
               ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
-          <Users className="h-4 w-4" />
-          <span>Squads & Rosters ({activeTeams.length})</span>
+          <Trophy className="h-4 w-4" />
+          <span>Standings ({standings.length > 0 ? standings.length : activeTeams.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('rounds')}
-          className={`px-5 py-3 font-bold text-sm flex items-center space-x-2 border-b-2 transition min-h-[44px] ${
+          className={`px-5 py-3 font-bold text-sm flex items-center space-x-2 border-b-2 transition whitespace-nowrap min-h-[44px] cursor-pointer ${
             activeTab === 'rounds'
               ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -551,6 +577,18 @@ const TeamCompetitionDetailsPage = () => {
         >
           <Layers className="h-4 w-4" />
           <span>Rounds & Matches ({rounds.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('squads')}
+          className={`px-5 py-3 font-bold text-sm flex items-center space-x-2 border-b-2 transition whitespace-nowrap min-h-[44px] cursor-pointer ${
+            activeTab === 'squads'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          <span>Squads & Rosters ({activeTeams.length})</span>
         </button>
       </div>
 
@@ -815,6 +853,37 @@ const TeamCompetitionDetailsPage = () => {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB 3: STANDINGS & LEADERBOARD (Team Competition V4) */}
+      {activeTab === 'standings' && (
+        <div className="space-y-8 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center space-x-2">
+                <Trophy className="h-5 w-5 text-amber-500" />
+                <span>Authoritative Competition Standings</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Calculated strictly by the backend from finalized Lichess board scores across all completed rounds.
+              </p>
+            </div>
+
+            <button
+              onClick={loadCompetitionData}
+              disabled={loading}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition self-start sm:self-auto cursor-pointer"
+            >
+              <span>Refresh Standings</span>
+            </button>
+          </div>
+
+          {/* Standings Table Component */}
+          <TeamStandingTable standings={standings} />
+
+          {/* Round-by-Round Results Accordion */}
+          <RoundResults rounds={rounds} matches={matches} competitionId={competition._id} />
         </div>
       )}
 

@@ -38,6 +38,10 @@ import {
   startMatch,
   retryFailedBoards,
   syncMatchResults,
+  getMatchResult,
+  getRoundResults,
+  getCompetitionStandings,
+  resolveMatchResult,
 } from '../controllers/teamMatchController.js';
 import { requireAuth, optionalAuth } from '../middleware/authMiddleware.js';
 
@@ -131,5 +135,21 @@ router.post('/:competitionId/matches/:matchId/start', requireAuth, startMatch);
 router.post('/:competitionId/matches/:matchId/retry', requireAuth, retryFailedBoards);
 router.post('/:competitionId/matches/:matchId/sync', optionalAuth, syncMatchResults);
 
+// ==========================================
+// Team Competition V4: Scoring, Results & Standings
+// ==========================================
+
+// Competition Standings
+router.get('/:competitionId/standings', optionalAuth, getCompetitionStandings);
+router.get('/:id/standings', optionalAuth, getCompetitionStandings);
+
+// Round Results
+router.get('/:competitionId/rounds/:roundId/results', optionalAuth, getRoundResults);
+
+// Match Result Breakdown & Result Resolution
+router.get('/:competitionId/matches/:matchId/result', optionalAuth, getMatchResult);
+router.post('/:competitionId/matches/:matchId/resolve-result', requireAuth, resolveMatchResult);
+
 export default router;
+
 

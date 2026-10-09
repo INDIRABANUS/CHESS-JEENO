@@ -25,6 +25,7 @@ import * as teamCompetitionService from '../services/teamCompetitionService';
 import TeamMatchBoard from '../components/teamCompetition/TeamMatchBoard';
 import TeamLineupManager from '../components/teamCompetition/TeamLineupManager';
 import MatchReadinessPanel from '../components/teamCompetition/MatchReadinessPanel';
+import ResolveResultModal from '../components/teamCompetition/ResolveResultModal';
 import { getSocket } from '../services/socket';
 
 const TeamMatchDetailsPage = () => {
@@ -43,6 +44,7 @@ const TeamMatchDetailsPage = () => {
   const [successMsg, setSuccessMsg] = useState(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showStartModal, setShowStartModal] = useState(false);
+  const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
 
   const loadMatchData = useCallback(async () => {
@@ -93,11 +95,13 @@ const TeamMatchDetailsPage = () => {
     socket.on('team-match:started', handleMatchUpdate);
     socket.on('team-match:completed', handleMatchUpdate);
     socket.on('team-match:status-changed', handleMatchUpdate);
+    socket.on('team-competition:standings-updated', handleMatchUpdate);
 
     return () => {
       socket.off('team-match:started', handleMatchUpdate);
       socket.off('team-match:completed', handleMatchUpdate);
       socket.off('team-match:status-changed', handleMatchUpdate);
+      socket.off('team-competition:standings-updated', handleMatchUpdate);
     };
   }, [loadMatchData]);
 
@@ -309,6 +313,27 @@ const TeamMatchDetailsPage = () => {
     }
   };
 
+  const handleResolveResult = async ({ boardNumber, result, reason }) => {
+    setActionLoading(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const res = await teamCompetitionService.resolveMatchResult(competitionId, matchId, {
+        boardNumber,
+        result,
+        reason,
+      });
+      setIsResolveModalOpen(false);
+      setSuccessMsg(res.message || 'Board result resolved and match recalculated successfully!');
+      await loadMatchData();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to resolve board result');
+      throw err;
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
       {/* Top Breadcrumb & Navigation */}
@@ -322,16 +347,29 @@ const TeamMatchDetailsPage = () => {
         </Link>
 
         <div className="flex items-center space-x-2">
-          {/* Sync Results Button (When in progress) */}
-          {(match?.status === 'IN_PROGRESS' || hasFailedBoards) && (
+          {/* Sync Results Button */}
+          {(match?.status === 'IN_PROGRESS' || match?.status === 'COMPLETED' || match?.scoringStatus === 'REVIEW_REQUIRED' || hasFailedBoards) && (
             <button
               onClick={handleSyncResults}
               disabled={syncLoading || actionLoading}
-              className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition min-h-[44px] shadow-sm"
+              className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition min-h-[44px] shadow-sm cursor-pointer"
               title="Sync latest game results from Lichess"
             >
               <RefreshCw className={`h-4 w-4 ${syncLoading ? 'animate-spin text-indigo-600' : ''}`} />
               <span>Sync Results</span>
+            </button>
+          )}
+
+          {/* Resolve Result Button (Organizer only, when REVIEW_REQUIRED) */}
+          {isOrganizer && match?.scoringStatus === 'REVIEW_REQUIRED' && (
+            <button
+              onClick={() => setIsResolveModalOpen(true)}
+              disabled={actionLoading}
+              className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-300 transition min-h-[44px] shadow-sm cursor-pointer"
+              title="Resolve Aborted Board"
+            >
+              <Shield className="h-4 w-4" />
+              <span>Resolve Result</span>
             </button>
           )}
 
@@ -340,7 +378,7 @@ const TeamMatchDetailsPage = () => {
             <button
               onClick={() => setShowStartModal(true)}
               disabled={actionLoading}
-              className="inline-flex items-center space-x-2 px-5 py-2 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 transition min-h-[44px] shadow-lg shadow-emerald-600/20"
+              className="inline-flex items-center space-x-2 px-5 py-2 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 transition min-h-[44px] shadow-lg shadow-emerald-600/20 cursor-pointer"
             >
               <Play className="h-4 w-4 fill-current" />
               <span>Start Match</span>
@@ -351,7 +389,7 @@ const TeamMatchDetailsPage = () => {
           <button
             onClick={loadMatchData}
             disabled={loading || actionLoading}
-            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
             title="Refresh Match Data"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -362,7 +400,7 @@ const TeamMatchDetailsPage = () => {
             <button
               onClick={() => setShowCancelModal(true)}
               disabled={actionLoading}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition min-h-[44px]"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition min-h-[44px] cursor-pointer"
             >
               Cancel Match
             </button>
@@ -403,7 +441,7 @@ const TeamMatchDetailsPage = () => {
             <button
               onClick={handleRetryFailedBoards}
               disabled={actionLoading}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition min-h-[40px] shrink-0"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition min-h-[40px] shrink-0 cursor-pointer"
             >
               {actionLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -431,12 +469,16 @@ const TeamMatchDetailsPage = () => {
           <div className="flex items-center space-x-2">
             <span
               className={`px-3.5 py-1 text-xs font-extrabold rounded-full uppercase tracking-wider ${
-                match.status === 'READY'
+                match.scoringStatus === 'FINAL'
+                  ? 'bg-emerald-500 text-white shadow-md'
+                  : match.scoringStatus === 'REVIEW_REQUIRED'
+                  ? 'bg-amber-400 text-amber-950 font-black shadow-md'
+                  : match.status === 'READY'
                   ? 'bg-emerald-500 text-white animate-pulse'
                   : match.status === 'STARTING'
                   ? 'bg-amber-500 text-slate-950 animate-pulse'
                   : match.status === 'IN_PROGRESS'
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-blue-600 text-white'
                   : match.status === 'COMPLETED'
                   ? 'bg-indigo-600 text-white'
                   : match.status === 'CANCELLED'
@@ -444,7 +486,13 @@ const TeamMatchDetailsPage = () => {
                   : 'bg-indigo-500 text-white'
               }`}
             >
-              {match.status === 'IN_PROGRESS' ? 'IN PROGRESS' : match.status}
+              {match.scoringStatus === 'FINAL'
+                ? 'FINAL'
+                : match.scoringStatus === 'REVIEW_REQUIRED'
+                ? 'REVIEW REQUIRED'
+                : match.status === 'IN_PROGRESS'
+                ? 'IN PROGRESS'
+                : match.status}
             </span>
           </div>
         </div>
@@ -468,11 +516,44 @@ const TeamMatchDetailsPage = () => {
             </div>
           </div>
 
-          {/* VS Badge */}
+          {/* Center: VS or Score Breakdown */}
           <div className="md:col-span-1 flex flex-col items-center justify-center">
-            <span className="w-12 h-12 rounded-full bg-white/10 border border-white/20 flex items-center justify-center font-black text-base text-white tracking-widest shadow-inner">
-              VS
-            </span>
+            {match.scoringStatus === 'FINAL' ? (
+              <div className="flex flex-col items-center">
+                <div className="flex items-center space-x-3 px-5 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white font-black text-3xl shadow-xl">
+                  <span className={match.teamAResult === 'WIN' ? 'text-emerald-400' : 'text-white'}>
+                    {match.teamAScore ?? 0}
+                  </span>
+                  <span className="text-white/40 text-xl font-light">-</span>
+                  <span className={match.teamBResult === 'WIN' ? 'text-emerald-400' : 'text-white'}>
+                    {match.teamBScore ?? 0}
+                  </span>
+                </div>
+                <div className="mt-2 text-center">
+                  <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    {match.winnerTeam
+                      ? `${(match.winnerTeam._id?.toString() === match.teamA?._id?.toString() || match.winnerTeam?.toString() === match.teamA?._id?.toString() ? match.teamA?.name : match.teamB?.name)} Won`
+                      : 'Match Drawn'}
+                  </span>
+                  <div className="text-[10px] text-slate-300 mt-1 font-semibold">
+                    Match Points: {match.teamAMatchPoints ?? 0} – {match.teamBMatchPoints ?? 0}
+                  </div>
+                </div>
+              </div>
+            ) : match.scoringStatus === 'REVIEW_REQUIRED' ? (
+              <div className="flex flex-col items-center text-center">
+                <span className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-black uppercase tracking-wider">
+                  Review Required
+                </span>
+                <span className="text-[10px] text-amber-400/80 mt-1 font-medium">
+                  Aborted Board
+                </span>
+              </div>
+            ) : (
+              <span className="w-12 h-12 rounded-full bg-white/10 border border-white/20 flex items-center justify-center font-black text-base text-white tracking-widest shadow-inner">
+                VS
+              </span>
+            )}
           </div>
 
           {/* Team B */}
@@ -501,6 +582,35 @@ const TeamMatchDetailsPage = () => {
           </div>
         )}
       </div>
+
+      {/* Review Required Attention Box */}
+      {match?.scoringStatus === 'REVIEW_REQUIRED' && (
+        <div className="p-6 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-sm">
+          <div className="flex items-start space-x-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-base text-amber-950 dark:text-amber-200">
+                Match Scoring on Hold — Organizer Review Required
+              </h4>
+              <p className="text-xs text-amber-800 dark:text-amber-300 mt-1 max-w-2xl leading-relaxed">
+                One or more boards in this match were aborted on Lichess without a deterministic result. In accordance with competition rules, team scores and standings points are on hold until the competition organizer provides an authoritative board result resolution.
+              </p>
+            </div>
+          </div>
+          {isOrganizer && (
+            <button
+              onClick={() => setIsResolveModalOpen(true)}
+              disabled={actionLoading}
+              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-2xl text-xs font-black text-white bg-amber-600 hover:bg-amber-700 transition shadow-lg shadow-amber-600/30 min-h-[44px] shrink-0 cursor-pointer"
+            >
+              <Shield className="h-4 w-4" />
+              <span>Resolve Board Result</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Match Readiness Breakdown Panel (Prior to start) */}
       {['DRAFT', 'LINEUP', 'READY'].includes(match.status) && (
@@ -694,6 +804,19 @@ const TeamMatchDetailsPage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Resolve Board Result Modal (Organizer Only) */}
+      {isResolveModalOpen && isOrganizer && (
+        <ResolveResultModal
+          isOpen={isResolveModalOpen}
+          onClose={() => setIsResolveModalOpen(false)}
+          boards={boards}
+          teamAName={match?.teamA?.name}
+          teamBName={match?.teamB?.name}
+          onResolve={handleResolveResult}
+          loading={actionLoading}
+        />
       )}
     </div>
   );

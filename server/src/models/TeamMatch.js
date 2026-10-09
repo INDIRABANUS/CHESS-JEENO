@@ -10,6 +10,18 @@ export const MATCH_STATUSES = [
   'CANCELLED',
 ];
 
+export const SCORING_STATUSES = [
+  'PENDING',
+  'FINAL',
+  'REVIEW_REQUIRED',
+];
+
+export const MATCH_RESULTS = [
+  'WIN',
+  'DRAW',
+  'LOSS',
+];
+
 const teamMatchSchema = new mongoose.Schema(
   {
     competition: {
@@ -76,6 +88,59 @@ const teamMatchSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // V4 Scoring & Match Results
+    scoringStatus: {
+      type: String,
+      enum: {
+        values: SCORING_STATUSES,
+        message: '{VALUE} is not a valid scoring status',
+      },
+      default: 'PENDING',
+      index: true,
+    },
+    teamAScore: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    teamBScore: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    teamAMatchPoints: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    teamBMatchPoints: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    teamAResult: {
+      type: String,
+      enum: [...MATCH_RESULTS, null],
+      default: null,
+    },
+    teamBResult: {
+      type: String,
+      enum: [...MATCH_RESULTS, null],
+      default: null,
+    },
+    winnerTeam: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TeamCompetitionTeam',
+      default: null,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+    finalizedAt: {
+      type: Date,
+      default: null,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -89,6 +154,7 @@ const teamMatchSchema = new mongoose.Schema(
 
 teamMatchSchema.index({ round: 1, status: 1 });
 teamMatchSchema.index({ competition: 1, status: 1 });
+teamMatchSchema.index({ competition: 1, scoringStatus: 1 });
 teamMatchSchema.index({ round: 1, teamA: 1, teamB: 1 });
 
 const TeamMatch = mongoose.model('TeamMatch', teamMatchSchema);
