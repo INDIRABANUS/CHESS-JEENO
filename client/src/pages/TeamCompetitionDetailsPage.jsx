@@ -22,6 +22,7 @@ import {
   Swords,
   Layers,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as teamCompetitionService from '../services/teamCompetitionService';
@@ -31,6 +32,7 @@ import CreateTeamModal from '../components/teamCompetition/CreateTeamModal';
 import TeamMatchCard from '../components/teamCompetition/TeamMatchCard';
 import CreateRoundModal from '../components/teamCompetition/CreateRoundModal';
 import CreateMatchModal from '../components/teamCompetition/CreateMatchModal';
+import GenerateScheduleModal from '../components/teamCompetition/GenerateScheduleModal';
 import TeamStandingTable from '../components/teamCompetition/TeamStandingTable';
 import RoundResults from '../components/teamCompetition/RoundResults';
 import { getSocket } from '../services/socket';
@@ -55,6 +57,7 @@ const TeamCompetitionDetailsPage = () => {
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
   const [isCreateRoundOpen, setIsCreateRoundOpen] = useState(false);
   const [isCreateMatchOpen, setIsCreateMatchOpen] = useState(false);
+  const [isGenerateScheduleOpen, setIsGenerateScheduleOpen] = useState(false);
   const [selectedRoundForMatch, setSelectedRoundForMatch] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -455,11 +458,20 @@ const TeamCompetitionDetailsPage = () => {
 
               <button
                 type="button"
+                onClick={() => setIsGenerateScheduleOpen(true)}
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition cursor-pointer inline-flex items-center space-x-1.5 shadow-sm min-h-[44px]"
+              >
+                <Sparkles className="h-4 w-4 text-amber-300" />
+                <span>{rounds.length > 0 ? 'Round Robin Schedule' : 'Generate Round Robin'}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsCreateRoundOpen(true)}
-                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition cursor-pointer inline-flex items-center space-x-1.5 min-h-[44px]"
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer inline-flex items-center space-x-1.5 min-h-[44px]"
               >
                 <Layers className="h-4 w-4" />
-                <span>+ New Round</span>
+                <span>+ Manual Round</span>
               </button>
 
               {rounds.length > 0 && activeTeams.length >= 2 && (
@@ -678,11 +690,20 @@ const TeamCompetitionDetailsPage = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsCreateRoundOpen(true)}
+                  onClick={() => setIsGenerateScheduleOpen(true)}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition flex items-center space-x-1.5 shadow-sm min-h-[44px]"
                 >
+                  <Sparkles className="h-4 w-4 text-amber-300" />
+                  <span>{rounds.length > 0 ? 'Round Robin Schedule' : 'Generate Schedule'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCreateRoundOpen(true)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center space-x-1.5 min-h-[44px]"
+                >
                   <Layers className="h-4 w-4" />
-                  <span>+ Add Round</span>
+                  <span>+ Manual Round</span>
                 </button>
 
                 {rounds.length > 0 && activeTeams.length >= 2 && (
@@ -712,14 +733,25 @@ const TeamCompetitionDetailsPage = () => {
                 Organizers can create multiple competition rounds and schedule team-vs-team matches with sequential board lineups.
               </p>
               {isOrganizer && (
-                <button
-                  type="button"
-                  onClick={() => setIsCreateRoundOpen(true)}
-                  className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer min-h-[44px]"
-                >
-                  <Layers className="h-4 w-4" />
-                  <span>Create Round 1</span>
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsGenerateScheduleOpen(true)}
+                    className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 transition cursor-pointer min-h-[44px]"
+                  >
+                    <Sparkles className="h-4 w-4 text-amber-300" />
+                    <span>Generate Round Robin Schedule</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateRoundOpen(true)}
+                    className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl font-semibold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer min-h-[44px]"
+                  >
+                    <Layers className="h-4 w-4" />
+                    <span>Add Manual Round</span>
+                  </button>
+                </div>
               )}
             </div>
           ) : (
@@ -816,6 +848,26 @@ const TeamCompetitionDetailsPage = () => {
                         </div>
                       )}
                     </div>
+
+                    {/* Scheduled BYE Assignment Banner (V5 Round Robin) */}
+                    {round.byeTeam && (
+                      <div className="flex items-center space-x-3 p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-200">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                          <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="text-xs">
+                          <span className="font-bold uppercase tracking-wider text-[10px] text-amber-700 dark:text-amber-400 block">
+                            Scheduled BYE
+                          </span>
+                          <span className="font-semibold text-slate-900 dark:text-white">
+                            {round.byeTeam?.name || 'Squad'}
+                          </span>{' '}
+                          <span className="text-slate-600 dark:text-slate-300">
+                            has a bye in this round (sits out; no match played).
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Round Matches List */}
                     {roundMatches.length === 0 ? (
@@ -966,6 +1018,22 @@ const TeamCompetitionDetailsPage = () => {
           teams={teams}
           selectedRoundId={selectedRoundForMatch}
           loading={actionLoading}
+        />
+      )}
+
+      {/* Generate Round Robin Schedule Modal (V5) */}
+      {isGenerateScheduleOpen && (
+        <GenerateScheduleModal
+          isOpen={isGenerateScheduleOpen}
+          onClose={() => setIsGenerateScheduleOpen(false)}
+          competitionId={competition._id}
+          competitionName={competition.name}
+          onScheduleGenerated={async (result) => {
+            setActionSuccess(
+              `Generated Round Robin schedule with ${result.totalRounds} rounds and ${result.totalMatches} matches!`
+            );
+            await loadCompetitionData();
+          }}
         />
       )}
     </div>

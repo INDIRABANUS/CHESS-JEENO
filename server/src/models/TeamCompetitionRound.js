@@ -51,6 +51,12 @@ const teamCompetitionRoundSchema = new mongoose.Schema(
       ref: 'User',
       required: [true, 'Creator user ID is required'],
     },
+    // V5 Round Robin BYE Assignment
+    byeTeam: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TeamCompetitionTeam',
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -60,6 +66,7 @@ const teamCompetitionRoundSchema = new mongoose.Schema(
 // Round number must be unique within a competition
 teamCompetitionRoundSchema.index({ competition: 1, roundNumber: 1 }, { unique: true });
 teamCompetitionRoundSchema.index({ competition: 1, status: 1 });
+teamCompetitionRoundSchema.index({ competition: 1, byeTeam: 1 });
 
 const TeamCompetitionRound = mongoose.model(
   'TeamCompetitionRound',

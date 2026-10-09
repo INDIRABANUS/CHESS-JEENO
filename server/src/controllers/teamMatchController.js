@@ -441,6 +441,46 @@ export const resolveMatchResult = async (req, res, next) => {
   }
 };
 
+/**
+ * Generate a Round Robin schedule for a Team Competition (Organizer only).
+ * POST /api/team-competitions/:competitionId/schedule/round-robin
+ */
+export const generateRoundRobinSchedule = async (req, res, next) => {
+  try {
+    const competitionId = req.params.competitionId || req.params.id;
+    const result = await teamMatchService.generateRoundRobinSchedule(
+      competitionId,
+      req.body || {},
+      req.user._id
+    );
+    res.status(201).json({
+      success: true,
+      message: 'Round Robin schedule generated successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Preview Round Robin schedule parameters for a Team Competition.
+ * GET /api/team-competitions/:competitionId/schedule/round-robin/preview
+ */
+export const getRoundRobinPreview = async (req, res, next) => {
+  try {
+    const competitionId = req.params.competitionId || req.params.id;
+    const userId = req.user?._id || null;
+    const result = await teamMatchService.getRoundRobinPreview(competitionId, userId);
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   createRound,
   getRounds,
@@ -463,6 +503,9 @@ export default {
   getRoundResults,
   getCompetitionStandings,
   resolveMatchResult,
+  generateRoundRobinSchedule,
+  getRoundRobinPreview,
 };
+
 
 

@@ -42,6 +42,8 @@ import {
   getRoundResults,
   getCompetitionStandings,
   resolveMatchResult,
+  generateRoundRobinSchedule,
+  getRoundRobinPreview,
 } from '../controllers/teamMatchController.js';
 import { requireAuth, optionalAuth } from '../middleware/authMiddleware.js';
 
@@ -150,6 +152,17 @@ router.get('/:competitionId/rounds/:roundId/results', optionalAuth, getRoundResu
 router.get('/:competitionId/matches/:matchId/result', optionalAuth, getMatchResult);
 router.post('/:competitionId/matches/:matchId/resolve-result', requireAuth, resolveMatchResult);
 
+// ==========================================
+// Team Competition V5: Round Robin Scheduling
+// ==========================================
+
+router.post('/:competitionId/schedule/round-robin', requireAuth, generateRoundRobinSchedule);
+router.post('/:id/schedule/round-robin', requireAuth, generateRoundRobinSchedule);
+
+router.get('/:competitionId/schedule/round-robin/preview', optionalAuth, getRoundRobinPreview);
+router.get('/:id/schedule/round-robin/preview', optionalAuth, getRoundRobinPreview);
+
 export default router;
+
 
 

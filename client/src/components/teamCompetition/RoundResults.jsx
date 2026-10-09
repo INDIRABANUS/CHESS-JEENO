@@ -99,6 +99,17 @@ const RoundResults = ({ rounds = [], matches = [], competitionId }) => {
             {/* Expanded Matches List */}
             {isExpanded && (
               <div className="p-5 sm:p-6 space-y-4">
+                {round.byeTeam && (
+                  <div className="flex items-center space-x-2.5 px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 text-amber-900 dark:text-amber-200 text-xs">
+                    <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>
+                      <strong className="font-bold text-amber-800 dark:text-amber-300">
+                        {round.byeTeam?.name || 'Squad'}
+                      </strong>{' '}
+                      has a scheduled <strong>BYE</strong> in this round (sits out, no match played).
+                    </span>
+                  </div>
+                )}
                 {roundMatches.length === 0 ? (
                   <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
                     <p className="text-xs text-slate-400 font-medium">

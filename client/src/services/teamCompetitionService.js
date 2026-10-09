@@ -346,6 +346,26 @@ export const resolveMatchResult = async (competitionId, matchId, data) => {
   return response.data.data;
 };
 
+// ==========================================
+// Team Competition V5: Round Robin Scheduling
+// ==========================================
+
+/**
+ * Get Round Robin schedule preview parameters.
+ */
+export const getRoundRobinPreview = async (competitionId) => {
+  const response = await api.get(`/team-competitions/${competitionId}/schedule/round-robin/preview`);
+  return response.data.data;
+};
+
+/**
+ * Generate full Round Robin schedule (Organizer only).
+ */
+export const generateRoundRobinSchedule = async (competitionId, data = {}) => {
+  const response = await api.post(`/team-competitions/${competitionId}/schedule/round-robin`, data);
+  return response.data.data;
+};
+
 export default {
   getCompetitions,
   getCompetitionById,
@@ -388,7 +408,10 @@ export default {
   getRoundResults,
   getCompetitionStandings,
   resolveMatchResult,
+  getRoundRobinPreview,
+  generateRoundRobinSchedule,
 };
+
 
 
 
