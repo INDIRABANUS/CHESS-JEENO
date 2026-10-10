@@ -24,6 +24,7 @@ import {
   calculateMatchScore,
   rebuildCompetitionStandings,
 } from '../services/teamCompetitionStandingsService.js';
+import teamMatchService from '../services/teamMatchService.js';
 
 dotenv.config();
 
@@ -613,6 +614,124 @@ const runTeamCompetitionRoundRobinTestSuite = async () => {
     assert(publicRoundsRes.status === 200, 'GET /rounds returns 200 OK');
     assert(publicRoundsRes.data.data.length === 3, 'GET /rounds returns 3 rounds');
     assert(publicRoundsRes.data.data[0].byeTeam !== undefined, 'byeTeam field present in public rounds response');
+
+    console.log('\n--- 12. Targeted Audit: Concurrency, Rollback, and Regeneration Safety ---');
+
+    // 12.1 Concurrent Schedule Generation Protection
+    const auditComp1 = await TeamCompetition.create({
+      name: `${testPrefix} Concurrency Audit Competition`,
+      organizer: organizer._id,
+      status: 'READY',
+    });
+    createdCompIds.push(auditComp1._id);
+
+    const auditTeams1 = await Promise.all([
+      TeamCompetitionTeam.create({ competition: auditComp1._id, name: `${testPrefix} C1`, captain: playerA._id, status: 'ACTIVE' }),
+      TeamCompetitionTeam.create({ competition: auditComp1._id, name: `${testPrefix} C2`, captain: playerB._id, status: 'ACTIVE' }),
+      TeamCompetitionTeam.create({ competition: auditComp1._id, name: `${testPrefix} C3`, captain: playerC._id, status: 'ACTIVE' }),
+    ]);
+
+    // Send two concurrent generation requests
+    const [concurrentRes1, concurrentRes2] = await Promise.all([
+      post(`/team-competitions/${auditComp1._id}/schedule/round-robin`, { boardCount: 2 }, orgToken),
+      post(`/team-competitions/${auditComp1._id}/schedule/round-robin`, { boardCount: 2 }, orgToken),
+    ]);
+
+    const statuses = [concurrentRes1.status, concurrentRes2.status];
+    assert(statuses.includes(201), 'One of the concurrent generation requests succeeded with 201');
+    assert(
+      statuses.some((s) => s === 409 || s === 400),
+      'The second concurrent generation request was rejected with conflict (409 or 400)'
+    );
+
+    const auditDbRounds1 = await TeamCompetitionRound.find({ competition: auditComp1._id });
+    auditDbRounds1.forEach((r) => createdRoundIds.push(r._id));
+    assert(auditDbRounds1.length === 3, 'Exactly 3 rounds exist after concurrent requests (no duplicate rounds)');
+
+    const auditDbMatches1 = await TeamMatch.find({ competition: auditComp1._id });
+    auditDbMatches1.forEach((m) => createdMatchIds.push(m._id));
+    assert(auditDbMatches1.length === 3, 'Exactly 3 matches exist after concurrent requests (no duplicate matches)');
+
+    // 12.2 Active / In-Progress Match Protection on Regeneration
+    const matchToStart = auditDbMatches1[0];
+    await TeamMatch.findByIdAndUpdate(matchToStart._id, { status: 'IN_PROGRESS' });
+
+    const regenBlockedRes = await post(
+      `/team-competitions/${auditComp1._id}/schedule/round-robin`,
+      { boardCount: 4, regenerate: true },
+      orgToken
+    );
+
+    assert(regenBlockedRes.status === 400, 'Regeneration rejected with 400 when an in-progress match exists');
+    assert(
+      regenBlockedRes.data.message.includes('one or more matches have already started or completed'),
+      'Informative error message protecting active match from regeneration'
+    );
+
+    const matchAfterBlockedRegen = await TeamMatch.findById(matchToStart._id);
+    assert(matchAfterBlockedRegen !== null, 'In-progress match was NOT deleted by rejected regeneration attempt');
+    assert(matchAfterBlockedRegen.status === 'IN_PROGRESS', 'In-progress match retained its status and data');
+
+    // Reset status back to DRAFT for cleanup
+    await TeamMatch.findByIdAndUpdate(matchToStart._id, { status: 'DRAFT' });
+
+    // 12.3 Database Conflict & Rollback Isolation
+    const auditComp2 = await TeamCompetition.create({
+      name: `${testPrefix} Rollback Audit Competition`,
+      organizer: organizer._id,
+      status: 'READY',
+    });
+    createdCompIds.push(auditComp2._id);
+
+    await Promise.all([
+      TeamCompetitionTeam.create({ competition: auditComp2._id, name: `${testPrefix} R1`, captain: playerA._id, status: 'ACTIVE' }),
+      TeamCompetitionTeam.create({ competition: auditComp2._id, name: `${testPrefix} R2`, captain: playerB._id, status: 'ACTIVE' }),
+    ]);
+
+    // Pre-insert a conflicting round number 1 to induce a DB unique-index conflict during schedule creation
+    const conflictingRound = await TeamCompetitionRound.create({
+      competition: auditComp2._id,
+      roundNumber: 1,
+      name: 'Pre-existing Conflict Round 1',
+      createdBy: organizer._id,
+    });
+    createdRoundIds.push(conflictingRound._id);
+
+    let conflictErrorCaught = false;
+    try {
+      await teamMatchService.generateRoundRobinSchedule(auditComp2._id, { boardCount: 2 }, organizer._id);
+    } catch (err) {
+      conflictErrorCaught = true;
+      assert(
+        err.statusCode === 409 || err.code === 11000 || err.message.includes('already exists'),
+        'Database conflict or existing schedule correctly raises conflict error'
+      );
+    }
+    assert(conflictErrorCaught === true, 'Conflict error caught when database conflict is encountered');
+
+    // Verify rollback: no orphaned matches or boards were created for auditComp2
+    const orphanMatches = await TeamMatch.find({ competition: auditComp2._id });
+    assert(orphanMatches.length === 0, 'Zero orphan matches created following conflict rollback');
+
+    const orphanBoards = await TeamMatchBoard.find({ match: { $in: orphanMatches.map((m) => m._id) } });
+    assert(orphanBoards.length === 0, 'Zero orphan boards created following conflict rollback');
+
+    // Remove conflicting round and verify schedule generation now succeeds cleanly
+    await TeamCompetitionRound.findByIdAndDelete(conflictingRound._id);
+    const cleanGenRes = await teamMatchService.generateRoundRobinSchedule(
+      auditComp2._id,
+      { boardCount: 2 },
+      organizer._id
+    );
+    assert(cleanGenRes.totalRounds === 1, 'Schedule generation succeeds cleanly after resolving conflict');
+
+    const cleanDbRounds = await TeamCompetitionRound.find({ competition: auditComp2._id });
+    cleanDbRounds.forEach((r) => createdRoundIds.push(r._id));
+    assert(cleanDbRounds.length === 1, 'Exactly 1 round created for 2 teams');
+
+    const cleanDbMatches = await TeamMatch.find({ competition: auditComp2._id });
+    cleanDbMatches.forEach((m) => createdMatchIds.push(m._id));
+    assert(cleanDbMatches.length === 1, 'Exactly 1 match created for 2 teams');
 
     console.log('\n==================================================');
     console.log(`📊 Test Results: ${passedTests} passed, 0 failed (out of ${totalTests} assertions)`);

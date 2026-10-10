@@ -2397,6 +2397,7 @@ export const generateRoundRobinSchedule = async (
   }
   activeScheduleGenerations.add(lockKey);
 
+  let session = null;
   try {
     const competition = await TeamCompetition.findById(competitionId);
     if (!competition) {
@@ -2418,43 +2419,6 @@ export const generateRoundRobinSchedule = async (
       );
       error.statusCode = 400;
       throw error;
-    }
-
-    // Check existing schedule
-    const existingRoundsCount = await TeamCompetitionRound.countDocuments({
-      competition: competitionId,
-    });
-    const existingMatchesCount = await TeamMatch.countDocuments({
-      competition: competitionId,
-    });
-    const hasExistingSchedule = existingRoundsCount > 0 || existingMatchesCount > 0;
-
-    if (hasExistingSchedule) {
-      if (!options.regenerate) {
-        const error = new Error('A schedule already exists for this competition');
-        error.statusCode = 400;
-        throw error;
-      }
-
-      // Safe regeneration check: ensure no matches have progressed past pre-start
-      const activeOrCompletedCount = await TeamMatch.countDocuments({
-        competition: competitionId,
-        status: { $in: ['STARTING', 'IN_PROGRESS', 'COMPLETED'] },
-      });
-
-      if (activeOrCompletedCount > 0) {
-        const error = new Error(
-          'Cannot regenerate schedule: one or more matches have already started or completed'
-        );
-        error.statusCode = 400;
-        throw error;
-      }
-
-      // Delete existing pre-start fixtures
-      const matchIds = await TeamMatch.find({ competition: competitionId }).distinct('_id');
-      await TeamMatchBoard.deleteMany({ match: { $in: matchIds } });
-      await TeamMatch.deleteMany({ competition: competitionId });
-      await TeamCompetitionRound.deleteMany({ competition: competitionId });
     }
 
     // Fetch eligible active teams only
@@ -2500,36 +2464,117 @@ export const generateRoundRobinSchedule = async (
     const teamMap = new Map();
     activeTeams.forEach((t) => teamMap.set(t._id.toString(), t));
 
+    // Support MongoDB transactions when supported by deployment topology (e.g. ReplicaSet)
+    session = null;
+    let isTransactionActive = false;
+    try {
+      session = await mongoose.startSession();
+      session.startTransaction();
+      isTransactionActive = true;
+    } catch {
+      if (session) {
+        try {
+          await session.endSession();
+        } catch {}
+        session = null;
+      }
+      isTransactionActive = false;
+    }
+    const queryOpts = isTransactionActive && session ? { session } : {};
+
     // Transactional creation with rollback cleanup on error
     const createdRoundIds = [];
     const createdMatchIds = [];
     const createdBoardIds = [];
 
     try {
-      for (const r of scheduleResult.rounds) {
-        const roundDoc = await TeamCompetitionRound.create({
+      // Check existing schedule
+      const existingRoundsCount = await TeamCompetitionRound.countDocuments({
+        competition: competitionId,
+      });
+      const existingMatchesCount = await TeamMatch.countDocuments({
+        competition: competitionId,
+      });
+      const hasExistingSchedule = existingRoundsCount > 0 || existingMatchesCount > 0;
+
+      if (hasExistingSchedule) {
+        if (!options.regenerate) {
+          const error = new Error('A schedule already exists for this competition');
+          error.statusCode = 400;
+          throw error;
+        }
+
+        // Safe regeneration check: ensure no matches have progressed past pre-start
+        const activeOrCompletedCount = await TeamMatch.countDocuments({
           competition: competitionId,
-          roundNumber: r.roundNumber,
-          name: `Round ${r.roundNumber}`,
-          status: 'DRAFT',
-          scheduledStart: cleanScheduledStart,
-          byeTeam: r.byeTeam ? r.byeTeam : null,
-          createdBy: userId,
+          status: { $in: ['STARTING', 'IN_PROGRESS', 'COMPLETED'] },
         });
+
+        if (activeOrCompletedCount > 0) {
+          const error = new Error(
+            'Cannot regenerate schedule: one or more matches have already started or completed'
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
+        // Delete existing pre-start fixtures safely
+        const safeMatches = await TeamMatch.find(
+          {
+            competition: competitionId,
+            status: { $in: ['DRAFT', 'LINEUP', 'READY', 'SCHEDULED'] },
+          },
+          null,
+          queryOpts
+        ).select('_id');
+        const safeMatchIds = safeMatches.map((m) => m._id);
+        if (safeMatchIds.length > 0) {
+          await TeamMatchBoard.deleteMany({ match: { $in: safeMatchIds } }, queryOpts);
+          await TeamMatch.deleteMany({ _id: { $in: safeMatchIds } }, queryOpts);
+        }
+        await TeamCompetitionRound.deleteMany(
+          {
+            competition: competitionId,
+            status: { $in: ['DRAFT', 'SCHEDULED'] },
+          },
+          queryOpts
+        );
+      }
+
+      for (const r of scheduleResult.rounds) {
+        const [roundDoc] = await TeamCompetitionRound.create(
+          [
+            {
+              competition: competitionId,
+              roundNumber: r.roundNumber,
+              name: `Round ${r.roundNumber}`,
+              status: 'DRAFT',
+              scheduledStart: cleanScheduledStart,
+              byeTeam: r.byeTeam ? r.byeTeam : null,
+              createdBy: userId,
+            },
+          ],
+          queryOpts
+        );
         createdRoundIds.push(roundDoc._id);
 
         for (const pairing of r.matches) {
-          const matchDoc = await TeamMatch.create({
-            competition: competitionId,
-            round: roundDoc._id,
-            teamA: pairing.teamA,
-            teamB: pairing.teamB,
-            boardCount: parsedBoardCount,
-            status: 'DRAFT',
-            scoringStatus: 'PENDING',
-            scheduledStart: cleanScheduledStart,
-            createdBy: userId,
-          });
+          const [matchDoc] = await TeamMatch.create(
+            [
+              {
+                competition: competitionId,
+                round: roundDoc._id,
+                teamA: pairing.teamA,
+                teamB: pairing.teamB,
+                boardCount: parsedBoardCount,
+                status: 'DRAFT',
+                scoringStatus: 'PENDING',
+                scheduledStart: cleanScheduledStart,
+                createdBy: userId,
+              },
+            ],
+            queryOpts
+          );
           createdMatchIds.push(matchDoc._id);
 
           const boardsToInsert = [];
@@ -2544,28 +2589,56 @@ export const generateRoundRobinSchedule = async (
               locked: false,
             });
           }
-          const insertedBoards = await TeamMatchBoard.insertMany(boardsToInsert);
+          const insertedBoards = await TeamMatchBoard.insertMany(boardsToInsert, queryOpts);
           insertedBoards.forEach((board) => createdBoardIds.push(board._id));
         }
       }
-    } catch (creationError) {
-      // Safe rollback: cleanly delete any partially generated records
-      if (createdBoardIds.length > 0) {
-        await TeamMatchBoard.deleteMany({ _id: { $in: createdBoardIds } }).catch(() => {});
-      }
-      if (createdMatchIds.length > 0) {
-        await TeamMatch.deleteMany({ _id: { $in: createdMatchIds } }).catch(() => {});
-      }
-      if (createdRoundIds.length > 0) {
-        await TeamCompetitionRound.deleteMany({ _id: { $in: createdRoundIds } }).catch(() => {});
-      }
-      throw creationError;
-    }
 
-    // Advance competition status to READY if currently in REGISTRATION
-    if (competition.status === 'REGISTRATION') {
-      competition.status = 'READY';
-      await competition.save();
+      // Advance competition status to READY if currently in REGISTRATION
+      if (competition.status === 'REGISTRATION') {
+        competition.status = 'READY';
+        await competition.save(queryOpts);
+      }
+
+      if (isTransactionActive && session) {
+        await session.commitTransaction();
+        await session.endSession();
+        session = null;
+        isTransactionActive = false;
+      }
+    } catch (creationError) {
+      if (isTransactionActive && session) {
+        try {
+          await session.abortTransaction();
+        } catch {}
+        try {
+          await session.endSession();
+        } catch {}
+        session = null;
+        isTransactionActive = false;
+      } else {
+        // Safe compensating rollback for non-transactional environments:
+        // cleanly delete only the specific record IDs created during this execution
+        if (createdBoardIds.length > 0) {
+          await TeamMatchBoard.deleteMany({ _id: { $in: createdBoardIds } }).catch(() => {});
+        }
+        if (createdMatchIds.length > 0) {
+          await TeamMatch.deleteMany({ _id: { $in: createdMatchIds } }).catch(() => {});
+        }
+        if (createdRoundIds.length > 0) {
+          await TeamCompetitionRound.deleteMany({ _id: { $in: createdRoundIds } }).catch(() => {});
+        }
+      }
+
+      if (creationError.code === 11000) {
+        const conflictError = new Error(
+          'A schedule already exists or is being generated concurrently for this competition'
+        );
+        conflictError.statusCode = 409;
+        throw conflictError;
+      }
+
+      throw creationError;
     }
 
     // Broadcast schedule generation event via Socket.IO
@@ -2607,6 +2680,11 @@ export const generateRoundRobinSchedule = async (
       })),
     };
   } finally {
+    if (session) {
+      try {
+        await session.endSession();
+      } catch {}
+    }
     activeScheduleGenerations.delete(lockKey);
   }
 };
