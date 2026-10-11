@@ -16,6 +16,7 @@ import {
   getCompetitionStandings,
 } from './teamCompetitionStandingsService.js';
 import { generateTeamRoundRobinSchedule } from '../utils/teamRoundRobin.js';
+import { generateTeamSwissPairings } from '../utils/teamSwiss.js';
 
 // In-process mutex set for concurrent schedule generation protection
 const activeScheduleGenerations = new Set();
@@ -2689,6 +2690,608 @@ export const generateRoundRobinSchedule = async (
   }
 };
 
+/**
+ * Get Swiss schedule preview for the next round including standings, proposed pairings,
+ * repeat-opponent avoidance details, assigned BYE, and blocker validation.
+ */
+export const getSwissPreview = async (competitionId, userId = null) => {
+  validateObjectId(competitionId, 'competition ID');
+
+  const competition = await TeamCompetition.findById(competitionId);
+  if (!competition) {
+    const error = new Error('Competition not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const isOrganizer = userId
+    ? toIdString(competition.organizer) === userId.toString()
+    : false;
+
+  const activeTeams = await TeamCompetitionTeam.find({
+    competition: competitionId,
+    status: 'ACTIVE',
+  })
+    .sort({ createdAt: 1, _id: 1 })
+    .lean();
+
+  if (activeTeams.length < 2) {
+    return {
+      competitionId: competition._id,
+      competitionName: competition.name,
+      competitionFormat: competition.format || 'SWISS',
+      status: competition.status,
+      nextRoundNumber: 1,
+      eligibleTeamsCount: activeTeams.length,
+      totalMatches: 0,
+      byesPerRound: 0,
+      byeTeam: null,
+      byeReason: null,
+      hadRematches: false,
+      hasUnresolvedBlocker: true,
+      blockerReason: `At least 2 active teams are required. Current active teams: ${activeTeams.length}`,
+      canGenerate: false,
+      canRegenerate: false,
+      teams: activeTeams.map((t) => ({
+        _id: t._id,
+        name: t.name,
+        captain: t.captain,
+      })),
+      proposedPairings: [],
+    };
+  }
+
+  // Fetch all existing rounds
+  const existingRounds = await TeamCompetitionRound.find({
+    competition: competitionId,
+  })
+    .sort({ roundNumber: 1 })
+    .lean();
+
+  let nextRoundNumber = 1;
+  let canRegenerate = false;
+  let hasUnresolvedBlocker = false;
+  let blockerReason = null;
+
+  if (existingRounds.length > 0) {
+    const lastRound = existingRounds[existingRounds.length - 1];
+
+    const lastRoundMatches = await TeamMatch.find({
+      competition: competitionId,
+      round: lastRound._id,
+    }).lean();
+
+    const startedCount = lastRoundMatches.filter((m) =>
+      ['STARTING', 'IN_PROGRESS', 'COMPLETED'].includes(m.status)
+    ).length;
+
+    if (['DRAFT', 'SCHEDULED'].includes(lastRound.status) && startedCount === 0) {
+      canRegenerate = true;
+      nextRoundNumber = lastRound.roundNumber;
+    } else {
+      nextRoundNumber = lastRound.roundNumber + 1;
+
+      const hasReviewRequired = lastRoundMatches.some(
+        (m) => m.scoringStatus === 'REVIEW_REQUIRED'
+      );
+      const hasIncompleteMatch = lastRoundMatches.some(
+        (m) => m.status !== 'COMPLETED' && m.status !== 'CANCELLED'
+      );
+
+      const nonCancelledMatchIds = lastRoundMatches
+        .filter((m) => m.status !== 'CANCELLED')
+        .map((m) => m._id);
+
+      const hasUnfinishedBoards =
+        nonCancelledMatchIds.length > 0 &&
+        (await TeamMatchBoard.exists({
+          match: { $in: nonCancelledMatchIds },
+          $or: [
+            { lichessStatus: { $nin: ['FINISHED', 'ABORTED'] } },
+            { $and: [{ result: null }, { overrideResult: null }] },
+          ],
+        }));
+
+      if (hasReviewRequired) {
+        hasUnresolvedBlocker = true;
+        blockerReason = `Round ${lastRound.roundNumber} has matches requiring organizer review`;
+      } else if (hasIncompleteMatch) {
+        hasUnresolvedBlocker = true;
+        blockerReason = `Round ${lastRound.roundNumber} has incomplete or ongoing matches`;
+      } else if (hasUnfinishedBoards) {
+        hasUnresolvedBlocker = true;
+        blockerReason = `Round ${lastRound.roundNumber} has unfinished boards`;
+      }
+    }
+  }
+
+  // Fetch current standings
+  let standingsResult = [];
+  try {
+    const fresh = await rebuildCompetitionStandings(competitionId);
+    standingsResult = fresh.standings || [];
+  } catch {
+    standingsResult = await getCompetitionStandings(competitionId).catch(() => []);
+  }
+
+  // Fetch previous rounds with matches for pairing history (strictly before nextRoundNumber)
+  const previousRoundsForPairing = [];
+  for (const r of existingRounds) {
+    if (r.roundNumber < nextRoundNumber) {
+      const matches = await TeamMatch.find({
+        competition: competitionId,
+        round: r._id,
+      }).lean();
+      previousRoundsForPairing.push({
+        ...r,
+        matches,
+      });
+    }
+  }
+
+  let previewPairings = null;
+  let pairingError = null;
+  try {
+    previewPairings = generateTeamSwissPairings({
+      teams: activeTeams,
+      standings: standingsResult,
+      previousRounds: previousRoundsForPairing,
+      roundNumber: nextRoundNumber,
+    });
+  } catch (err) {
+    pairingError = err.message;
+  }
+
+  const teamMap = new Map();
+  activeTeams.forEach((t) => teamMap.set(t._id.toString(), t));
+
+  return {
+    competitionId: competition._id,
+    competitionName: competition.name,
+    competitionFormat: competition.format || 'SWISS',
+    status: competition.status,
+    nextRoundNumber,
+    eligibleTeamsCount: activeTeams.length,
+    totalMatches: previewPairings ? previewPairings.totalMatches : 0,
+    byesPerRound: activeTeams.length % 2 !== 0 ? 1 : 0,
+    byeTeam: previewPairings?.byeTeam
+      ? teamMap.get(previewPairings.byeTeam) || { _id: previewPairings.byeTeam }
+      : null,
+    byeReason: previewPairings?.byeReason || null,
+    hadRematches: previewPairings ? previewPairings.hadRematches : false,
+    hasUnresolvedBlocker: Boolean(hasUnresolvedBlocker || pairingError),
+    blockerReason: blockerReason || pairingError || null,
+    canGenerate: !hasUnresolvedBlocker && !pairingError && isOrganizer && (!canRegenerate || existingRounds.length === 0),
+    canRegenerate: canRegenerate && isOrganizer && !pairingError,
+    teams: activeTeams.map((t) => ({
+      _id: t._id,
+      name: t.name,
+      captain: t.captain,
+    })),
+    proposedPairings: previewPairings
+      ? previewPairings.pairings.map((p) => ({
+          teamA: teamMap.get(p.teamA) || { _id: p.teamA },
+          teamB: teamMap.get(p.teamB) || { _id: p.teamB },
+          teamAPoints: p.teamAPoints,
+          teamBPoints: p.teamBPoints,
+          isRematch: p.isRematch,
+          priorMeetings: p.priorMeetings,
+          repeatAvoidance: p.repeatAvoidance,
+        }))
+      : [],
+  };
+};
+
+/**
+ * Generate a deterministic Swiss round for a Team Competition (Organizer only).
+ * Pairs teams based on current standings, avoiding repeat opponents.
+ */
+export const generateSwissRound = async (
+  competitionId,
+  options = {},
+  userId
+) => {
+  validateObjectId(competitionId, 'competition ID');
+  validateObjectId(userId, 'user ID');
+
+  const lockKey = competitionId.toString();
+  if (activeScheduleGenerations.has(lockKey)) {
+    const error = new Error('Schedule generation is already in progress for this competition');
+    error.statusCode = 409;
+    throw error;
+  }
+  activeScheduleGenerations.add(lockKey);
+
+  let session = null;
+  try {
+    const competition = await TeamCompetition.findById(competitionId);
+    if (!competition) {
+      const error = new Error('Competition not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (toIdString(competition.organizer) !== userId.toString()) {
+      const error = new Error('Forbidden: Only the competition organizer can generate the schedule');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const ALLOWED_COMPETITION_STATUSES = ['REGISTRATION', 'READY', 'IN_PROGRESS'];
+    if (!ALLOWED_COMPETITION_STATUSES.includes(competition.status)) {
+      const error = new Error(
+        `Cannot generate schedule for a ${competition.status.toLowerCase()} competition`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const activeTeams = await TeamCompetitionTeam.find({
+      competition: competitionId,
+      status: 'ACTIVE',
+    }).lean();
+
+    if (activeTeams.length < 2) {
+      const error = new Error(
+        `Swiss scheduling requires at least 2 active teams. Current active teams: ${activeTeams.length}`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    let parsedBoardCount = 4;
+    if (options.boardCount !== undefined && options.boardCount !== null) {
+      parsedBoardCount = parseInt(options.boardCount, 10);
+      if (isNaN(parsedBoardCount) || parsedBoardCount < 1 || parsedBoardCount > 20) {
+        const error = new Error('boardCount must be an integer between 1 and 20');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    let cleanScheduledStart = null;
+    if (options.scheduledStart) {
+      const parsedDate = new Date(options.scheduledStart);
+      if (isNaN(parsedDate.getTime())) {
+        const error = new Error('Invalid scheduledStart date format');
+        error.statusCode = 400;
+        throw error;
+      }
+      cleanScheduledStart = parsedDate;
+    }
+
+    // Inspect existing rounds
+    const existingRounds = await TeamCompetitionRound.find({
+      competition: competitionId,
+    })
+      .sort({ roundNumber: 1 })
+      .lean();
+
+    let roundNumberToGenerate = 1;
+
+    if (existingRounds.length > 0) {
+      const lastRound = existingRounds[existingRounds.length - 1];
+
+      const lastRoundMatches = await TeamMatch.find({
+        competition: competitionId,
+        round: lastRound._id,
+      }).lean();
+
+      const startedMatchesCount = lastRoundMatches.filter((m) =>
+        ['STARTING', 'IN_PROGRESS', 'COMPLETED'].includes(m.status)
+      ).length;
+
+      const isLastRoundPrestart =
+        ['DRAFT', 'SCHEDULED'].includes(lastRound.status) && startedMatchesCount === 0;
+
+      if (options.regenerate) {
+        if (!['DRAFT', 'SCHEDULED'].includes(lastRound.status) || startedMatchesCount > 0) {
+          const error = new Error(
+            'Cannot regenerate round: one or more matches have already started or completed'
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+        roundNumberToGenerate = lastRound.roundNumber;
+      } else if (isLastRoundPrestart) {
+        const error = new Error(
+          `Round ${lastRound.roundNumber} is already created. Set regenerate: true to regenerate this round.`
+        );
+        error.statusCode = 400;
+        throw error;
+      } else {
+        // Preceding round MUST be completed with no unresolved matches or review required
+        const hasReviewRequired = lastRoundMatches.some(
+          (m) => m.scoringStatus === 'REVIEW_REQUIRED'
+        );
+        if (hasReviewRequired) {
+          const error = new Error(
+            `Cannot generate next Swiss round: preceding Round ${lastRound.roundNumber} has matches requiring organizer review`
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
+        const hasIncompleteMatch = lastRoundMatches.some(
+          (m) => m.status !== 'COMPLETED' && m.status !== 'CANCELLED'
+        );
+        if (hasIncompleteMatch) {
+          const error = new Error(
+            `Cannot generate next Swiss round: preceding Round ${lastRound.roundNumber} has unresolved or ongoing matches`
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
+        const nonCancelledMatchIds = lastRoundMatches
+          .filter((m) => m.status !== 'CANCELLED')
+          .map((m) => m._id);
+
+        const hasUnfinishedBoards =
+          nonCancelledMatchIds.length > 0 &&
+          (await TeamMatchBoard.exists({
+            match: { $in: nonCancelledMatchIds },
+            $or: [
+              { lichessStatus: { $nin: ['FINISHED', 'ABORTED'] } },
+              { $and: [{ result: null }, { overrideResult: null }] },
+            ],
+          }));
+
+        if (hasUnfinishedBoards) {
+          const error = new Error(
+            `Cannot generate next Swiss round: preceding Round ${lastRound.roundNumber} has unfinished boards`
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
+        roundNumberToGenerate = lastRound.roundNumber + 1;
+      }
+    }
+
+    // Fetch authoritative standings
+    const freshStandings = await rebuildCompetitionStandings(competitionId);
+
+    // Fetch prior completed rounds (strictly before roundNumberToGenerate)
+    const previousRoundsForPairing = [];
+    for (const r of existingRounds) {
+      if (r.roundNumber < roundNumberToGenerate) {
+        const matches = await TeamMatch.find({
+          competition: competitionId,
+          round: r._id,
+        }).lean();
+        previousRoundsForPairing.push({
+          ...r,
+          matches,
+        });
+      }
+    }
+
+    // Generate Swiss pairings
+    const swissResult = generateTeamSwissPairings({
+      teams: activeTeams,
+      standings: freshStandings.standings || [],
+      previousRounds: previousRoundsForPairing,
+      roundNumber: roundNumberToGenerate,
+      options: {
+        allowRematches: options.allowRematches !== false,
+      },
+    });
+
+    const teamMap = new Map();
+    activeTeams.forEach((t) => teamMap.set(t._id.toString(), t));
+
+    // MongoDB session / transaction setup
+    session = null;
+    let isTransactionActive = false;
+    try {
+      session = await mongoose.startSession();
+      session.startTransaction();
+      isTransactionActive = true;
+    } catch {
+      if (session) {
+        try {
+          await session.endSession();
+        } catch {}
+        session = null;
+      }
+      isTransactionActive = false;
+    }
+    const queryOpts = isTransactionActive && session ? { session } : {};
+
+    const createdRoundIds = [];
+    const createdMatchIds = [];
+    const createdBoardIds = [];
+
+    try {
+      // If regenerating, safely delete existing pre-start fixtures for roundNumberToGenerate
+      if (options.regenerate && existingRounds.length > 0) {
+        const lastRound = existingRounds[existingRounds.length - 1];
+        if (lastRound.roundNumber === roundNumberToGenerate) {
+          const activeOrCompletedCount = await TeamMatch.countDocuments({
+            competition: competitionId,
+            round: lastRound._id,
+            $or: [
+              { status: { $in: ['STARTING', 'IN_PROGRESS', 'COMPLETED'] } },
+              { scoringStatus: { $in: ['FINAL', 'REVIEW_REQUIRED'] } },
+            ],
+          });
+
+          if (activeOrCompletedCount > 0) {
+            const error = new Error(
+              'Cannot regenerate round: one or more matches have already started or completed'
+            );
+            error.statusCode = 400;
+            throw error;
+          }
+
+          const safeMatches = await TeamMatch.find(
+            {
+              competition: competitionId,
+              round: lastRound._id,
+              status: { $in: ['DRAFT', 'LINEUP', 'READY', 'SCHEDULED'] },
+            },
+            null,
+            queryOpts
+          ).select('_id');
+
+          const safeMatchIds = safeMatches.map((m) => m._id);
+          if (safeMatchIds.length > 0) {
+            await TeamMatchBoard.deleteMany({ match: { $in: safeMatchIds } }, queryOpts);
+            await TeamMatch.deleteMany({ _id: { $in: safeMatchIds } }, queryOpts);
+          }
+          await TeamCompetitionRound.deleteMany({ _id: lastRound._id }, queryOpts);
+        }
+      }
+
+      // Create new Round
+      const [roundDoc] = await TeamCompetitionRound.create(
+        [
+          {
+            competition: competitionId,
+            roundNumber: roundNumberToGenerate,
+            name: options.name || `Round ${roundNumberToGenerate}`,
+            status: 'DRAFT',
+            scheduledStart: cleanScheduledStart,
+            byeTeam: swissResult.byeTeam ? swissResult.byeTeam : null,
+            createdBy: userId,
+          },
+        ],
+        queryOpts
+      );
+      createdRoundIds.push(roundDoc._id);
+
+      // Create Matches & Boards
+      for (const pairing of swissResult.pairings) {
+        const [matchDoc] = await TeamMatch.create(
+          [
+            {
+              competition: competitionId,
+              round: roundDoc._id,
+              teamA: pairing.teamA,
+              teamB: pairing.teamB,
+              boardCount: parsedBoardCount,
+              status: 'DRAFT',
+              scoringStatus: 'PENDING',
+              scheduledStart: cleanScheduledStart,
+              createdBy: userId,
+            },
+          ],
+          queryOpts
+        );
+        createdMatchIds.push(matchDoc._id);
+
+        const boardsToInsert = [];
+        for (let b = 1; b <= parsedBoardCount; b++) {
+          boardsToInsert.push({
+            match: matchDoc._id,
+            boardNumber: b,
+            teamAPlayer: null,
+            teamBPlayer: null,
+            teamAReady: false,
+            teamBReady: false,
+            locked: false,
+          });
+        }
+        const insertedBoards = await TeamMatchBoard.insertMany(boardsToInsert, queryOpts);
+        insertedBoards.forEach((board) => createdBoardIds.push(board._id));
+      }
+
+      // Advance competition status to READY if currently in REGISTRATION
+      if (competition.status === 'REGISTRATION') {
+        competition.status = 'READY';
+        await competition.save(queryOpts);
+      }
+
+      if (isTransactionActive && session) {
+        await session.commitTransaction();
+        await session.endSession();
+        session = null;
+        isTransactionActive = false;
+      }
+    } catch (creationError) {
+      if (isTransactionActive && session) {
+        try {
+          await session.abortTransaction();
+        } catch {}
+        try {
+          await session.endSession();
+        } catch {}
+        session = null;
+        isTransactionActive = false;
+      } else {
+        if (createdBoardIds.length > 0) {
+          await TeamMatchBoard.deleteMany({ _id: { $in: createdBoardIds } }).catch(() => {});
+        }
+        if (createdMatchIds.length > 0) {
+          await TeamMatch.deleteMany({ _id: { $in: createdMatchIds } }).catch(() => {});
+        }
+        if (createdRoundIds.length > 0) {
+          await TeamCompetitionRound.deleteMany({ _id: { $in: createdRoundIds } }).catch(() => {});
+        }
+      }
+
+      if (creationError.code === 11000) {
+        const conflictError = new Error(
+          'A round already exists or is being generated concurrently for this competition'
+        );
+        conflictError.statusCode = 409;
+        throw conflictError;
+      }
+
+      throw creationError;
+    }
+
+    // Broadcast realtime event
+    try {
+      const { getIo } = await import('../realtime/socket.js');
+      const io = getIo();
+      if (io) {
+        io.to(`competition:${competitionId}`).emit('team-competition:swiss-round-generated', {
+          competitionId: competitionId.toString(),
+          roundNumber: roundNumberToGenerate,
+          totalMatches: swissResult.pairings.length,
+        });
+      }
+    } catch {}
+
+    return {
+      competitionId: competition._id,
+      competitionName: competition.name,
+      competitionStatus: competition.status,
+      roundNumber: roundNumberToGenerate,
+      roundId: createdRoundIds[0],
+      name: `Round ${roundNumberToGenerate}`,
+      totalMatches: swissResult.pairings.length,
+      byeTeam: swissResult.byeTeam
+        ? teamMap.get(swissResult.byeTeam) || { _id: swissResult.byeTeam }
+        : null,
+      byeReason: swissResult.byeReason,
+      hadRematches: swissResult.hadRematches,
+      boardCount: parsedBoardCount,
+      matches: swissResult.pairings.map((p, idx) => ({
+        matchId: createdMatchIds[idx],
+        teamA: teamMap.get(p.teamA) || { _id: p.teamA },
+        teamB: teamMap.get(p.teamB) || { _id: p.teamB },
+        teamAPoints: p.teamAPoints,
+        teamBPoints: p.teamBPoints,
+        isRematch: p.isRematch,
+        priorMeetings: p.priorMeetings,
+        repeatAvoidance: p.repeatAvoidance,
+        boardCount: parsedBoardCount,
+        status: 'DRAFT',
+      })),
+    };
+  } finally {
+    if (session) {
+      try {
+        await session.endSession();
+      } catch {}
+    }
+    activeScheduleGenerations.delete(lockKey);
+  }
+};
+
 export { getCompetitionStandings, rebuildCompetitionStandings };
 
 export default {
@@ -2718,7 +3321,10 @@ export default {
   rebuildCompetitionStandings,
   getRoundRobinPreview,
   generateRoundRobinSchedule,
+  getSwissPreview,
+  generateSwissRound,
 };
+
 
 
 

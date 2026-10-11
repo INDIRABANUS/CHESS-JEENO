@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import TeamCompetition, { COMPETITION_STATUSES } from '../models/TeamCompetition.js';
 import TeamCompetitionTeam, { TEAM_STATUSES } from '../models/TeamCompetitionTeam.js';
 import TeamCompetitionMember, { MEMBER_ROLES, MEMBER_STATUSES } from '../models/TeamCompetitionMember.js';
+import TeamCompetitionRound from '../models/TeamCompetitionRound.js';
 import User from '../models/User.js';
 import * as notificationService from './notificationService.js';
 
@@ -23,7 +24,7 @@ export const validateObjectId = (id, fieldName = 'ID') => {
  * Create a new Team Competition.
  */
 export const createCompetition = async (
-  { name, description = '', maxTeams = null, maxPlayersPerTeam = null, status = 'REGISTRATION' },
+  { name, description = '', maxTeams = null, maxPlayersPerTeam = null, status = 'REGISTRATION', format = 'ROUND_ROBIN' },
   organizerId
 ) => {
   validateObjectId(organizerId, 'organizer ID');
@@ -70,11 +71,22 @@ export const createCompetition = async (
 
   const initialStatus = status === 'DRAFT' ? 'DRAFT' : 'REGISTRATION';
 
+  const validFormats = ['ROUND_ROBIN', 'SWISS'];
+  let normalizedFormat = format ? String(format).toUpperCase() : 'ROUND_ROBIN';
+  if (normalizedFormat === 'TEAM_ROUND_ROBIN') normalizedFormat = 'ROUND_ROBIN';
+  if (normalizedFormat === 'TEAM_SWISS') normalizedFormat = 'SWISS';
+  if (!validFormats.includes(normalizedFormat)) {
+    const error = new Error(`Invalid competition format: ${format}. Allowed formats: ROUND_ROBIN, SWISS`);
+    error.statusCode = 400;
+    throw error;
+  }
+
   const competition = await TeamCompetition.create({
     name: trimmedName,
     description: trimmedDesc,
     organizer: organizerId,
     status: initialStatus,
+    format: normalizedFormat,
     maxTeams: parsedMaxTeams,
     maxPlayersPerTeam: parsedMaxPlayers,
   });
@@ -341,6 +353,39 @@ export const updateCompetition = async (competitionId, updateData, currentUserId
       }
       competition.maxPlayersPerTeam = parsedMaxPlayers;
     }
+  }
+
+  if (updateData.format !== undefined) {
+    const validFormats = ['ROUND_ROBIN', 'SWISS'];
+    let normalizedFormat = updateData.format ? String(updateData.format).toUpperCase() : '';
+    if (normalizedFormat === 'TEAM_ROUND_ROBIN') normalizedFormat = 'ROUND_ROBIN';
+    if (normalizedFormat === 'TEAM_SWISS') normalizedFormat = 'SWISS';
+    if (!validFormats.includes(normalizedFormat)) {
+      const error = new Error(`Invalid competition format: ${updateData.format}. Allowed formats: ROUND_ROBIN, SWISS`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Only allow changing format if no rounds or matches have been generated yet
+    const existingRoundsCount = await TeamCompetitionRound.countDocuments({
+      competition: competitionId,
+    });
+    if (existingRoundsCount > 0) {
+      const error = new Error('Cannot change competition format after rounds have already been scheduled');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const existingMatchesCount = await TeamMatch.countDocuments({
+      competition: competitionId,
+    });
+    if (existingMatchesCount > 0) {
+      const error = new Error('Cannot change competition format after matches or fixtures have already been created');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    competition.format = normalizedFormat;
   }
 
   await competition.save();

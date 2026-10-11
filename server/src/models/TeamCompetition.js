@@ -38,6 +38,22 @@ const teamCompetitionSchema = new mongoose.Schema(
       default: 'REGISTRATION',
       index: true,
     },
+    format: {
+      type: String,
+      enum: {
+        values: ['ROUND_ROBIN', 'SWISS'],
+        message: '{VALUE} is not a valid competition format',
+      },
+      default: 'ROUND_ROBIN',
+      set: (v) => {
+        if (!v) return v;
+        const norm = String(v).toUpperCase();
+        if (norm === 'TEAM_ROUND_ROBIN') return 'ROUND_ROBIN';
+        if (norm === 'TEAM_SWISS') return 'SWISS';
+        return norm;
+      },
+      index: true,
+    },
     maxTeams: {
       type: Number,
       default: null,

@@ -481,6 +481,46 @@ export const getRoundRobinPreview = async (req, res, next) => {
   }
 };
 
+/**
+ * Generate a deterministic Swiss round for a Team Competition (Organizer only).
+ * POST /api/team-competitions/:competitionId/schedule/swiss/round
+ */
+export const generateSwissRound = async (req, res, next) => {
+  try {
+    const competitionId = req.params.competitionId || req.params.id;
+    const result = await teamMatchService.generateSwissRound(
+      competitionId,
+      req.body || {},
+      req.user._id
+    );
+    res.status(201).json({
+      success: true,
+      message: 'Swiss round generated successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Preview Swiss schedule parameters and pairings for the next round.
+ * GET /api/team-competitions/:competitionId/schedule/swiss/preview
+ */
+export const getSwissPreview = async (req, res, next) => {
+  try {
+    const competitionId = req.params.competitionId || req.params.id;
+    const userId = req.user?._id || null;
+    const result = await teamMatchService.getSwissPreview(competitionId, userId);
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   createRound,
   getRounds,
@@ -505,6 +545,8 @@ export default {
   resolveMatchResult,
   generateRoundRobinSchedule,
   getRoundRobinPreview,
+  generateSwissRound,
+  getSwissPreview,
 };
 
 

@@ -33,6 +33,7 @@ import TeamMatchCard from '../components/teamCompetition/TeamMatchCard';
 import CreateRoundModal from '../components/teamCompetition/CreateRoundModal';
 import CreateMatchModal from '../components/teamCompetition/CreateMatchModal';
 import GenerateScheduleModal from '../components/teamCompetition/GenerateScheduleModal';
+import GenerateSwissRoundModal from '../components/teamCompetition/GenerateSwissRoundModal';
 import TeamStandingTable from '../components/teamCompetition/TeamStandingTable';
 import RoundResults from '../components/teamCompetition/RoundResults';
 import { getSocket } from '../services/socket';
@@ -47,6 +48,8 @@ const TeamCompetitionDetailsPage = () => {
   const [rounds, setRounds] = useState([]);
   const [matches, setMatches] = useState([]);
   const [standings, setStandings] = useState([]);
+  const [standingsLoading, setStandingsLoading] = useState(false);
+  const [standingsError, setStandingsError] = useState(null);
   const [activeTab, setActiveTab] = useState('standings'); // 'standings' | 'rounds' | 'squads'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -58,6 +61,7 @@ const TeamCompetitionDetailsPage = () => {
   const [isCreateRoundOpen, setIsCreateRoundOpen] = useState(false);
   const [isCreateMatchOpen, setIsCreateMatchOpen] = useState(false);
   const [isGenerateScheduleOpen, setIsGenerateScheduleOpen] = useState(false);
+  const [isGenerateSwissOpen, setIsGenerateSwissOpen] = useState(false);
   const [selectedRoundForMatch, setSelectedRoundForMatch] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -65,27 +69,99 @@ const TeamCompetitionDetailsPage = () => {
   const loadCompetitionData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setStandingsLoading(true);
+    setStandingsError(null);
     try {
-      const [compData, teamsData, roundsData, matchesData, standingsData] = await Promise.all([
+      let standingsData = null;
+      let standingsFetchError = null;
+
+      const [compData, teamsData, roundsData, matchesData] = await Promise.all([
         teamCompetitionService.getCompetitionById(id),
         teamCompetitionService.getTeams(id),
         teamCompetitionService.getRounds(id).catch(() => []),
         teamCompetitionService.getMatches(id).catch(() => []),
-        teamCompetitionService.getCompetitionStandings(id).catch(() => []),
+        teamCompetitionService
+          .getCompetitionStandings(id)
+          .then((res) => {
+            standingsData = res;
+          })
+          .catch((err) => {
+            standingsFetchError = err;
+          }),
       ]);
       setCompetition(compData);
       setTeams(teamsData || []);
       setRounds(roundsData || []);
       setMatches(matchesData || []);
-      setStandings(standingsData || []);
+
+      if (standingsFetchError) {
+        setStandings([]);
+        setStandingsError(
+          standingsFetchError.response?.data?.message ||
+            standingsFetchError.message ||
+            'Failed to load competition standings.'
+        );
+      } else if (standingsData) {
+        const extracted = Array.isArray(standingsData)
+          ? standingsData
+          : Array.isArray(standingsData?.standings)
+          ? standingsData.standings
+          : Array.isArray(standingsData?.data)
+          ? standingsData.data
+          : null;
+
+        if (extracted === null) {
+          setStandings([]);
+          setStandingsError('Invalid standings data format received from server.');
+        } else {
+          setStandings(extracted);
+          setStandingsError(null);
+        }
+      } else {
+        setStandings([]);
+        setStandingsError(null);
+      }
     } catch (err) {
       setError(
         err.response?.data?.message || err.message || 'Failed to load team competition'
       );
     } finally {
       setLoading(false);
+      setStandingsLoading(false);
     }
   }, [id]);
+
+  const handleRefreshStandings = async () => {
+    setStandingsLoading(true);
+    setStandingsError(null);
+    try {
+      const standingsData = await teamCompetitionService.getCompetitionStandings(id);
+      const extracted = Array.isArray(standingsData)
+        ? standingsData
+        : Array.isArray(standingsData?.standings)
+        ? standingsData.standings
+        : Array.isArray(standingsData?.data)
+        ? standingsData.data
+        : null;
+
+      if (extracted === null && standingsData) {
+        setStandings([]);
+        setStandingsError('Invalid standings data format received from server.');
+      } else {
+        setStandings(extracted || []);
+        setStandingsError(null);
+      }
+    } catch (err) {
+      setStandings([]);
+      setStandingsError(
+        err.response?.data?.message ||
+          err.message ||
+          'Failed to refresh standings.'
+      );
+    } finally {
+      setStandingsLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadCompetitionData();
@@ -350,6 +426,10 @@ const TeamCompetitionDetailsPage = () => {
           <div className="space-y-3 max-w-3xl">
             <div className="flex flex-wrap items-center gap-2.5">
               {getStatusBadge(competition.status)}
+              <span className="inline-flex items-center space-x-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                <span>{competition.format === 'SWISS' ? 'Swiss System' : 'Round Robin'}</span>
+              </span>
               <span className="inline-flex items-center space-x-1 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                 <Users className="h-3.5 w-3.5 text-indigo-500" />
                 <span>
@@ -456,14 +536,29 @@ const TeamCompetitionDetailsPage = () => {
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={() => setIsGenerateScheduleOpen(true)}
-                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition cursor-pointer inline-flex items-center space-x-1.5 shadow-sm min-h-[44px]"
-              >
-                <Sparkles className="h-4 w-4 text-amber-300" />
-                <span>{rounds.length > 0 ? 'Round Robin Schedule' : 'Generate Round Robin'}</span>
-              </button>
+              {competition.format === 'SWISS' ? (
+                <button
+                  type="button"
+                  onClick={() => setIsGenerateSwissOpen(true)}
+                  className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition cursor-pointer inline-flex items-center space-x-1.5 shadow-sm min-h-[44px]"
+                >
+                  <Sparkles className="h-4 w-4 text-amber-300" />
+                  <span>
+                    {rounds.length > 0
+                      ? `Next Swiss Round (R${rounds.length + 1})`
+                      : 'Generate Round 1 (Swiss)'}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsGenerateScheduleOpen(true)}
+                  className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition cursor-pointer inline-flex items-center space-x-1.5 shadow-sm min-h-[44px]"
+                >
+                  <Sparkles className="h-4 w-4 text-amber-300" />
+                  <span>{rounds.length > 0 ? 'Round Robin Schedule' : 'Generate Round Robin'}</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -923,16 +1018,28 @@ const TeamCompetitionDetailsPage = () => {
             </div>
 
             <button
-              onClick={loadCompetitionData}
-              disabled={loading}
+              onClick={handleRefreshStandings}
+              disabled={loading || standingsLoading}
               className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition self-start sm:self-auto cursor-pointer"
             >
-              <span>Refresh Standings</span>
+              {standingsLoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Refreshing...</span>
+                </>
+              ) : (
+                <span>Refresh Standings</span>
+              )}
             </button>
           </div>
 
           {/* Standings Table Component */}
-          <TeamStandingTable standings={standings} />
+          <TeamStandingTable
+            standings={standings}
+            loading={standingsLoading}
+            error={standingsError}
+            onRetry={handleRefreshStandings}
+          />
 
           {/* Round-by-Round Results Accordion */}
           <RoundResults rounds={rounds} matches={matches} competitionId={competition._id} />
@@ -1031,6 +1138,22 @@ const TeamCompetitionDetailsPage = () => {
           onScheduleGenerated={async (result) => {
             setActionSuccess(
               `Generated Round Robin schedule with ${result.totalRounds} rounds and ${result.totalMatches} matches!`
+            );
+            await loadCompetitionData();
+          }}
+        />
+      )}
+
+      {/* Generate Swiss Round Modal (V6) */}
+      {isGenerateSwissOpen && (
+        <GenerateSwissRoundModal
+          isOpen={isGenerateSwissOpen}
+          onClose={() => setIsGenerateSwissOpen(false)}
+          competitionId={competition._id}
+          competitionName={competition.name}
+          onRoundGenerated={async (result) => {
+            setActionSuccess(
+              `Generated Swiss Round ${result.roundNumber} with ${result.totalMatches} matches!`
             );
             await loadCompetitionData();
           }}

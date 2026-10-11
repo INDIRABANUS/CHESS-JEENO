@@ -44,6 +44,8 @@ import {
   resolveMatchResult,
   generateRoundRobinSchedule,
   getRoundRobinPreview,
+  generateSwissRound,
+  getSwissPreview,
 } from '../controllers/teamMatchController.js';
 import { requireAuth, optionalAuth } from '../middleware/authMiddleware.js';
 
@@ -161,6 +163,16 @@ router.post('/:id/schedule/round-robin', requireAuth, generateRoundRobinSchedule
 
 router.get('/:competitionId/schedule/round-robin/preview', optionalAuth, getRoundRobinPreview);
 router.get('/:id/schedule/round-robin/preview', optionalAuth, getRoundRobinPreview);
+
+// ==========================================
+// Team Competition V6: Swiss Scheduling
+// ==========================================
+
+router.post('/:competitionId/schedule/swiss/round', requireAuth, generateSwissRound);
+router.post('/:id/schedule/swiss/round', requireAuth, generateSwissRound);
+
+router.get('/:competitionId/schedule/swiss/preview', optionalAuth, getSwissPreview);
+router.get('/:id/schedule/swiss/preview', optionalAuth, getSwissPreview);
 
 export default router;
 

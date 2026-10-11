@@ -51,6 +51,7 @@
     "test:team-competition:scoring": "node src/utils/testTeamCompetitionScoring.js",
     "test:team-competition:audit": "node src/utils/testTeamCompetitionScoringAudit.js",
     "test:team-competition:round-robin": "node src/utils/testTeamCompetitionRoundRobin.js",
+    "test:team-competition:swiss": "node src/utils/testTeamCompetitionSwiss.js",
     "verify:deploy": "node src/utils/verifyDeploymentReadiness.js"
   },
   "dependencies": {

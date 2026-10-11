@@ -1,7 +1,12 @@
 import React from 'react';
-import { Trophy, Medal, Crown, TrendingUp, Minus } from 'lucide-react';
+import { Trophy, Medal, Crown, TrendingUp, Minus, AlertTriangle, AlertCircle } from 'lucide-react';
 
-const TeamStandingTable = ({ standings = [], loading = false }) => {
+const TeamStandingTable = ({
+  standings = [],
+  loading = false,
+  error = null,
+  onRetry = null,
+}) => {
   if (loading) {
     return (
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 text-center animate-pulse">
@@ -15,7 +20,66 @@ const TeamStandingTable = ({ standings = [], loading = false }) => {
     );
   }
 
-  if (!standings || standings.length === 0) {
+  if (error) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-rose-200 dark:border-rose-900/40 p-8 sm:p-12 text-center shadow-xs">
+        <AlertTriangle className="h-12 w-12 text-rose-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+          Unable to Load Standings
+        </h3>
+        <p className="text-xs text-rose-600 dark:text-rose-400 max-w-md mx-auto mb-4">
+          {typeof error === 'string'
+            ? error
+            : error?.message || 'An unexpected error occurred while loading competition standings.'}
+        </p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer"
+          >
+            <span>Try Again</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Defensive array extraction: handle array, object wrappers { standings: [...] } or { data: [...] }
+  const list = Array.isArray(standings)
+    ? standings
+    : Array.isArray(standings?.standings)
+    ? standings.standings
+    : Array.isArray(standings?.data)
+    ? standings.data
+    : null;
+
+  if (list === null) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-amber-200 dark:border-amber-900/40 p-8 sm:p-12 text-center shadow-xs">
+        <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+          Standings Unavailable
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+          Standings data is in an unrecognized format. Please refresh the page or contact the organizer.
+        </p>
+        {onRetry && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer"
+            >
+              <span>Refresh Standings</span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (list.length === 0) {
     return (
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-12 text-center shadow-xs">
         <Trophy className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
@@ -116,7 +180,7 @@ const TeamStandingTable = ({ standings = [], loading = false }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300 font-medium">
-            {standings.map((entry) => {
+            {list.map((entry) => {
               const diff = entry.scoreDifference || 0;
               const diffText = diff > 0 ? `+${diff}` : `${diff}`;
               const diffColor =

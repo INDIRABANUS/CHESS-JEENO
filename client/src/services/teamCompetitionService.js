@@ -366,6 +366,22 @@ export const generateRoundRobinSchedule = async (competitionId, data = {}) => {
   return response.data.data;
 };
 
+/**
+ * Preview Swiss schedule parameters and next round pairings.
+ */
+export const getSwissPreview = async (competitionId) => {
+  const response = await api.get(`/team-competitions/${competitionId}/schedule/swiss/preview`);
+  return response.data.data;
+};
+
+/**
+ * Generate next Swiss round (Organizer only).
+ */
+export const generateSwissRound = async (competitionId, data = {}) => {
+  const response = await api.post(`/team-competitions/${competitionId}/schedule/swiss/round`, data);
+  return response.data.data;
+};
+
 export default {
   getCompetitions,
   getCompetitionById,
@@ -410,6 +426,8 @@ export default {
   resolveMatchResult,
   getRoundRobinPreview,
   generateRoundRobinSchedule,
+  getSwissPreview,
+  generateSwissRound,
 };
 
 

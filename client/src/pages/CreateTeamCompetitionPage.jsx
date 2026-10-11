@@ -20,6 +20,7 @@ const CreateTeamCompetitionPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    format: 'SWISS',
     maxTeams: '8',
     maxPlayersPerTeam: '6',
   });
@@ -70,6 +71,7 @@ const CreateTeamCompetitionPage = () => {
     const payload = {
       name: trimmedName,
       description: formData.description.trim(),
+      format: formData.format || 'SWISS',
       maxTeams: formData.maxTeams ? parseInt(formData.maxTeams, 10) : null,
       maxPlayersPerTeam: formData.maxPlayersPerTeam ? parseInt(formData.maxPlayersPerTeam, 10) : null,
       status: 'REGISTRATION',
@@ -179,6 +181,72 @@ const CreateTeamCompetitionPage = () => {
             <div className="flex justify-between text-xs text-slate-500 mt-1">
               <span>Optional details for participants and captains</span>
               <span>{formData.description.length}/1000</span>
+            </div>
+          </div>
+
+          {/* Tournament Format Selector */}
+          <div>
+            <label
+              className="block text-sm font-semibold text-slate-900 dark:text-white mb-2"
+            >
+              Scheduling Format <span className="text-rose-500">*</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <label
+                className={`relative flex flex-col p-4 rounded-2xl border cursor-pointer transition ${
+                  formData.format === 'SWISS'
+                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-2 ring-indigo-500'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>Swiss System</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full">
+                      V6
+                    </span>
+                  </span>
+                  <input
+                    type="radio"
+                    name="format"
+                    value="SWISS"
+                    checked={formData.format === 'SWISS'}
+                    onChange={handleChange}
+                    className="text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                  />
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Round-by-round pairings based on current standings. Pairs teams with equal or similar records while strictly avoiding repeat opponents.
+                </p>
+              </label>
+
+              <label
+                className={`relative flex flex-col p-4 rounded-2xl border cursor-pointer transition ${
+                  formData.format === 'ROUND_ROBIN'
+                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-2 ring-indigo-500'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>Round Robin</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full">
+                      V5
+                    </span>
+                  </span>
+                  <input
+                    type="radio"
+                    name="format"
+                    value="ROUND_ROBIN"
+                    checked={formData.format === 'ROUND_ROBIN'}
+                    onChange={handleChange}
+                    className="text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                  />
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Full schedule generated upfront. Every team plays every other team once across all rounds using the circle-method algorithm.
+                </p>
+              </label>
             </div>
           </div>
 
