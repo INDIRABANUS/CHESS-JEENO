@@ -286,28 +286,116 @@ export const fetchGoogleUserInfo = async (accessToken) => {
   return {
     googleId: data.sub,
     email: normalizedEmail,
-    emailVerified: Boolean(data.email_verified),
+    emailVerified: data.email_verified === true,
     name: displayName.slice(0, 50),
     avatar: data.picture && typeof data.picture === 'string' ? data.picture.trim() : null,
   };
 };
 
 /**
+ * Detects MongoDB duplicate key errors (code 11000 or E11000 in message).
+ * @param {Error} err
+ * @returns {boolean}
+ */
+export const isDuplicateKeyError = (err) => {
+  if (!err) return false;
+  return err.code === 11000 || (typeof err.message === 'string' && err.message.includes('E11000'));
+};
+
+/**
+ * Safely resolves duplicate key (E11000) race conditions from concurrent login/linking requests.
+ * Re-queries by Google ID or normalized email and authenticates only if the resulting identity relationship is valid;
+ * otherwise returns a controlled conflict error.
+ *
+ * @param {Object} params
+ * @param {string} params.googleId
+ * @param {string} params.email
+ * @param {boolean} params.isEmailVerified
+ * @returns {Promise<{ user: Object, token: string, isNewUser: boolean }>}
+ */
+export const resolveConcurrentGoogleAuth = async ({ googleId, email, isEmailVerified }) => {
+  // Re-query by Google ID first
+  const userByGoogleId = await User.findOne({ googleId });
+  if (userByGoogleId) {
+    if (userByGoogleId.email.toLowerCase().trim() === email) {
+      const token = generateToken(userByGoogleId._id);
+      return {
+        user: sanitizeUserProfile(userByGoogleId),
+        token,
+        isNewUser: false,
+      };
+    }
+    const error = new Error('This Google account is already associated with a different email address.');
+    error.statusCode = 409;
+    error.code = 'GOOGLE_IDENTITY_CONFLICT';
+    throw error;
+  }
+
+  // Re-query by Email
+  const userByEmail = await User.findOne({ email });
+  if (userByEmail) {
+    if (userByEmail.googleId === googleId) {
+      const token = generateToken(userByEmail._id);
+      return {
+        user: sanitizeUserProfile(userByEmail),
+        token,
+        isNewUser: false,
+      };
+    }
+    if (userByEmail.googleId && userByEmail.googleId !== googleId) {
+      const error = new Error(
+        'This email address is already associated with a different Google account. Authentication rejected.'
+      );
+      error.statusCode = 409;
+      error.code = 'GOOGLE_IDENTITY_CONFLICT';
+      throw error;
+    }
+    if (!userByEmail.googleId) {
+      if (!isEmailVerified) {
+        const error = new Error(
+          'Google email address is not verified. Account linking rejected for security.'
+        );
+        error.statusCode = 403;
+        error.code = 'GOOGLE_EMAIL_UNVERIFIED';
+        throw error;
+      }
+      userByEmail.googleId = googleId;
+      await userByEmail.save();
+      const token = generateToken(userByEmail._id);
+      return {
+        user: sanitizeUserProfile(userByEmail),
+        token,
+        isNewUser: false,
+      };
+    }
+  }
+
+  const conflictError = new Error('Authentication conflict occurred during Google sign-in. Please try again.');
+  conflictError.statusCode = 409;
+  conflictError.code = 'CONCURRENT_AUTH_CONFLICT';
+  throw conflictError;
+};
+
+/**
  * Authenticates a Google identity within the CHESS JEENO user database.
- * Strictly adheres to Milestone 3 account handling rules:
- * - Case A: New Google user -> creates user with authProvider="google", googleId, email, name, avatar
- * - Case B: Existing Google user -> reuses account without duplication
- * - Case C: Existing local account with same email -> controlled 409 conflict, no silent merge or account creation
- * - Case D: Conflicting Google identity -> safe conflict rejection
+ * - Case A: Brand new Google user -> creates user with authProvider="google", googleId, email, name, avatar
+ * - Case B: Existing Google user -> reuses account matching googleId without duplication
+ * - Case C: Existing local account with matching email:
+ *   - If email is verified by Google and no conflicting googleId exists -> links googleId and authenticates
+ *   - If email is not verified by Google -> rejects with 403 GOOGLE_EMAIL_UNVERIFIED
+ *   - If account already has a different googleId -> rejects with 409 GOOGLE_IDENTITY_CONFLICT
+ * - Case D: Conflicting Google identity -> safe conflict rejection (409)
+ * - Concurrent E11000 race conditions are safely resolved or returned as controlled conflict
  *
  * @param {Object} googleProfile
  * @param {string} googleProfile.googleId
  * @param {string} googleProfile.email
- * @param {string} googleProfile.name
- * @param {string|null} googleProfile.avatar
+ * @param {string} [googleProfile.name]
+ * @param {string|null} [googleProfile.avatar]
+ * @param {boolean} [googleProfile.emailVerified]
  * @returns {Promise<{ user: Object, token: string, isNewUser: boolean }>}
  */
-export const authenticateGoogleUser = async ({ googleId, email, name, avatar }) => {
+export const authenticateGoogleUser = async ({ googleId, email, name, avatar, emailVerified }) => {
   if (!googleId || typeof googleId !== 'string' || !googleId.trim()) {
     const error = new Error('Google identity identifier (sub) is required');
     error.statusCode = 400;
@@ -320,10 +408,12 @@ export const authenticateGoogleUser = async ({ googleId, email, name, avatar }) 
     throw error;
   }
 
+  const normalizedGoogleId = googleId.trim();
   const normalizedEmail = email.toLowerCase().trim();
+  const isEmailVerified = emailVerified === true;
 
   // Case B: Check if an account already exists with this exact Google subject identifier
-  const existingGoogleUser = await User.findOne({ googleId: googleId.trim() });
+  const existingGoogleUser = await User.findOne({ googleId: normalizedGoogleId });
   if (existingGoogleUser) {
     // If the user's avatar is missing and Google provides one, update it safely
     if (!existingGoogleUser.avatar && avatar && isValidAvatarUrl(avatar)) {
@@ -339,11 +429,11 @@ export const authenticateGoogleUser = async ({ googleId, email, name, avatar }) 
     };
   }
 
-  // Check if an account exists with this email under a different provider or missing googleId
+  // Case C: Check if an account exists with this email
   const existingEmailUser = await User.findOne({ email: normalizedEmail });
   if (existingEmailUser) {
     // Case D: Account has another Google identity
-    if (existingEmailUser.googleId && existingEmailUser.googleId !== googleId.trim()) {
+    if (existingEmailUser.googleId && existingEmailUser.googleId !== normalizedGoogleId) {
       const error = new Error(
         'This email address is already associated with a different Google account. Authentication rejected.'
       );
@@ -352,38 +442,76 @@ export const authenticateGoogleUser = async ({ googleId, email, name, avatar }) 
       throw error;
     }
 
-    // Case C: Existing local (or other) account with the same email
-    // DO NOT silently create another CHESS JEENO account.
-    // DO NOT automatically merge accounts.
-    // DO NOT automatically convert the local account into a Google account.
-    const error = new Error(
-      'An account with this email address already exists. Please sign in using your existing email and password.'
-    );
-    error.statusCode = 409;
-    error.code = 'EMAIL_EXISTS_LOCAL_AUTH';
-    throw error;
+    // Reject account linking if Google email is not verified
+    if (!isEmailVerified) {
+      const error = new Error(
+        'Google email address is not verified. Account linking rejected for security.'
+      );
+      error.statusCode = 403;
+      error.code = 'GOOGLE_EMAIL_UNVERIFIED';
+      throw error;
+    }
+
+    // Link Google ID to existing user account, preserving all existing account fields
+    existingEmailUser.googleId = normalizedGoogleId;
+
+    // Update avatar only if existing avatar is absent and provided avatar is valid
+    if (!existingEmailUser.avatar && avatar && isValidAvatarUrl(avatar)) {
+      existingEmailUser.avatar = avatar;
+    }
+
+    try {
+      await existingEmailUser.save();
+    } catch (saveErr) {
+      if (isDuplicateKeyError(saveErr)) {
+        return await resolveConcurrentGoogleAuth({
+          googleId: normalizedGoogleId,
+          email: normalizedEmail,
+          isEmailVerified,
+        });
+      }
+      throw saveErr;
+    }
+
+    const token = generateToken(existingEmailUser._id);
+    return {
+      user: sanitizeUserProfile(existingEmailUser),
+      token,
+      isNewUser: false,
+    };
   }
 
   // Case A: Brand new Google user
   const sanitizedAvatar = avatar && isValidAvatarUrl(avatar) ? avatar.slice(0, 2000) : null;
   const displayName = name ? name.trim().slice(0, 50) : normalizedEmail.split('@')[0];
 
-  const newUser = await User.create({
-    name: displayName,
-    email: normalizedEmail,
-    authProvider: 'google',
-    googleId: googleId.trim(),
-    avatar: sanitizedAvatar,
-    passwordHash: null,
-  });
+  try {
+    const newUser = await User.create({
+      name: displayName,
+      email: normalizedEmail,
+      authProvider: 'google',
+      googleId: normalizedGoogleId,
+      avatar: sanitizedAvatar,
+      passwordHash: null,
+    });
 
-  const token = generateToken(newUser._id);
+    const token = generateToken(newUser._id);
 
-  return {
-    user: sanitizeUserProfile(newUser),
-    token,
-    isNewUser: true,
-  };
+    return {
+      user: sanitizeUserProfile(newUser),
+      token,
+      isNewUser: true,
+    };
+  } catch (createErr) {
+    if (isDuplicateKeyError(createErr)) {
+      return await resolveConcurrentGoogleAuth({
+        googleId: normalizedGoogleId,
+        email: normalizedEmail,
+        isEmailVerified,
+      });
+    }
+    throw createErr;
+  }
 };
 
 export default {
@@ -398,4 +526,6 @@ export default {
   exchangeCodeForToken,
   fetchGoogleUserInfo,
   authenticateGoogleUser,
+  isDuplicateKeyError,
+  resolveConcurrentGoogleAuth,
 };
