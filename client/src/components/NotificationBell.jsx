@@ -15,6 +15,8 @@ import {
   Sparkles,
   Inbox,
   AlertCircle,
+  Users,
+  Crown,
 } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import { formatTimeAgo } from '../utils/formatters';
@@ -40,6 +42,14 @@ const getNotificationIcon = (type) => {
       return <Trophy className="h-4 w-4 text-amber-500 shrink-0" />;
     case 'TOURNAMENT_COMPLETED':
       return <Sparkles className="h-4 w-4 text-emerald-500 shrink-0" />;
+    case 'TEAM_INVITATION':
+      return <Users className="h-4 w-4 text-indigo-500 shrink-0" />;
+    case 'TEAM_INVITATION_ACCEPTED':
+      return <UserCheck className="h-4 w-4 text-emerald-500 shrink-0" />;
+    case 'TEAM_INVITATION_DECLINED':
+      return <UserX className="h-4 w-4 text-rose-500 shrink-0" />;
+    case 'TEAM_CAPTAIN_TRANSFERRED':
+      return <Crown className="h-4 w-4 text-amber-500 shrink-0" />;
     default:
       return <Bell className="h-4 w-4 text-slate-500 shrink-0" />;
   }
@@ -96,10 +106,14 @@ const NotificationBell = () => {
     }
     setIsOpen(false);
 
-    // Navigate to tournament details if available
+    // Navigate to tournament or team competition details if available
     const tournamentId = notif.tournament?._id || notif.tournament;
+    const competitionId = notif.teamCompetition?._id || notif.teamCompetition || notif.metadata?.competitionId;
+
     if (tournamentId) {
       navigate(`/tournaments/${tournamentId}`);
+    } else if (competitionId) {
+      navigate(`/team-competitions/${competitionId}`);
     } else {
       navigate('/notifications');
     }

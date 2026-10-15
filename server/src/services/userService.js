@@ -158,9 +158,56 @@ export const updateUserProfile = async (userId, { name, bio, avatar }) => {
   return sanitizeUserProfile(user);
 };
 
+/**
+ * Searches users by name, email, or lichessUsername for invites.
+ * Sanitizes input and projects only public, non-sensitive fields.
+ *
+ * @param {string} query
+ * @param {string|mongoose.Types.ObjectId} [excludeUserId]
+ * @param {number} [limit=10]
+ * @returns {Promise<Array>}
+ */
+export const searchUsers = async (query = '', excludeUserId = null, limit = 10) => {
+  const trimmed = typeof query === 'string' ? query.trim() : '';
+  if (!trimmed) {
+    return [];
+  }
+
+  if (trimmed.length > 100) {
+    const error = new Error('Search query cannot exceed 100 characters');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(escaped, 'i');
+
+  const filter = {
+    $or: [
+      { name: regex },
+      { email: regex },
+      { lichessUsername: regex },
+    ],
+  };
+
+  if (excludeUserId && mongoose.isValidObjectId(excludeUserId)) {
+    filter._id = { $ne: excludeUserId };
+  }
+
+  const boundedLimit = Math.min(Math.max(1, parseInt(limit, 10) || 10), 25);
+
+  const users = await User.find(filter)
+    .select('_id name email avatar lichessUsername')
+    .limit(boundedLimit)
+    .lean();
+
+  return users;
+};
+
 export default {
   getUserProfile,
   updateUserProfile,
   isValidAvatarUrl,
   sanitizeUserProfile,
+  searchUsers,
 };

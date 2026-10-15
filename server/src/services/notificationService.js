@@ -67,6 +67,10 @@ export const createNotification = async ({
   tournament = null,
   pairing = null,
   round = null,
+  teamCompetition = null,
+  team = null,
+  teamMatch = null,
+  teamRound = null,
   metadata = {},
   eventKey = null,
 }) => {
@@ -125,6 +129,26 @@ export const createNotification = async ({
       ? (round._id || round)
       : null;
 
+  const cleanTeamCompetition =
+    teamCompetition && mongoose.isValidObjectId(teamCompetition?._id || teamCompetition)
+      ? (teamCompetition._id || teamCompetition)
+      : null;
+
+  const cleanTeam =
+    team && mongoose.isValidObjectId(team?._id || team)
+      ? (team._id || team)
+      : null;
+
+  const cleanTeamMatch =
+    teamMatch && mongoose.isValidObjectId(teamMatch?._id || teamMatch)
+      ? (teamMatch._id || teamMatch)
+      : null;
+
+  const cleanTeamRound =
+    teamRound && mongoose.isValidObjectId(teamRound?._id || teamRound)
+      ? (teamRound._id || teamRound)
+      : null;
+
   const cleanMetadata = sanitizeMetadata(metadata);
   const cleanEventKey = eventKey && typeof eventKey === 'string' ? eventKey.trim() : null;
 
@@ -150,6 +174,10 @@ export const createNotification = async ({
       tournament: cleanTournament,
       pairing: cleanPairing,
       round: cleanRound,
+      teamCompetition: cleanTeamCompetition,
+      team: cleanTeam,
+      teamMatch: cleanTeamMatch,
+      teamRound: cleanTeamRound,
       metadata: cleanMetadata,
       eventKey: cleanEventKey,
       read: false,
@@ -176,6 +204,10 @@ export const createNotification = async ({
         title: notification.title,
         message: notification.message,
         tournament: notification.tournament,
+        teamCompetition: notification.teamCompetition,
+        team: notification.team,
+        teamMatch: notification.teamMatch,
+        teamRound: notification.teamRound,
         pairing: notification.pairing,
         round: notification.round,
         metadata: notification.metadata,

@@ -20,6 +20,8 @@ import {
   Play,
   RotateCcw,
   Sparkles,
+  Users,
+  Crown,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -44,6 +46,20 @@ const getNotificationIcon = (type) => {
       return <Trophy className="h-5 w-5 text-amber-500 shrink-0" />;
     case 'TOURNAMENT_COMPLETED':
       return <Sparkles className="h-5 w-5 text-emerald-500 shrink-0" />;
+    case 'TEAM_INVITATION':
+      return <Users className="h-5 w-5 text-indigo-500 shrink-0" />;
+    case 'TEAM_INVITATION_ACCEPTED':
+      return <UserCheck className="h-5 w-5 text-emerald-500 shrink-0" />;
+    case 'TEAM_INVITATION_DECLINED':
+      return <UserX className="h-5 w-5 text-rose-500 shrink-0" />;
+    case 'TEAM_CAPTAIN_TRANSFERRED':
+      return <Crown className="h-5 w-5 text-amber-500 shrink-0" />;
+    case 'TEAM_MATCH_BOARD_ASSIGNED':
+      return <Swords className="h-5 w-5 text-indigo-500 shrink-0" />;
+    case 'TEAM_LINEUP_LOCKED':
+      return <Crown className="h-5 w-5 text-emerald-500 shrink-0" />;
+    case 'TEAM_MATCH_READY':
+      return <Sparkles className="h-5 w-5 text-indigo-500 shrink-0" />;
     default:
       return <Bell className="h-5 w-5 text-slate-500 shrink-0" />;
   }
@@ -312,6 +328,8 @@ const NotificationsPage = () => {
             const isUnread = !notif.read;
             const tournamentId = notif.tournament?._id || notif.tournament;
             const tournamentName = notif.tournament?.name || notif.metadata?.tournamentName;
+            const competitionId = notif.teamCompetition?._id || notif.teamCompetition || notif.metadata?.competitionId;
+            const competitionName = notif.metadata?.competitionName;
 
             return (
               <div
@@ -370,6 +388,30 @@ const NotificationsPage = () => {
                           <span>Go to {tournamentName || 'Tournament'}</span>
                           <ExternalLink className="h-3 w-3" />
                         </Link>
+                      </div>
+                    )}
+
+                    {competitionId && (
+                      <div className="pt-1">
+                        {notif.teamMatch || notif.metadata?.matchId ? (
+                          <Link
+                            to={`/team-competitions/${competitionId}/matches/${notif.teamMatch?._id || notif.teamMatch || notif.metadata?.matchId}`}
+                            onClick={() => isUnread && handleMarkAsRead(notif._id)}
+                            className="inline-flex items-center space-x-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                          >
+                            <span>Go to Match Details</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        ) : (
+                          <Link
+                            to={`/team-competitions/${competitionId}`}
+                            onClick={() => isUnread && handleMarkAsRead(notif._id)}
+                            className="inline-flex items-center space-x-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                          >
+                            <span>Go to {competitionName || 'Team Competition'}</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        )}
                       </div>
                     )}
                   </div>
