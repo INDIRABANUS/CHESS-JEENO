@@ -9,7 +9,7 @@ import { LayoutDashboard, Users, Trophy, BarChart3 } from 'lucide-react';
  */
 const AdminNavTabs = () => {
   return (
-    <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-px">
+    <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar pb-px">
       <NavLink
         to="/admin"
         end

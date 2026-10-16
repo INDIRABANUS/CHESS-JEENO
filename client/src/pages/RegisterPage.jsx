@@ -94,7 +94,7 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto my-8 bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800 transition-colors">
+    <div className="max-w-md mx-auto my-8 bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800 transition-colors">
       <div className="text-center mb-6">
         <div className="inline-flex p-3 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl mb-3 shadow-inner">
           <UserPlus className="h-6 w-6" />

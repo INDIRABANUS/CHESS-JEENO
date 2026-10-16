@@ -14,3 +14,13 @@
     @apply outline-none ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900;
   }
 }
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

@@ -95,9 +95,9 @@ const CreateTeamCompetitionPage = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
+    <div className="max-w-3xl mx-auto space-y-6">
       {/* Back button */}
-      <div className="mb-6">
+      <div>
         <Link
           to="/team-competitions"
           className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"

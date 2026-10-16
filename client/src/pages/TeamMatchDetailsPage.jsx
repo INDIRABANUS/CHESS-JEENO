@@ -335,7 +335,7 @@ const TeamMatchDetailsPage = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       {/* Top Breadcrumb & Navigation */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <Link

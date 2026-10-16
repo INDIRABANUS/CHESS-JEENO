@@ -404,7 +404,7 @@ const TeamCompetitionDetailsPage = () => {
     (!competition.maxTeams || activeTeams.length < competition.maxTeams);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       {/* Navigation breadcrumb */}
       <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
         <Link
@@ -661,7 +661,7 @@ const TeamCompetitionDetailsPage = () => {
       )}
 
       {/* Tabs Navigation */}
-      <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-px">
+      <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar pb-px">
         <button
           onClick={() => setActiveTab('standings')}
           className={`px-5 py-3 font-bold text-sm flex items-center space-x-2 border-b-2 transition whitespace-nowrap min-h-[44px] cursor-pointer ${
