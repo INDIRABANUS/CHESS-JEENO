@@ -10,6 +10,7 @@ import { errorHandler, notFoundHandler } from '../middleware/errorHandler.js';
 import * as googleOAuthService from '../services/googleOAuthService.js';
 import { GOOGLE_OAUTH_CONFIG, getGoogleClientId } from '../config/googleOAuth.js';
 import { registerUser } from '../services/authService.js';
+import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
@@ -132,6 +133,7 @@ const runGoogleOAuthTests = async () => {
       email: newGoogleEmail,
       name: 'Kasparov New',
       avatar: 'https://images.unsplash.com/photo-kasparov',
+      emailVerified: true,
     });
 
     assert(newAuthResult.isNewUser === true, 'Flagged as new user');
@@ -162,6 +164,7 @@ const runGoogleOAuthTests = async () => {
       googleId: newGoogleSub,
       email: newGoogleEmail,
       name: 'Kasparov New Updated',
+      emailVerified: true,
     });
 
     assert(existingAuthResult.isNewUser === false, 'isNewUser is false on subsequent login');
@@ -172,9 +175,9 @@ const runGoogleOAuthTests = async () => {
     assert(countAfterLogin === 1, 'No duplicate user created in database (count strictly 1)');
 
     // =========================================================================
-    // 6. Case C: Existing Local Account with Same Email (Conflict Guard)
+    // 6. Case C: Existing Local Account Linking & Unverified Email Protection
     // =========================================================================
-    console.log('\n--- 6. Testing Case C: Existing Local Account with Same Email ---');
+    console.log('\n--- 6. Testing Case C: Existing Local Account Linking & Unverified Email Protection ---');
     const localEmail = `${testPrefix}_local@chessjeeno.com`;
 
     const localRegisterResult = await registerUser({
@@ -185,50 +188,132 @@ const runGoogleOAuthTests = async () => {
     createdUserIds.push(localRegisterResult.user._id);
     assert(localRegisterResult.user.authProvider === 'local', 'Local account registered');
 
-    let conflictErrorCaught = false;
-    let conflictErrorMessage = '';
+    // 6a: Unverified Google email is rejected without modifying local account
+    let unverifiedErrorCaught = false;
+    let unverifiedErrorMessage = '';
     try {
       await googleOAuthService.authenticateGoogleUser({
-        googleId: `sub_intruder_${timestamp}`,
+        googleId: `sub_unverified_${timestamp}`,
         email: localEmail,
         name: 'Intruder Trying Google',
+        emailVerified: false,
       });
     } catch (err) {
-      conflictErrorCaught = true;
-      conflictErrorMessage = err.message;
-      assert(err.statusCode === 409, 'Conflict returns HTTP 409 status');
+      unverifiedErrorCaught = true;
+      unverifiedErrorMessage = err.message;
+      assert(err.statusCode === 403 || err.statusCode === 409, 'Unverified email returns 403 or 409 status');
     }
 
-    assert(conflictErrorCaught === true, 'Google authentication with existing local email strictly rejected');
+    assert(unverifiedErrorCaught === true, 'Google authentication with unverified email strictly rejected');
     assert(
-      conflictErrorMessage.includes('An account with this email address already exists'),
-      'Controlled error instructs user to sign in using existing method'
+      unverifiedErrorMessage.includes('not verified'),
+      'Controlled error indicates email is not verified'
     );
 
-    // Verify local account was NOT converted or modified
-    const verifiedLocalUser = await User.findById(localRegisterResult.user._id);
+    // Verify local account was NOT converted or modified by unverified attempt
+    let verifiedLocalUser = await User.findById(localRegisterResult.user._id).select('+passwordHash');
     assert(verifiedLocalUser.authProvider === 'local', 'Local account provider was NOT overwritten');
     assert(verifiedLocalUser.googleId === null, 'Local account googleId was NOT set');
+    assert(Boolean(verifiedLocalUser.passwordHash), 'Local password hash remains intact');
+    const isPasswordStillValid = await bcrypt.compare('SecureLocalPassword123!', verifiedLocalUser.passwordHash);
+    assert(isPasswordStillValid === true, 'Password hash matches original local password');
+
+    // 6b: Verified Google email links to existing local account and authenticates
+    const linkedGoogleSub = `sub_linked_${timestamp}_999`;
+    const linkedAuthResult = await googleOAuthService.authenticateGoogleUser({
+      googleId: linkedGoogleSub,
+      email: localEmail,
+      name: 'Local Player Google',
+      avatar: 'https://images.unsplash.com/photo-linked',
+      emailVerified: true,
+    });
+
+    assert(linkedAuthResult.isNewUser === false, 'Existing local account linking sets isNewUser to false');
+    assert(
+      linkedAuthResult.user._id.toString() === localRegisterResult.user._id.toString(),
+      'Linked user _id matches original local account ID'
+    );
+    assert(Boolean(linkedAuthResult.token), 'CHESS JEENO JWT issued for linked user');
+
+    // Verify token validity
+    const decodedLinkedToken = jwt.verify(linkedAuthResult.token, JWT_SECRET);
+    assert(
+      decodedLinkedToken.userId === localRegisterResult.user._id.toString(),
+      'Decoded JWT userId matches original local user ID'
+    );
+
+    // Verify local account fields in database: _id, password hash, role, etc. preserved
+    verifiedLocalUser = await User.findById(localRegisterResult.user._id).select('+passwordHash');
+    assert(verifiedLocalUser._id.toString() === localRegisterResult.user._id.toString(), 'User ID preserved');
+    assert(verifiedLocalUser.googleId === linkedGoogleSub, 'Local account now has Google ID linked');
+    assert(verifiedLocalUser.role === 'USER', 'Role preserved');
+    assert(verifiedLocalUser.authProvider === 'local', 'Original authProvider preserved');
+    assert(Boolean(verifiedLocalUser.passwordHash), 'Password hash preserved after linking');
+    const isPwValidAfterLink = await bcrypt.compare('SecureLocalPassword123!', verifiedLocalUser.passwordHash);
+    assert(isPwValidAfterLink === true, 'Local password still authenticates after linking Google');
+    assert(verifiedLocalUser.avatar === 'https://images.unsplash.com/photo-linked', 'Avatar set when previously missing');
 
     const totalAccountsWithEmail = await User.countDocuments({ email: localEmail.toLowerCase() });
-    assert(totalAccountsWithEmail === 1, 'No duplicate account created for conflicting email');
+    assert(totalAccountsWithEmail === 1, 'No duplicate account created for linked email (count strictly 1)');
+
+    // 6c: User already linked to Google ID can log in again seamlessly
+    const subsequentLoginResult = await googleOAuthService.authenticateGoogleUser({
+      googleId: linkedGoogleSub,
+      email: localEmail,
+      emailVerified: true,
+    });
+    assert(subsequentLoginResult.isNewUser === false, 'Subsequent login isNewUser is false');
+    assert(
+      subsequentLoginResult.user._id.toString() === localRegisterResult.user._id.toString(),
+      'Subsequent login returns same user ID'
+    );
 
     // =========================================================================
-    // 7. Case D: Conflicting Google Identity
+    // 7. Case D: Conflicting Google Identity & Concurrent Resolution
     // =========================================================================
-    console.log('\n--- 7. Testing Case D: Conflicting Google Identity ---');
+    console.log('\n--- 7. Testing Case D: Conflicting Google Identity & Concurrent Resolution ---');
+    // 7a: Different Google ID already attached to matching email is rejected
     let identityClashCaught = false;
     try {
       await googleOAuthService.authenticateGoogleUser({
         googleId: 'clashing_different_sub_9999',
-        email: newGoogleEmail,
+        email: localEmail,
         name: 'Clashing Account',
+        emailVerified: true,
       });
     } catch (err) {
       identityClashCaught = true;
       assert(err.statusCode === 409, 'Identity clash returns HTTP 409');
     }
-    assert(identityClashCaught === true, 'Conflicting Google identity correctly rejected');
+    assert(identityClashCaught === true, 'Different Google ID attached to matching email is rejected');
+
+    // 7b: Different Google ID against existing Google user is rejected
+    let existingGoogleClashCaught = false;
+    try {
+      await googleOAuthService.authenticateGoogleUser({
+        googleId: 'another_different_sub_8888',
+        email: newGoogleEmail,
+        name: 'Clashing Google User',
+        emailVerified: true,
+      });
+    } catch (err) {
+      existingGoogleClashCaught = true;
+      assert(err.statusCode === 409, 'Identity clash returns HTTP 409');
+    }
+    assert(existingGoogleClashCaught === true, 'Conflicting Google identity correctly rejected');
+
+    // 7c: Concurrent E11000 Resolution helper test
+    console.log('\n--- 7c. Testing Concurrent Race Condition Resolution (E11000) ---');
+    const concurrentResolved = await googleOAuthService.resolveConcurrentGoogleAuth({
+      googleId: linkedGoogleSub,
+      email: localEmail,
+      isEmailVerified: true,
+    });
+    assert(concurrentResolved.isNewUser === false, 'Concurrent resolver authenticates matching user');
+    assert(
+      concurrentResolved.user._id.toString() === localRegisterResult.user._id.toString(),
+      'Concurrent resolver returns correct user ID'
+    );
 
     // =========================================================================
     // 8. Mocked Token Exchange & UserInfo Fetch
